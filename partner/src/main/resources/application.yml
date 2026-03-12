@@ -1,0 +1,84 @@
+quarkus:
+  application:
+    name: partner-service
+    version: 1.0.0
+
+  http:
+    port: 9080
+
+  smallrye-openapi:
+    info-title: Partner Service API
+    info-version: 1.0.0
+    info-description: REST API for Partner/Customer Management (Hexagonal Architecture)
+    info-contact-name: CSS Team
+    path: /openapi
+
+  swagger-ui:
+    always-include: true
+    path: /swagger-ui
+
+  datasource:
+    db-kind: postgresql
+    db-version: "12.0"
+    username: ${DATABASE_USER:partner_user}
+    password: ${DATABASE_PASSWORD:partner_pass}
+    jdbc:
+      url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/partner_db}
+
+  hibernate-orm:
+    schema-management:
+      strategy: none # Use Flyway for migrations
+
+  flyway:
+    migrate-at-start: true
+    baseline-on-migrate: true
+    schemas: public
+    table: flyway_schema_history
+    locations: classpath:db/migration
+
+  log:
+    level: INFO
+
+"%dev":
+  quarkus:
+    datasource:
+      db-kind: h2
+      db-version: "2.4.240"
+      username: sa
+      password: sa
+      jdbc:
+        url: jdbc:h2:mem:partner_dev;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    hibernate-orm:
+      # Use Hibernate to manage schema in dev (Flyway migrations use PostgreSQL-specific syntax)
+      schema-management:
+        strategy: drop-and-create
+      database:
+        version-check:
+          enabled: false
+    flyway:
+      migrate-at-start: false
+
+# Messaging Configuration
+mp:
+  messaging:
+    outgoing:
+      partner-created:
+        connector: smallrye-kafka
+        topic: partner.v1.created
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+        bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}
+
+      partner-updated:
+        connector: smallrye-kafka
+        topic: partner.v1.updated
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+        bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}
+
+      partner-deleted:
+        connector: smallrye-kafka
+        topic: partner.v1.deleted
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+        bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}

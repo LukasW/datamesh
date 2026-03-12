@@ -1,0 +1,73 @@
+apiVersion: v2.3.0
+kind: DataContract
+id: partner-updated-v1
+version: 1.0.0
+name: Partner Updated Event
+description: Wird publiziert wenn ein Partner/Kunde aktualisiert wurde
+
+owner:
+  team: partner-management
+  email: partner-team@insurance.example.com
+
+servers:
+  production:
+    type: kafka
+    host: kafka.insurance.internal:9092
+    topic: partner.v1.updated
+  development:
+    type: kafka
+    host: localhost:9092
+    topic: partner.v1.updated
+
+schema:
+  type: avro
+  specification: |
+    {
+      "type": "record",
+      "name": "PartnerUpdated",
+      "namespace": "ch.css.partner.events",
+      "fields": [
+        {
+          "name": "eventId",
+          "type": "string",
+          "doc": "Unique event identifier (UUID)"
+        },
+        {
+          "name": "eventType",
+          "type": "string",
+          "doc": "Event type (PartnerUpdated)"
+        },
+        {
+          "name": "partnerId",
+          "type": "string",
+          "doc": "Unique partner identifier (UUID)"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "doc": "Updated partner/customer name"
+        },
+        {
+          "name": "timestamp",
+          "type": "string",
+          "doc": "ISO 8601 timestamp when event was created"
+        }
+      ]
+    }
+
+quality:
+  type: SodaCL
+  specification: |
+    checks for partner.v1.updated:
+      - missing_count(partnerId) = 0
+      - missing_count(eventId) = 0
+
+serviceLevel:
+  availability: "99.9%"
+  retention: "7 years"
+  latency: "< 500ms p99"
+
+changelog:
+  - version: "1.0.0"
+    date: "2026-03-12"
+    description: "Initial version - Partner update event"
