@@ -1,0 +1,71 @@
+{#include layout/base.html}
+    {#title}Police bearbeiten{/title}
+    {#content}
+        <a href="/policen" class="btn btn-outline-secondary btn-sm mb-3">← Zurück zur Liste</a>
+        <h2>Police: {policy.policyNummer}
+            <span class="badge badge-{policy.status} fs-6 ms-2">{policy.status}</span>
+        </h2>
+
+        <div class="row mt-3">
+            <!-- Policy Details -->
+            <div class="col-md-5">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">Policendetails</span>
+                        <div>
+                            {#if policy.status.name() == "ENTWURF"}
+                                <button class="btn btn-sm btn-success"
+                                        hx-post="/policen/fragments/{policy.policyId}/aktivieren"
+                                        hx-target="body"
+                                        hx-push-url="/policen/{policy.policyId}/edit"
+                                        hx-confirm="Police aktivieren?">
+                                    Aktivieren
+                                </button>
+                            {/if}
+                            {#if policy.status.name() == "AKTIV"}
+                                <button class="btn btn-sm btn-danger"
+                                        hx-post="/policen/fragments/{policy.policyId}/kuendigen"
+                                        hx-target="body"
+                                        hx-push-url="/policen/{policy.policyId}/edit"
+                                        hx-confirm="Police kündigen?">
+                                    Kündigen
+                                </button>
+                            {/if}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                            {#include policen/fragments/policy-details-form policy = policy activeProdukte = activeProdukte partnerSichten = partnerSichten success = false /}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Deckungen -->
+            <div class="col-md-7">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span class="fw-bold">Deckungen</span>
+                        {#if policy.status.name() != "GEKUENDIGT" && policy.status.name() != "ABGELAUFEN"}
+                            <button class="btn btn-sm btn-outline-success"
+                                    hx-get="/policen/fragments/{policy.policyId}/deckung-form"
+                                    hx-target="#deckung-liste"
+                                    hx-swap="afterbegin">
+                                + Deckung hinzufügen
+                            </button>
+                        {/if}
+                    </div>
+                    <div class="card-body">
+                        <div id="deckung-liste">
+                            {#for deckung in policy.deckungen}
+                                    {#include policen/fragments/deckung-karte deckung = deckung policyId = policy.policyId policyStatus = policy.status.name() /}
+                            {/for}
+                            {#if policy.deckungen.isEmpty()}
+                                <p class="text-muted">Keine Deckungen erfasst.</p>
+                            {/if}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {/content}
+{/include}
+

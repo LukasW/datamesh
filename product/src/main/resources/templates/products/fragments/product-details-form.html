@@ -1,0 +1,51 @@
+<div id="product-details-form">
+  {#if success}
+  <div class="alert alert-success alert-dismissible">
+    Produkt gespeichert.
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {/if}
+  <form hx-post="/products/fragments/{product.productId}/details"
+        hx-target="#product-details-form"
+        hx-swap="outerHTML">
+    <div class="mb-2">
+      <label class="form-label">Produktname <span class="text-danger">*</span></label>
+      <input type="text" name="name" class="form-control" value="{product.name}" required>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Beschreibung</label>
+      <textarea name="description" class="form-control" rows="3">{product.description}</textarea>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Sparte <span class="text-danger">*</span></label>
+      <select name="productLine" class="form-select" required>
+        {#for line in productLines}
+        <option value="{line.name()}"
+                {#if product.productLine.name() == line.name()}selected{/if}>
+          {line.name()}
+        </option>
+        {/for}
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Basisprämie (CHF) <span class="text-danger">*</span></label>
+      <input type="number" name="basePremium" class="form-control"
+             value="{product.basePremium}" step="0.01" min="0" required>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary"
+              {#if product.status.name() == 'DEPRECATED'}disabled{/if}>
+        Speichern
+      </button>
+      {#if product.status.name() == 'ACTIVE'}
+      <button type="button" class="btn btn-outline-warning"
+              hx-post="/products/fragments/{product.productId}/deprecate"
+              hx-target="#product-details-form"
+              hx-swap="outerHTML"
+              hx-confirm="Produkt '{product.name}' wirklich deprecieren?">
+        Deprecieren
+      </button>
+      {/if}
+    </div>
+  </form>
+</div>

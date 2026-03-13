@@ -1,0 +1,42 @@
+<tr id="policy-{policy.policyId}">
+  <td><strong>{policy.policyNummer}</strong></td>
+  <td>
+    {#if partnerSichten && partnerSichten.get(policy.partnerId)}
+      {partnerSichten.get(policy.partnerId).name}
+    {#else}
+      <span class="text-muted small">{policy.partnerId}</span>
+    {/if}
+  </td>
+  <td>
+    {#if produktSichten && produktSichten.get(policy.produktId)}
+      {produktSichten.get(policy.produktId).name}
+    {#else}
+      <span class="text-muted small">{policy.produktId}</span>
+    {/if}
+  </td>
+  <td><span class="badge badge-{policy.status}">{policy.status}</span></td>
+  <td>{policy.versicherungsbeginn}</td>
+  <td>CHF {policy.praemie}</td>
+  <td>
+    <a href="/policen/{policy.policyId}/edit" class="btn btn-sm btn-outline-secondary">Details</a>
+    {#if policy.status.name() == "ENTWURF"}
+    <button class="btn btn-sm btn-outline-success"
+            hx-post="/policen/fragments/{policy.policyId}/aktivieren"
+            hx-target="#policy-{policy.policyId}"
+            hx-swap="outerHTML"
+            hx-confirm="Police '{policy.policyNummer}' aktivieren?">
+      Aktivieren
+    </button>
+    {/if}
+    {#if policy.status.name() == "AKTIV"}
+    <button class="btn btn-sm btn-outline-danger"
+            hx-post="/policen/fragments/{policy.policyId}/kuendigen"
+            hx-target="#policy-{policy.policyId}"
+            hx-swap="outerHTML"
+            hx-confirm="Police '{policy.policyNummer}' kündigen?">
+      Kündigen
+    </button>
+    {/if}
+  </td>
+</tr>
+

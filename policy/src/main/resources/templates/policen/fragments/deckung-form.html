@@ -1,0 +1,36 @@
+<div class="card mb-2 border-success" id="deckung-neu-form">
+  <div class="card-body p-2">
+    <div id="deckung-form-errors">{#if errorMessage}{errorMessage.raw}{/if}</div>
+    <form hx-post="/policen/fragments/{policyId}/deckungen"
+          hx-target="#deckung-neu-form"
+          hx-swap="outerHTML">
+      <div class="row g-2 mb-2">
+        <div class="col-md-6">
+          <label class="form-label small">Deckungstyp <span class="text-danger">*</span></label>
+          <select name="deckungstyp" class="form-select form-select-sm" required>
+            <option value="">– wählen –</option>
+            <option value="HAFTPFLICHT">Haftpflicht</option>
+            <option value="KASKOSCHADEN">Kaskoschaden</option>
+            <option value="GLASBRUCH">Glasbruch</option>
+            <option value="ELEMENTAR">Elementar</option>
+            <option value="DIEBSTAHL">Diebstahl</option>
+            <option value="GEBAEUDE">Gebäude</option>
+            <option value="HAUSRAT">Hausrat</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small">Versicherungssumme (CHF) <span class="text-danger">*</span></label>
+          <input type="number" name="versicherungssumme" class="form-control form-control-sm"
+                 min="0.01" step="0.01" placeholder="z.B. 100000.00" required>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-sm btn-success">Hinzufügen</button>
+      <button type="button" class="btn btn-sm btn-secondary"
+              hx-target="#deckung-neu-form" hx-swap="outerHTML"
+              hx-get="/policen/fragments/{policyId}/deckung-form-cancel">
+        Abbrechen
+      </button>
+    </form>
+  </div>
+</div>
+

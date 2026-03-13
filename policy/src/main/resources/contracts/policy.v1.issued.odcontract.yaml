@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: DataContract
+metadata:
+  name: policy.v1.issued
+  version: "1.0.0"
+  domain: policy
+  description: Event published when a policy transitions from ENTWURF to AKTIV
+
+spec:
+  topic: policy.v1.issued
+  format: JSON
+
+  schema:
+    fields:
+      - name: eventId
+        type: string
+        format: uuid
+        nullable: false
+      - name: eventType
+        type: string
+        enum: ["PolicyIssued"]
+        nullable: false
+      - name: policyId
+        type: string
+        format: uuid
+        nullable: false
+      - name: policyNummer
+        type: string
+        nullable: false
+      - name: partnerId
+        type: string
+        format: uuid
+        nullable: false
+      - name: produktId
+        type: string
+        format: uuid
+        nullable: false
+      - name: versicherungsbeginn
+        type: string
+        format: date
+        description: ISO-8601 (yyyy-MM-dd)
+        nullable: false
+      - name: praemie
+        type: number
+        format: decimal
+        nullable: false
+      - name: timestamp
+        type: string
+        format: datetime
+        nullable: false
+
+  quality:
+    - type: SodaCL
+      checks: |
+        checks for policy.v1.issued:
+          - not_null:
+              columns: [eventId, eventType, policyId, policyNummer, partnerId, produktId, versicherungsbeginn, praemie, timestamp]
+          - no_duplicate_rows:
+              columns: [eventId]
+          - valid_values:
+              column: eventType
+              valid_values: ["PolicyIssued"]
+

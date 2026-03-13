@@ -1,0 +1,81 @@
+<div id="policy-details-form">
+  {#if success}
+  <div class="alert alert-success alert-dismissible">
+    Policendetails gespeichert.
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {/if}
+  {#if errorMessage}
+  <div class="alert alert-danger">{errorMessage.raw}</div>
+  {/if}
+  <form hx-put="/policen/fragments/{policy.policyId}/details"
+        hx-target="#policy-details-form"
+        hx-swap="outerHTML"
+        hx-encoding="application/x-www-form-urlencoded">
+    <div class="mb-2">
+      <label class="form-label small">Policen-Nummer</label>
+      <input type="text" class="form-control form-control-sm"
+             value="{policy.policyNummer}" readonly>
+      <small class="text-muted">Kann nach Erstellung nicht geändert werden.</small>
+    </div>
+    <div class="mb-2">
+      <label class="form-label small">Partner</label>
+      {#if partnerSichten && partnerSichten.get(policy.partnerId)}
+      <input type="text" class="form-control form-control-sm"
+             value="{partnerSichten.get(policy.partnerId).name}" readonly>
+      <small class="text-muted">ID: {policy.partnerId}</small>
+      {#else}
+      <input type="text" class="form-control form-control-sm"
+             value="{policy.partnerId}" readonly>
+      <small class="text-muted">Kein Partnername verfügbar (noch kein Kafka-Event empfangen)</small>
+      {/if}
+    </div>
+    <div class="mb-2">
+      <label class="form-label small">Produkt <span class="text-danger">*</span></label>
+      {#if activeProdukte && !activeProdukte.isEmpty()}
+      <select name="produktId" class="form-select form-select-sm" required>
+        {#for p in activeProdukte}
+        <option value="{p.produktId}"
+          {#if p.produktId == policy.produktId}selected{/if}>
+          {p.name} ({p.productLine})
+        </option>
+        {/for}
+      </select>
+      {#else}
+      <input type="text" name="produktId" class="form-control form-control-sm"
+             value="{policy.produktId}" required>
+      {/if}
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-md-6">
+        <label class="form-label small">Versicherungsbeginn <span class="text-danger">*</span></label>
+        <input type="date" name="versicherungsbeginn" class="form-control form-control-sm"
+               value="{policy.versicherungsbeginn}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small">Versicherungsende</label>
+        <input type="date" name="versicherungsende" class="form-control form-control-sm"
+               value="{#if policy.versicherungsende}{policy.versicherungsende}{/if}">
+      </div>
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-md-6">
+        <label class="form-label small">Jahresprämie (CHF) <span class="text-danger">*</span></label>
+        <input type="number" name="praemie" class="form-control form-control-sm"
+               value="{policy.praemie}" min="0.01" step="0.01" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small">Selbstbehalt (CHF)</label>
+        <input type="number" name="selbstbehalt" class="form-control form-control-sm"
+               value="{policy.selbstbehalt}" min="0" step="0.01">
+      </div>
+    </div>
+    {#if policy.status.name() != "GEKUENDIGT" && policy.status.name() != "ABGELAUFEN"}
+    <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
+    {#else}
+    <button type="submit" class="btn btn-sm btn-primary" disabled>Speichern</button>
+    <small class="text-muted ms-2">Bearbeitung nicht möglich (Status: {policy.status})</small>
+    {/if}
+  </form>
+</div>
+

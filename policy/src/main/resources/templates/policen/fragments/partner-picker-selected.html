@@ -1,0 +1,32 @@
+<div id="partner-picker">
+  <input type="hidden" name="partnerId" value="{partnerId}">
+  <div class="input-group">
+    <input type="text" class="form-control" value="{partnerName}" readonly
+           placeholder="Partner gewählt">
+    <button type="button" class="btn btn-outline-secondary"
+            hx-get="/policen/fragments/partner-suche"
+            hx-target="#partner-suche-container"
+            hx-swap="innerHTML"
+            hx-trigger="click">
+      🔍 Ändern
+    </button>
+  </div>
+  <small class="text-muted">ID: {partnerId}</small>
+  <div id="partner-suche-container"></div>
+</div>
+<div id="partner-picker">
+  <input type="hidden" name="partnerId" value="{partnerId}">
+  <div class="input-group">
+    <input type="text" class="form-control" value="{partnerName}" readonly
+           placeholder="Partner gewählt">
+    <button type="button" class="btn btn-outline-secondary"
+            hx-get="/policen/fragments/partner-suche"
+            hx-target="#partner-suche-container"
+            hx-swap="innerHTML"
+            hx-trigger="click">
+      🔍 Ändern
+    </button>
+  </div>
+  <small class="text-muted">ID: {partnerId}</small>
+  <div id="partner-suche-container"></div>
+</div>

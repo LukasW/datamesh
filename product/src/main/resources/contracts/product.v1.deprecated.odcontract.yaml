@@ -1,0 +1,44 @@
+apiVersion: v2.2.2
+kind: DataContract
+id: product.v1.deprecated
+info:
+  title: Product Deprecated Event
+  version: 1.0.0
+  description: Published when an insurance product is marked as deprecated and no longer sold.
+  owner: Product Management Team
+
+servers:
+  - type: kafka
+    host: localhost:9092
+    topic: product.v1.deprecated
+
+terms:
+  usage: Consume to remove product from active offerings in downstream systems.
+  retention: 7 years
+
+schema:
+  type: object
+  fields:
+    - name: eventId
+      type: string
+      format: uuid
+      required: true
+    - name: eventType
+      type: string
+      required: true
+      enum: [ProductDeprecated]
+    - name: productId
+      type: string
+      format: uuid
+      required: true
+    - name: timestamp
+      type: string
+      format: date-time
+      required: true
+
+quality:
+  type: SodaCL
+  specification:
+    checks for product.v1.deprecated:
+      - not null: [eventId, eventType, productId, timestamp]
+      - no duplicate values: [eventId]

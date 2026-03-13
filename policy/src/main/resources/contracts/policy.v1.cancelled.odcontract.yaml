@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: DataContract
+metadata:
+  name: policy.v1.cancelled
+  version: "1.0.0"
+  domain: policy
+  description: Event published when a policy is cancelled (AKTIV → GEKUENDIGT)
+
+spec:
+  topic: policy.v1.cancelled
+  format: JSON
+
+  schema:
+    fields:
+      - name: eventId
+        type: string
+        format: uuid
+        nullable: false
+      - name: eventType
+        type: string
+        enum: ["PolicyCancelled"]
+        nullable: false
+      - name: policyId
+        type: string
+        format: uuid
+        nullable: false
+      - name: policyNummer
+        type: string
+        nullable: false
+      - name: timestamp
+        type: string
+        format: datetime
+        nullable: false
+
+  quality:
+    - type: SodaCL
+      checks: |
+        checks for policy.v1.cancelled:
+          - not_null:
+              columns: [eventId, eventType, policyId, policyNummer, timestamp]
+          - no_duplicate_rows:
+              columns: [eventId]
+

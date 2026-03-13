@@ -1,0 +1,20 @@
+<tr id="product-{product.productId}">
+  <td>{product.name}</td>
+  <td>{product.productLine.name()}</td>
+  <td class="text-end">{product.basePremium}</td>
+  <td>
+    <span class="badge {#if product.status.name() == 'ACTIVE'}bg-success{#else}bg-secondary{/if}">
+      {product.status.name()}
+    </span>
+  </td>
+  <td>
+    <a href="/products/{product.productId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+    <button class="btn btn-sm btn-outline-danger"
+            hx-delete="/api/products/{product.productId}"
+            hx-confirm="Produkt '{product.name}' wirklich löschen?"
+            hx-target="#product-{product.productId}"
+            hx-swap="outerHTML swap:0.3s">
+      Löschen
+    </button>
+  </td>
+</tr>

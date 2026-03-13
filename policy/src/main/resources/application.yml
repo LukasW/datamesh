@@ -1,0 +1,128 @@
+quarkus:
+  application:
+    name: policy-service
+    version: 1.0.0
+
+  http:
+    port: 9082
+
+  smallrye-openapi:
+    info-title: Policy Service API
+    info-version: 1.0.0
+    info-description: REST API für Policenverwaltung (Hexagonal Architecture)
+    info-contact-name: CSS Team
+    path: /openapi
+
+  swagger-ui:
+    always-include: true
+    path: /swagger-ui
+
+  datasource:
+    db-kind: postgresql
+
+  hibernate-orm:
+    schema-management:
+      strategy: none # Use Flyway for migrations
+
+  hibernate-envers:
+    store-data-at-delete: true
+    audit-table-suffix: _aud
+    revision-field-name: rev
+    revision-type-field-name: rev_type
+
+  flyway:
+    migrate-at-start: true
+    baseline-on-migrate: true
+    schemas: public
+    table: flyway_schema_history
+    locations: classpath:db/migration
+
+  log:
+    level: INFO
+
+# Prod: explicit DB + Kafka broker (env-var driven)
+"%prod":
+  quarkus:
+    datasource:
+      db-version: "12.0"
+      username: ${DATABASE_USER:policy_user}
+      password: ${DATABASE_PASSWORD:policy_pass}
+      jdbc:
+        url: ${DATABASE_URL:jdbc:postgresql://localhost:5434/policy_db}
+  mp:
+    messaging:
+      kafka:
+        bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}
+
+# Messaging channels (bootstrap.servers omitted → Kafka DevServices in dev/test)
+mp:
+  messaging:
+    outgoing:
+      policy-issued:
+        connector: smallrye-kafka
+        topic: policy.v1.issued
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+
+      policy-cancelled:
+        connector: smallrye-kafka
+        topic: policy.v1.cancelled
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+
+      policy-changed:
+        connector: smallrye-kafka
+        topic: policy.v1.changed
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+
+      policy-coverage-added:
+        connector: smallrye-kafka
+        topic: policy.v1.coverage-added
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+
+      policy-coverage-removed:
+        connector: smallrye-kafka
+        topic: policy.v1.coverage-removed
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+
+    incoming:
+      # ── Partner integration: consume Person events to build PartnerSicht read model ──
+      partner-person-created:
+        connector: smallrye-kafka
+        topic: person.v1.created
+        value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        group.id: policy-service-partner
+        auto.offset.reset: earliest
+
+      partner-person-updated:
+        connector: smallrye-kafka
+        topic: person.v1.updated
+        value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        group.id: policy-service-partner
+        auto.offset.reset: earliest
+
+      # ── Product integration: consume Product events to build ProduktSicht read model ──
+      product-defined-in:
+        connector: smallrye-kafka
+        topic: product.v1.defined
+        value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        group.id: policy-service-product
+        auto.offset.reset: earliest
+
+      product-updated-in:
+        connector: smallrye-kafka
+        topic: product.v1.updated
+        value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        group.id: policy-service-product
+        auto.offset.reset: earliest
+
+      product-deprecated-in:
+        connector: smallrye-kafka
+        topic: product.v1.deprecated
+        value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        group.id: policy-service-product
+        auto.offset.reset: earliest
+

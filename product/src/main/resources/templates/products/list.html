@@ -1,0 +1,94 @@
+{#include layout/base.html}
+{#title}Produktverwaltung{/title}
+{#content}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Produktverwaltung</h2>
+  <button class="btn btn-success"
+          hx-get="/products/fragments/neu"
+          hx-target="#modal-container"
+          hx-swap="innerHTML">
+    + Neues Produkt
+  </button>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="row g-2">
+      <div class="col-md-4">
+        <input type="text" id="s-name" name="name" class="form-control" placeholder="Produktname"
+               hx-get="/products/fragments/list"
+               hx-include="#s-name,#s-line"
+               hx-target="#products-tabelle" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+      </div>
+      <div class="col-md-4">
+        <select id="s-line" name="productLine" class="form-select"
+                hx-get="/products/fragments/list"
+                hx-include="#s-name,#s-line"
+                hx-target="#products-tabelle" hx-swap="innerHTML"
+                hx-trigger="change">
+          <option value="ALL">– Alle Sparten –</option>
+          {#for line in productLines}
+          <option value="{line.name()}">{line.name()}</option>
+          {/for}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-outline-secondary w-100"
+                hx-get="/products/fragments/list"
+                hx-include="#s-name,#s-line"
+                hx-target="#products-tabelle" hx-swap="innerHTML">
+          Suchen
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<table class="table table-hover">
+  <thead class="table-light">
+    <tr>
+      <th>Name</th>
+      <th>Sparte</th>
+      <th>Basisprämie (CHF)</th>
+      <th>Status</th>
+      <th>Aktionen</th>
+    </tr>
+  </thead>
+  <tbody id="products-tabelle">
+    {#fragment id="tabelle"}
+    {#if products}
+      {#for product in products}
+      <tr id="product-{product.productId}">
+        <td>{product.name}</td>
+        <td>{product.productLine.name()}</td>
+        <td class="text-end">{product.basePremium}</td>
+        <td>
+          <span class="badge {#if product.status.name() == 'ACTIVE'}bg-success{#else}bg-secondary{/if}">
+            {product.status.name()}
+          </span>
+        </td>
+        <td>
+          <a href="/products/{product.productId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+          <button class="btn btn-sm btn-outline-danger"
+                  hx-delete="/api/products/{product.productId}"
+                  hx-confirm="Produkt '{product.name}' wirklich löschen?"
+                  hx-target="#product-{product.productId}"
+                  hx-swap="outerHTML swap:0.3s">
+            Löschen
+          </button>
+        </td>
+      </tr>
+      {/for}
+      {#if products.isEmpty()}
+      <tr><td colspan="5" class="text-muted text-center">Keine Produkte gefunden</td></tr>
+      {/if}
+    {#else}
+      <tr><td colspan="5" class="text-muted text-center">Keine Produkte vorhanden</td></tr>
+    {/if}
+    {/fragment}
+  </tbody>
+</table>
+
+{/content}
+{/include}

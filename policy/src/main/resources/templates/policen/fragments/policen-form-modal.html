@@ -1,0 +1,79 @@
+<div class="modal-header">
+  <h5 class="modal-title">Neue Police erfassen</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+  <div id="policy-form-errors"></div>
+  <form id="policy-neu-form"
+        hx-post="/policen/fragments"
+        hx-target="#policen-tabelle"
+        hx-swap="afterbegin"
+        hx-disabled-elt="find button[type='submit']"
+        hx-indicator="#spinner-erstellen"
+        hx-on::after-request="if(event.detail.successful && event.detail.elt === this) bootstrap.Modal.getInstance(document.getElementById('mainModal')).hide()"
+        hx-on:htmx:response-error="if(event.detail.elt === this) document.getElementById('policy-form-errors').innerHTML = event.detail.xhr.responseText"
+        onsubmit="return validatePolicyNeuForm(this)">
+    <div class="row g-2 mb-2">
+      <div class="col-md-6">
+        <label class="form-label">Policen-Nummer <span class="text-danger">*</span></label>
+        <input type="text" name="policyNummer" class="form-control" placeholder="z.B. POL-2026-0001" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Partner <span class="text-danger">*</span></label>
+        <div id="partner-picker">
+          <input type="hidden" name="partnerId" value="">
+          <div class="input-group">
+            <input type="text" class="form-control" placeholder="Kein Partner gewählt" readonly>
+            <button type="button" class="btn btn-outline-secondary" id="partner-suche-btn">
+              🔍 Partner suchen
+            </button>
+          </div>
+          <div id="partner-suche-container"></div>
+        </div>
+      </div>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Produkt <span class="text-danger">*</span></label>
+      {#if activeProdukte && !activeProdukte.isEmpty()}
+      <select name="produktId" class="form-select" required>
+        <option value="">– bitte wählen –</option>
+        {#for p in activeProdukte}
+        <option value="{p.produktId}">{p.name} ({p.productLine}) – CHF {p.basePremium}/J</option>
+        {/for}
+      </select>
+      {#else}
+      <input type="text" name="produktId" class="form-control" placeholder="UUID des Produkts" required>
+      <small class="text-muted">Keine Produkte im Katalog – bitte Produkt-UUID manuell eingeben.</small>
+      {/if}
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-md-6">
+        <label class="form-label">Versicherungsbeginn <span class="text-danger">*</span></label>
+        <input type="date" name="versicherungsbeginn" class="form-control" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Versicherungsende <small class="text-muted">(leer = unbefristet)</small></label>
+        <input type="date" name="versicherungsende" class="form-control">
+      </div>
+    </div>
+    <div class="row g-2 mb-3">
+      <div class="col-md-6">
+        <label class="form-label">Jahresprämie (CHF) <span class="text-danger">*</span></label>
+        <input type="number" name="praemie" class="form-control" min="0.01" step="0.01"
+               placeholder="z.B. 450.00" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Selbstbehalt (CHF)</label>
+        <input type="number" name="selbstbehalt" class="form-control" min="0" step="0.01"
+               value="0" placeholder="0.00">
+      </div>
+    </div>
+    <button type="submit" class="btn btn-success">
+      <span id="spinner-erstellen"
+            class="htmx-indicator spinner-border spinner-border-sm me-1"
+            role="status" aria-hidden="true"></span>
+      Erstellen
+    </button>
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+  </form>
+</div>

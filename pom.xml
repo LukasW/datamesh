@@ -13,6 +13,8 @@
 
     <modules>
         <module>partner</module>
+        <module>product</module>
+        <module>policy</module>
     </modules>
 
     <properties>

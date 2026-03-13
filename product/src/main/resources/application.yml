@@ -1,0 +1,71 @@
+quarkus:
+  application:
+    name: product-service
+    version: 1.0.0
+
+  http:
+    port: 9081
+
+  smallrye-openapi:
+    info-title: Product Service API
+    info-version: 1.0.0
+    info-description: REST API für Produktverwaltung (Hexagonal Architecture)
+    info-contact-name: CSS Team
+    path: /openapi
+
+  swagger-ui:
+    always-include: true
+    path: /swagger-ui
+
+  datasource:
+    db-kind: postgresql
+
+  hibernate-orm:
+    schema-management:
+      strategy: none # Use Flyway for migrations
+
+  flyway:
+    migrate-at-start: true
+    baseline-on-migrate: true
+    schemas: public
+    table: flyway_schema_history
+    locations: classpath:db/migration
+
+  log:
+    level: INFO
+
+# Prod: explicit DB + Kafka broker (env-var driven)
+"%prod":
+  quarkus:
+    datasource:
+      db-version: "12.0"
+      username: ${DATABASE_USER:product_user}
+      password: ${DATABASE_PASSWORD:product_pass}
+      jdbc:
+        url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/product_db}
+  mp:
+    messaging:
+      kafka:
+        bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}
+
+# Messaging channels (bootstrap.servers omitted → Kafka DevServices in dev/test)
+mp:
+  messaging:
+    outgoing:
+      product-defined:
+        connector: smallrye-kafka
+        topic: product.v1.defined
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+
+      product-updated:
+        connector: smallrye-kafka
+        topic: product.v1.updated
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+
+      product-deprecated:
+        connector: smallrye-kafka
+        topic: product.v1.deprecated
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer

@@ -43,7 +43,7 @@ Aufbau einer modernen Versicherungsplattform für eine Sachversicherung auf Basi
 | Java 21+ | Alle Services in Java 21 mit Virtual Threads |
 | Quarkus | Micro-Framework für schnellen Start und geringen Footprint |
 | Apache Kafka | Einziger Kanal für asynchrone Domänenintegration |
-| gRPC | Synchrone Kommunikation nur wo zwingend nötig |
+| REST | Synchrone Kommunikation nur wo zwingend nötig |
 | PostgreSQL | Relationale Persistenz pro Domäne (eigene DB-Instanz) |
 | Qute + Bootstrap + htmx | Server-seitige UIs, kein SPA-Overhead |
 | Open Data Contract (ODC) | Formale Beschreibung aller publizierten Datensätze |
@@ -189,8 +189,8 @@ PRODSVC <--> KAFKA
 PARTSVC <--> KAFKA
 SALSVC <--> KAFKA
 
-POLSVC ..> IAMSVC : gRPC (Auth)
-CLMSVC ..> IAMSVC : gRPC (Auth)
+POLSVC ..> IAMSVC : REST (Auth)
+CLMSVC ..> IAMSVC : REST (Auth)
 
 @enduml
 ```
@@ -208,7 +208,7 @@ CLMSVC ..> IAMSVC : gRPC (Auth)
 | **Data Mesh** | Domänen publishen Daten als Produkt mit Open Data Contract |
 | **Hexagonal Architecture** | Domänenlogik ist unabhängig von Infrastruktur (DB, Kafka, UI) |
 | **Shared Nothing** | Keine geteilten Datenbanken; kein direkter Service-zu-Service-Aufruf |
-| **gRPC nur synchron** | Für zeitkritische Queries (z.B. IAM-Auth) als Ausnahme |
+| **REST nur synchron** | Für zeitkritische Queries (z.B. IAM-Auth) als Ausnahme |
 
 ### 4.2 Data Mesh Prinzipien
 
@@ -322,7 +322,7 @@ package "Policy Management SCS" {
   package "Driving Adapters (Input)" #LightBlue {
     [REST/Qute UI Controller] as UI
     [Kafka Consumer\n(OfferAccepted)\n(PartnerCreated)\n(ProductDefined)] as KCONS
-    [gRPC Server\n(PolicyQuery)] as GRPC_IN
+    [REST Server\n(PolicyQuery)] as REST_IN
   }
 
   package "Domain Core" #LightCoral {
@@ -340,7 +340,7 @@ package "Policy Management SCS" {
   package "Driven Adapters (Output)" #LightGreen {
     [PostgreSQL Adapter\n(JPA/Hibernate)] as DB_ADAPT
     [Kafka Producer\n(PolicyIssued)\n(PolicyCancelled)\n(PolicyChanged)] as KPROD
-    [DMS gRPC Client] as DMS_ADAPT
+    [DMS REST Client] as DMS_ADAPT
   }
 
   database "Policy DB\n(PostgreSQL)" as POLDB
@@ -350,7 +350,7 @@ package "Policy Management SCS" {
 
 UI --> APP
 KCONS --> APP
-GRPC_IN --> APP
+REST_IN --> APP
 
 APP --> POL_AGG
 APP --> PREM
@@ -402,12 +402,12 @@ package "Claims Management SCS" {
   package "Driven Adapters" #LightGreen {
     [PostgreSQL Adapter] as DB_ADAPT
     [Kafka Producer\n(ClaimOpened)\n(ClaimSettled)\n(ClaimRejected)] as KPROD
-    [Policy gRPC Client\n(synchrone Deckungsprüfung)] as POL_ADAPT
+    [Policy REST Client\n(synchrone Deckungsprüfung)] as POL_ADAPT
   }
 
   database "Claims DB\n(PostgreSQL)" as CLMDB
   database "Kafka" as KAFKA
-  component "Policy Service\n(gRPC)" as POLSVC
+  component "Policy Service\n(REST)" as POLSVC
 }
 
 UI --> APP
@@ -470,7 +470,68 @@ TOPIC -> CLM : konsumiert PolicyIssuedEvent\n→ Policy-Snapshot speichern
 @enduml
 ```
 
-### 6.2 Szenario: Schadensfall melden (First Notice of Loss)
+### 6.2 Szenario: Partner im Policy-Erfassungsformular suchen (Partner Picker)
+
+```plantuml
+@startuml runtime-partner-picker
+!theme plain
+skinparam defaultFontSize 10
+
+title Laufzeitsicht – Partner-Suche im Policy-Formular (htmx)
+
+actor "Underwriter" as UW
+participant "Policy UI\n(Qute/htmx)" as UI
+participant "PolicyUiController" as CTRL
+participant "PolicyApplicationService" as APP
+database "partner_sicht\n(Policy DB – Read Model)" as DB
+
+UW -> UI : Klick «🔍 Partner suchen»
+UI -> CTRL : GET /policen/fragments/partner-suche\n[htmx – lädt Widget]
+CTRL -> APP : searchPartnerSichten("")
+APP -> DB : SELECT * FROM partner_sicht\nORDER BY name LIMIT 20
+DB --> APP : Liste PartnerSicht
+CTRL --> UI : partner-suchen-widget.html\n(max. 20 Treffer)
+
+UW -> UI : Tipp «Müller» in Suchfeld
+UI -> CTRL : GET /policen/fragments/partner-suche?q=Müller\n[htmx – keyup delay 300ms]
+CTRL -> APP : searchPartnerSichten("Müller")
+APP -> DB : SELECT … WHERE LOWER(name) LIKE '%müller%'
+DB --> APP : Gefilterte Treffer
+CTRL --> UI : Aktualisiertes Widget (Trefferliste)
+
+UW -> UI : Klick auf Eintrag «Hans Müller»
+UI -> CTRL : POST /policen/fragments/partner-auswaehlen/{partnerId}\n[htmx – swap #partner-picker outerHTML]
+CTRL -> APP : findPartnerSicht(partnerId)
+APP -> DB : SELECT … WHERE partner_id = ?
+DB --> APP : PartnerSicht
+CTRL --> UI : partner-picker-selected.html\n(hidden input + Anzeige)
+
+note right of UI
+  Das hidden input name="partnerId" ist jetzt
+  befüllt → wird beim Erstellen der Police
+  als Form-Parameter mitgeschickt.
+end note
+
+@enduml
+```
+
+**Technische Umsetzung:**
+
+| Schicht | Komponente | Verantwortung |
+|---------|-----------|---------------|
+| Port | `PartnerSichtRepository.search(nameQuery)` | Interface für Name-Suche (max 20 Treffer) |
+| Adapter | `PartnerSichtJpaAdapter.search(nameQuery)` | JPA JPQL: `LOWER(name) LIKE :q` |
+| Service | `PolicyApplicationService.searchPartnerSichten(q)` | Delegiert an Repository |
+| Service | `PolicyApplicationService.findPartnerSicht(id)` | Lookup für Selektion |
+| Controller | `GET /policen/fragments/partner-suche?q=` | Liefert Such-Widget (Qute-Fragment) |
+| Controller | `POST /policen/fragments/partner-auswaehlen/{id}` | Liefert «Ausgewählt»-State des Pickers |
+| Template | `partner-suchen-widget.html` | Live-Such-Panel mit Trefferliste |
+| Template | `partner-picker-selected.html` | Picker im «Partner gewählt»-Zustand |
+
+**Datenfluss (Data Mesh – keine direkte DB-Abhängigkeit):**  
+Die `partner_sicht`-Tabelle im Policy-Service ist ein lokales Read Model, das ausschließlich durch Kafka-Events (`person.v1.created`, `person.v1.updated`) befüllt wird. Die Suche läuft vollständig gegen diese materialisierte Sicht – es gibt keine synchrone REST-Abhängigkeit zum Partner-Service (ADR-001).
+
+
 
 ```plantuml
 @startuml runtime-fnol
@@ -483,7 +544,7 @@ actor "Versicherungsnehmer" as VN
 participant "Claims UI" as UI
 participant "Claims\nApplication Service" as APP
 participant "Claim Aggregate" as AGG
-participant "Policy Service\n(gRPC)" as POLSVC
+participant "Policy Service\n(REST)" as POLSVC
 participant "Coverage Checker" as COV
 participant "Claims DB" as DB
 participant "Kafka Producer" as KPROD
@@ -493,13 +554,13 @@ participant "DMS Service" as DMS
 
 VN -> UI : Schaden melden\n(Datum, Beschreibung, Fotos)
 UI -> APP : reportClaim(command)
-APP -> POLSVC : getPolicy(policyId) [gRPC]
+APP -> POLSVC : getPolicy(policyId) [REST]
 POLSVC --> APP : PolicySnapshot\n(Deckungsumfang, Selbstbehalt)
 APP -> COV : checkCoverage(claim, policySnapshot)
 COV --> APP : CoverageResult (gedeckt/nicht gedeckt)
 APP -> AGG : apply(ClaimOpenedEvent)
 AGG -> DB : save(ClaimEntity)
-AGG -> DMS : uploadDocuments(fotos) [gRPC]
+AGG -> DMS : uploadDocuments(fotos) [REST]
 AGG -> KPROD : publish(ClaimOpenedEvent)
 KPROD -> TOPIC : ClaimOpenedEvent\n{claimId, policyId,\namount, coverageResult}
 APP --> UI : 201 Created + claimId
@@ -609,9 +670,9 @@ PROD_SVC <--> KAFKA
 PCM_SVC <--> KAFKA
 SAL_SVC <--> KAFKA
 
-CLM_SVC ..> POL_SVC : gRPC\n(Deckungsprüfung)
-POL_SVC ..> IAM : gRPC (Auth)
-CLM_SVC ..> DMS : gRPC (Dokumente)
+CLM_SVC ..> POL_SVC : REST\n(Deckungsprüfung)
+POL_SVC ..> IAM : REST (Auth)
+CLM_SVC ..> DMS : REST (Dokumente)
 
 @enduml
 ```
@@ -720,7 +781,7 @@ Beispiele:
 │   └── infrastructure/            ← Adapter-Implementierungen
 │       ├── persistence/           ← JPA/Panache Adapter
 │       ├── messaging/             ← Kafka Producer/Consumer (SmallRye)
-│       ├── grpc/                  ← gRPC Server/Client
+│       ├── api/                   ← REST Server/Client
 │       └── web/                   ← Qute Templates + REST Controllers
 ├── src/main/resources/
 │   ├── templates/                 ← Qute HTML-Templates
@@ -756,7 +817,7 @@ DB -> DB : mark as published
 
 ### 8.5 Authentifizierung und Autorisierung
 
-- **IAM:** Keycloak (OIDC/OAuth2) – einzige synchrone Abhängigkeit via gRPC
+- **IAM:** Keycloak (OIDC/OAuth2) – einzige synchrone Abhängigkeit via REST
 - **Token-Propagation:** Bearer Tokens in allen HTTP-Requests (Quarkus OIDC)
 - **RBAC:** Quarkus `@RolesAllowed` auf Application-Service-Ebene
 - **Rollen:** `UNDERWRITER`, `CLAIMS_AGENT`, `BROKER`, `ADMIN`
@@ -789,13 +850,13 @@ DB -> DB : mark as published
 
 ---
 
-### ADR-003: gRPC nur für synchrone Ausnahmen
+### ADR-003: REST nur für synchrone Ausnahmen
 
 **Status:** Accepted
 
 **Kontext:** Deckungsprüfung bei Schadenmeldung braucht aktuelle Policy-Daten (Eventual Consistency reicht nicht).
 
-**Entscheidung:** Claims -> Policy via gRPC für Deckungsprüfung. Alle anderen Integrationen via Kafka.
+**Entscheidung:** Claims -> Policy via REST für Deckungsprüfung. Alle anderen Integrationen via Kafka.
 
 **Konsequenzen:** Policy-Service wird zu einer synchronen Abhängigkeit von Claims. Circuit Breaker notwendig.
 
@@ -807,7 +868,7 @@ DB -> DB : mark as published
 
 **Kontext:** Geteilte Datenbanken schaffen implizite Kopplung zwischen Teams.
 
-**Entscheidung:** Jede Domäne hat ihre eigene PostgreSQL-Instanz. Cross-Domain-Queries werden über Events oder gRPC abgebildet.
+**Entscheidung:** Jede Domäne hat ihre eigene PostgreSQL-Instanz. Cross-Domain-Queries werden über Events oder REST abgebildet.
 
 **Konsequenzen:** Kein JOIN über Domänengrenzen. Reporting-Bedarf wird durch dedizierte Read-Models (materialisierte Views aus Events) abgedeckt.
 
@@ -835,7 +896,7 @@ rectangle "ODC als\nverbindlicher Vertrag" as B1
 rectangle "Kein direkter\nDB-Zugriff" as B2
 
 rectangle "Resilienz" as C
-rectangle "Circuit Breaker\n(gRPC)" as C1
+rectangle "Circuit Breaker\n(REST)" as C1
 rectangle "Dead Letter\nQueue (Kafka)" as C2
 
 rectangle "Nachvollzieh-\nbarkeit" as D
@@ -878,5 +939,5 @@ D --> D2
 | R-1 | Eventual Consistency schwer verständlich für Entwickler | Fehler bei UI-Feedback ("Ist die Police schon aktiv?") | UI-Patterns für Async (optimistic updates, polling) |
 | R-2 | Schema-Evolution (Avro) komplex | Breaking Changes unbemerkt | ODC Enforcement + Consumer-Driven Contract Tests |
 | R-3 | Kafka Single Point of Failure | Alle Domänen betroffen | Multi-AZ Kafka Cluster, Replikationsfaktor 3 |
-| R-4 | gRPC Claims->Policy synchrone Abhängigkeit | Claims bei Policy-Ausfall nicht nutzbar | Circuit Breaker (SmallRye Fault Tolerance) + Fallback |
+| R-4 | REST Claims->Policy synchrone Abhängigkeit | Claims bei Policy-Ausfall nicht nutzbar | Circuit Breaker (SmallRye Fault Tolerance) + Fallback |
 | R-5 | Data Mesh Governance-Overhead | Teams umgehen ODC | Automatisierte ODC-Validierung in CI/CD-Pipeline |

@@ -1,0 +1,45 @@
+<div class="modal-header">
+  <h5 class="modal-title">Neues Produkt erfassen</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+  <div id="product-form-errors"></div>
+  <form id="product-neu-form"
+        hx-post="/products/fragments"
+        hx-target="#products-tabelle"
+        hx-swap="afterbegin"
+        hx-disabled-elt="find button[type='submit']"
+        hx-indicator="#spinner-erstellen"
+        hx-on::after-request="if(event.detail.successful) bootstrap.Modal.getInstance(document.getElementById('mainModal')).hide()"
+        hx-on:htmx:response-error="document.getElementById('product-form-errors').innerHTML = event.detail.xhr.responseText">
+    <div class="mb-2">
+      <label class="form-label">Produktname <span class="text-danger">*</span></label>
+      <input type="text" name="name" class="form-control" required>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Beschreibung</label>
+      <textarea name="description" class="form-control" rows="2"></textarea>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Sparte <span class="text-danger">*</span></label>
+      <select name="productLine" class="form-select" required>
+        <option value="">– bitte wählen –</option>
+        {#for line in productLines}
+        <option value="{line.name()}">{line.name()}</option>
+        {/for}
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Basisprämie (CHF) <span class="text-danger">*</span></label>
+      <input type="number" name="basePremium" class="form-control"
+             step="0.01" min="0" placeholder="0.00" required>
+    </div>
+    <button type="submit" class="btn btn-success">
+      <span id="spinner-erstellen"
+            class="htmx-indicator spinner-border spinner-border-sm me-1"
+            role="status" aria-hidden="true"></span>
+      Erstellen
+    </button>
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+  </form>
+</div>

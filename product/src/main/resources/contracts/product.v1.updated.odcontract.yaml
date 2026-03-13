@@ -1,0 +1,53 @@
+apiVersion: v2.2.2
+kind: DataContract
+id: product.v1.updated
+info:
+  title: Product Updated Event
+  version: 1.0.0
+  description: Published when an insurance product's details are changed.
+  owner: Product Management Team
+
+servers:
+  - type: kafka
+    host: localhost:9092
+    topic: product.v1.updated
+
+terms:
+  retention: 7 years
+
+schema:
+  type: object
+  fields:
+    - name: eventId
+      type: string
+      format: uuid
+      required: true
+    - name: eventType
+      type: string
+      required: true
+      enum: [ProductUpdated]
+    - name: productId
+      type: string
+      format: uuid
+      required: true
+    - name: name
+      type: string
+      required: true
+    - name: productLine
+      type: string
+      required: true
+      enum: [HAUSRAT, HAFTPFLICHT, MOTORFAHRZEUG, REISE, RECHTSSCHUTZ]
+    - name: basePremium
+      type: number
+      required: true
+    - name: timestamp
+      type: string
+      format: date-time
+      required: true
+
+quality:
+  type: SodaCL
+  specification:
+    checks for product.v1.updated:
+      - not null: [eventId, eventType, productId, name, productLine, basePremium, timestamp]
+      - no duplicate values: [eventId]

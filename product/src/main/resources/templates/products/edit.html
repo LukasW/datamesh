@@ -1,0 +1,36 @@
+{#include layout/base.html}
+{#title}Produkt bearbeiten{/title}
+{#content}
+<a href="/products" class="btn btn-outline-secondary btn-sm mb-3">← Zurück zur Liste</a>
+<h2>Produkt bearbeiten: {product.name}</h2>
+
+<div class="row mt-3">
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header fw-bold">Produktdetails</div>
+      <div class="card-body">
+        {#include products/fragments/product-details-form product=product productLines=productLines success=false /}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header fw-bold">Informationen</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-5">Produkt-ID</dt>
+          <dd class="col-sm-7"><small class="text-muted">{product.productId}</small></dd>
+          <dt class="col-sm-5">Status</dt>
+          <dd class="col-sm-7">
+            <span class="badge {#if product.status.name() == 'ACTIVE'}bg-success{#else}bg-secondary{/if}">
+              {product.status.name()}
+            </span>
+          </dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+{/content}
+{/include}

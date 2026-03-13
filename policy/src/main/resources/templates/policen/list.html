@@ -1,0 +1,128 @@
+{#include layout/base.html}
+{#title}Policenverwaltung{/title}
+{#content}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Policenverwaltung</h2>
+  <button class="btn btn-success"
+          hx-get="/policen/fragments/neu"
+          hx-target="#modal-container"
+          hx-swap="innerHTML">
+    + Neue Police
+  </button>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="row g-2">
+      <div class="col-md-3">
+        <input type="text" id="s-nummer" name="policyNummer" class="form-control"
+               placeholder="Policen-Nummer"
+               hx-get="/policen/fragments/list"
+               hx-include="#s-nummer,#s-partner,#s-status"
+               hx-target="#policen-tabelle" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+      </div>
+      <div class="col-md-3">
+        <input type="text" id="s-partner" name="partnerId" class="form-control"
+               placeholder="Partner-ID"
+               hx-get="/policen/fragments/list"
+               hx-include="#s-nummer,#s-partner,#s-status"
+               hx-target="#policen-tabelle" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+      </div>
+      <div class="col-md-3">
+        <select id="s-status" name="status" class="form-select"
+                hx-get="/policen/fragments/list"
+                hx-include="#s-nummer,#s-partner,#s-status"
+                hx-target="#policen-tabelle" hx-swap="innerHTML"
+                hx-trigger="change">
+          <option value="">– alle Status –</option>
+          <option value="ENTWURF">Entwurf</option>
+          <option value="AKTIV">Aktiv</option>
+          <option value="GEKUENDIGT">Gekündigt</option>
+          <option value="ABGELAUFEN">Abgelaufen</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <button class="btn btn-outline-secondary w-100"
+                hx-get="/policen/fragments/list"
+                hx-include="#s-nummer,#s-partner,#s-status"
+                hx-target="#policen-tabelle" hx-swap="innerHTML">
+          Suchen
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<table class="table table-hover">
+  <thead class="table-light">
+    <tr>
+      <th>Policen-Nr.</th>
+      <th>Partner</th>
+      <th>Produkt</th>
+      <th>Status</th>
+      <th>Beginn</th>
+      <th>Prämie / Jahr</th>
+      <th>Aktionen</th>
+    </tr>
+  </thead>
+  <tbody id="policen-tabelle">
+    {#fragment id="tabelle"}
+    {#for policy in policen}
+    <tr id="policy-{policy.policyId}">
+      <td><strong>{policy.policyNummer}</strong></td>
+      <td>
+        {#if partnerSichten.get(policy.partnerId)}
+          {partnerSichten.get(policy.partnerId).name}
+          <br><small class="text-muted">{policy.partnerId}</small>
+        {#else}
+          <span class="text-muted small">{policy.partnerId}</span>
+        {/if}
+      </td>
+      <td>
+        {#if produktSichten.get(policy.produktId)}
+          {produktSichten.get(policy.produktId).name}
+          <br><small class="text-muted">{produktSichten.get(policy.produktId).productLine}</small>
+        {#else}
+          <span class="text-muted small">{policy.produktId}</span>
+        {/if}
+      </td>
+      <td>
+        <span class="badge badge-{policy.status}">{policy.status}</span>
+      </td>
+      <td>{policy.versicherungsbeginn}</td>
+      <td>CHF {policy.praemie}</td>
+      <td>
+        <a href="/policen/{policy.policyId}/edit" class="btn btn-sm btn-outline-secondary">Details</a>
+        {#if policy.status.name() == "ENTWURF"}
+        <button class="btn btn-sm btn-outline-success"
+                hx-post="/policen/fragments/{policy.policyId}/aktivieren"
+                hx-target="#policy-{policy.policyId}"
+                hx-swap="outerHTML"
+                hx-confirm="Police '{policy.policyNummer}' aktivieren?">
+          Aktivieren
+        </button>
+        {/if}
+        {#if policy.status.name() == "AKTIV"}
+        <button class="btn btn-sm btn-outline-danger"
+                hx-post="/policen/fragments/{policy.policyId}/kuendigen"
+                hx-target="#policy-{policy.policyId}"
+                hx-swap="outerHTML"
+                hx-confirm="Police '{policy.policyNummer}' kündigen?">
+          Kündigen
+        </button>
+        {/if}
+      </td>
+    </tr>
+    {/for}
+    {#if policen.isEmpty()}
+    <tr><td colspan="7" class="text-muted text-center">Keine Policen gefunden</td></tr>
+    {/if}
+    {/fragment}
+  </tbody>
+</table>
+
+{/content}
+{/include}
+

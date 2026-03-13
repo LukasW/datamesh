@@ -1,0 +1,41 @@
+<div class="card mt-2 shadow-sm border-primary" id="partner-suche-panel">
+    <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center bg-primary-subtle">
+        <span class="small fw-semibold">🔍 Partner suchen</span>
+        <button type="button" class="btn-close"
+                style="font-size:.7rem"
+                onclick="document.getElementById('partner-suche-container').innerHTML='';"
+                aria-label="Schließen"></button>
+    </div>
+    <div class="card-body p-2">
+        <input type="text"
+               class="form-control form-control-sm mb-2"
+               name="q"
+               value="{q}"
+               placeholder="Name eingeben…"
+               autocomplete="off"
+               autofocus
+               hx-get="/policen/fragments/partner-suche"
+               hx-target="#partner-suche-container"
+               hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+        {#if partners.isEmpty()}
+            <p class="text-muted small mb-0 px-1">Keine Partner gefunden.</p>
+        {#else}
+            <ul class="list-group list-group-flush" style="max-height:240px;overflow-y:auto;">
+                {#for p in partners}
+                    <li class="list-group-item list-group-item-action py-1 px-2"
+                        style="cursor:pointer"
+                        data-partner-id="{p.partnerId}"
+                        data-partner-name="{p.name}">
+                        <div class="d-flex justify-content-between align-items-baseline">
+                            <strong class="small">{p.name}</strong>
+                            <span class="badge bg-secondary ms-2"
+                                  style="font-size:.65rem;font-weight:400;">{p.partnerId}</span>
+                        </div>
+                    </li>
+                {/for}
+            </ul>
+        {/if}
+    </div>
+</div>
+
