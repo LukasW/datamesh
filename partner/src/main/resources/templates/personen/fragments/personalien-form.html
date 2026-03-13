@@ -1,0 +1,44 @@
+<div id="personalien-form">
+  {#if success}
+  <div class="alert alert-success alert-dismissible">
+    Personalien gespeichert.
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {/if}
+  <form hx-put="/personen/fragments/{person.personId}/personalien"
+        hx-target="#personalien-form"
+        hx-swap="outerHTML"
+        hx-encoding="application/x-www-form-urlencoded">
+    <div class="mb-2">
+      <label class="form-label">Nachname</label>
+      <input type="text" name="name" class="form-control" value="{person.name}" required>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Vorname</label>
+      <input type="text" name="vorname" class="form-control" value="{person.vorname}" required>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Geschlecht</label>
+      <select name="geschlecht" class="form-select">
+        <option value="MAENNLICH" {#if person.geschlecht.name() == "MAENNLICH"}selected{/if}>Männlich</option>
+        <option value="WEIBLICH"  {#if person.geschlecht.name() == "WEIBLICH"}selected{/if}>Weiblich</option>
+        <option value="DIVERS"    {#if person.geschlecht.name() == "DIVERS"}selected{/if}>Divers</option>
+      </select>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Geburtsdatum</label>
+      <input type="date" name="geburtsdatum" class="form-control"
+             value="{person.geburtsdatum}" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">AHV-Nummer <small class="text-muted">(optional)</small></label>
+      {#if person.ahvNummer}
+      <input type="text" class="form-control" value="{person.ahvNummer.formatted()}" readonly>
+      {#else}
+      <input type="text" class="form-control" placeholder="Nicht angegeben" readonly>
+      {/if}
+      <small class="text-muted">AHV-Nummer kann nach Ersterstellung nicht geändert werden.</small>
+    </div>
+    <button type="submit" class="btn btn-primary">Speichern</button>
+  </form>
+</div>

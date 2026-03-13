@@ -1,0 +1,49 @@
+<div class="modal-header">
+  <h5 class="modal-title">Neue Person erfassen</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+  <div id="person-form-errors"></div>
+  <form id="person-neu-form"
+        hx-post="/personen/fragments"
+        hx-target="#personen-tabelle"
+        hx-swap="afterbegin"
+        hx-disabled-elt="find button[type='submit']"
+        hx-indicator="#spinner-erstellen"
+        hx-on::after-request="if(event.detail.successful) bootstrap.Modal.getInstance(document.getElementById('mainModal')).hide()"
+        hx-on:htmx:response-error="document.getElementById('person-form-errors').innerHTML = event.detail.xhr.responseText">
+    <div class="mb-2">
+      <label class="form-label">Nachname <span class="text-danger">*</span></label>
+      <input type="text" name="name" class="form-control" required>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Vorname <span class="text-danger">*</span></label>
+      <input type="text" name="vorname" class="form-control" required>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Geschlecht <span class="text-danger">*</span></label>
+      <select name="geschlecht" class="form-select" required>
+        <option value="">– bitte wählen –</option>
+        <option value="MAENNLICH">Männlich</option>
+        <option value="WEIBLICH">Weiblich</option>
+        <option value="DIVERS">Divers</option>
+      </select>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">Geburtsdatum <span class="text-danger">*</span></label>
+      <input type="date" name="geburtsdatum" class="form-control" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">AHV-Nummer <small class="text-muted">(optional)</small></label>
+      <input type="text" name="ahvNummer" class="form-control"
+             placeholder="756.XXXX.XXXX.XX">
+    </div>
+    <button type="submit" class="btn btn-primary">
+      <span id="spinner-erstellen"
+            class="htmx-indicator spinner-border spinner-border-sm me-1"
+            role="status" aria-hidden="true"></span>
+      Erstellen
+    </button>
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+  </form>
+</div>

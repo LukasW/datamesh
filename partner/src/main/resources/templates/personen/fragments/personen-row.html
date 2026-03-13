@@ -1,0 +1,16 @@
+<tr id="person-{person.personId}">
+  <td>{person.name}</td>
+  <td>{person.vorname}</td>
+  <td>{person.geburtsdatum}</td>
+  <td>{#if person.ahvNummer}{person.ahvNummer.formatted()}{#else}–{/if}</td>
+  <td>
+    <a href="/personen/{person.personId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+    <button class="btn btn-sm btn-outline-danger"
+            hx-delete="/api/personen/{person.personId}"
+            hx-confirm="Person '{person.vorname} {person.name}' wirklich löschen?"
+            hx-target="#person-{person.personId}"
+            hx-swap="outerHTML swap:0.3s">
+      Löschen
+    </button>
+  </td>
+</tr>

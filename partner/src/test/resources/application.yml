@@ -1,40 +1,16 @@
 quarkus:
   application:
-    name: partner-service
+    name: person-service
     version: 1.0.0
 
   http:
     port: 8080
 
   datasource:
-    db-kind: h2
-    db-version: "2.2.0"
-    jdbc:
-      url: jdbc:h2:mem:test
-
-  hibernate-orm:
-    database:
-      generation: create
+    db-kind: postgresql
 
   flyway:
-    migrate-at-start: false
-
-  # Disable Dev Services for tests
-  devservices:
-    enabled: false
-
-  arc:
-    exclude-types: ch.css.partner.infrastructure.messaging.PartnerKafkaAdapter
+    migrate-at-start: true
 
   log:
     level: INFO
-
-mp:
-  messaging:
-    outgoing:
-      partner-created:
-        enabled: false
-      partner-updated:
-        enabled: false
-      partner-deleted:
-        enabled: false

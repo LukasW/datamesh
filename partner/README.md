@@ -1,257 +1,148 @@
-# Partner/Customer Management Service
+# Partner Management Service – v2
 
-**Walking Skeleton** – Self-Contained System (SCS) für Partner- und Kundenverwaltung
+Self-Contained System (SCS) für Partnerverwaltung (Vertriebspartner, Lieferanten, Technologiepartner).
 
-## Übersicht
+## Domänenmodell
 
-Dieses Service implementiert die Partner/Customer Management Domäne des Sachversicherungs-Datamesh auf Basis von:
+| Entität | Beschreibung |
+|---------|-------------|
+| `Partner` | Aggregate Root – Firmenname, Typ, Status, Adresse, Website |
+| `Kontaktperson` | Ansprechpartner beim Partner (Vorname, Nachname, Rolle, E-Mail, Telefon) |
+| `Vertrag` | NDA / Rahmenvertrag / Reseller-Vertrag mit Status-Lifecycle |
+| `Interaktion` | Protokoll von Kontakten (E-Mail, Telefonat, Meeting) |
 
-- **Quarkus** (Java 21+, Virtual Threads)
-- **Hexagonal Architecture** (Ports & Adapters)
-- **Domain-Driven Design** (Bounded Context)
-- **Event-Driven Architecture** via Apache Kafka
-- **PostgreSQL** für persistente Daten
-- **Open Data Contracts** (ODC) für Kafka-Events
+### PartnerType (neu in v2)
+
+| Wert | Beschreibung |
+|------|-------------|
+| `VERTRIEBSPARTNER` | Vertriebspartner / Sales Partner |
+| `LIEFERANT` | Lieferant / Supplier |
+| `TECHNOLOGIEPARTNER` | Technologiepartner / Technology Partner |
+
+### PartnerStatus
+
+| Wert | Beschreibung |
+|------|-------------|
+| `LEAD` | Interessent, noch nicht aktiv |
+| `AKTIV` | Aktiver Partner |
+| `INAKTIV` | Deaktivierter Partner |
 
 ## Architektur
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   REST API (Driving Adapter)                │
-│        GET /api/partners/search?name=...                    │
-│        GET /api/partners/{id}                               │
-│        POST /api/partners                                   │
-└──────────────────────┬──────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  UI-Schicht: Qute + Bootstrap + htmx  GET/POST /partners/..  │
+├──────────────────────────────────────────────────────────────┤
+│  REST API: JSON  GET/POST/PUT/DELETE /api/partners/...       │
+└──────────────────────┬───────────────────────────────────────┘
                        │
-         ┌─────────────▼──────────────┐
-         │  PartnerApplicationService │
-         │   (Domain Use Cases)       │
-         │  - searchByName()          │
-         │  - createPartner()         │
-         │  - getPartner()            │
-         └──────────┬────────┬────────┘
-                    │        │
-        ┌───────────▼─┐  ┌──▼────────────────┐
-        │ JPA Adapter │  │ Kafka Producer    │
-        │ PostgreSQL  │  │ partner.v1.*      │
-        │             │  │                   │
-        └─────────────┘  └───────────────────┘
+         ┌─────────────▼──────────────────────┐
+         │       PartnerApplicationService    │
+         │  Partner / Kontakt / Vertrag /     │
+         │  Interaktion CRUD + Events         │
+         └──────┬─────────────────────┬───────┘
+                │                     │
+     ┌──────────▼──────┐   ┌──────────▼──────────────┐
+     │  JPA Adapters   │   │  Kafka Producer Adapter  │
+     │  PostgreSQL     │   │  partner.v2.* / v1.*     │
+     └─────────────────┘   └──────────────────────────┘
 ```
 
-## Project Structure
+## REST API Endpoints
 
-```
-partner-service/
-├── pom.xml                                  # Maven Build
-├── README.md                                # This file
-│
-├── src/main/java/com/insurance/partner/
-│   ├── domain/
-│   │   ├── model/
-│   │   │   ├── Partner.java                 # Aggregate Root
-│   │   │   ├── PartnerType.java             # Enum
-│   │   │   └── PartnerStatus.java           # Enum
-│   │   ├── service/
-│   │   │   ├── PartnerApplicationService.java  # Use Cases
-│   │   │   └── PartnerNotFoundException.java   # Domain Exception
-│   │   └── port/
-│   │       ├── PartnerRepository.java       # Output Port (Persistence)
-│   │       ├── PartnerEventPublisher.java   # Output Port (Events)
-│   │       └── SearchPartnerPort.java       # Input Port (Use Case)
-│   └── infrastructure/
-│       ├── persistence/
-│       │   └── PartnerJpaAdapter.java       # JPA/PostgreSQL Adapter
-│       ├── messaging/
-│       │   └── PartnerKafkaAdapter.java     # Kafka Producer Adapter
-│       └── web/
-│           └── PartnerRestAdapter.java      # REST Adapter
-│
-├── src/main/resources/
-│   ├── application.yml                      # Quarkus Configuration
-│   ├── db/migration/
-│   │   └── V1__Create_Partner_Table.sql     # Flyway DB Schema
-│   └── contracts/
-│       ├── partner.v1.created.odcontract.yaml   # ODC
-│       └── partner.v1.updated.odcontract.yaml   # ODC
-│
-└── src/test/java/com/insurance/partner/
-    └── PartnerRestAdapterTest.java          # Integration Tests
-```
+### Partner
 
-## Verwendete Ports (Walking Skeleton)
+| Method | Pfad | Beschreibung |
+|--------|------|-------------|
+| `GET` | `/api/partners` | Alle Partner (optional `?name=`) |
+| `GET` | `/api/partners/{id}` | Partner-Detail |
+| `POST` | `/api/partners` | Partner erstellen |
+| `PUT` | `/api/partners/{id}` | Partner aktualisieren |
+| `DELETE` | `/api/partners/{id}` | Partner löschen |
 
-### REST API
+### Kontaktpersonen
 
-- **GET /api/partners/search?name={fragment}** – Partner nach Name suchen
-- **GET /api/partners/{partnerId}** – Partner Details abrufen
-- **POST /api/partners** – Neuer Partner erstellen
+| Method | Pfad | Beschreibung |
+|--------|------|-------------|
+| `GET` | `/api/partners/{id}/kontakte` | Alle Kontaktpersonen |
+| `POST` | `/api/partners/{id}/kontakte` | Kontaktperson hinzufügen |
+| `PUT` | `/api/partners/{id}/kontakte/{kid}` | Kontaktperson aktualisieren |
+| `DELETE` | `/api/partners/{id}/kontakte/{kid}` | Kontaktperson löschen |
 
-### Kafka Topics
+### Verträge
 
-- **partner.v1.created** – Kafka Event bei Partner-Erstellung (Output)
-- **partner.v1.updated** – Kafka Event bei Partner-Update (Output)
-- **partner.v1.deleted** – Kafka Event bei Partner-Löschung (Output)
+| Method | Pfad | Beschreibung |
+|--------|------|-------------|
+| `GET` | `/api/partners/{id}/vertraege` | Alle Verträge |
+| `POST` | `/api/partners/{id}/vertraege` | Vertrag erstellen |
+| `PUT` | `/api/partners/{id}/vertraege/{vid}` | Vertrag aktualisieren |
+| `DELETE` | `/api/partners/{id}/vertraege/{vid}` | Vertrag löschen |
 
-Jedes Topic hat einen definierten **Open Data Contract (ODC)** unter `src/main/resources/contracts/`.
+### Interaktionen
+
+| Method | Pfad | Beschreibung |
+|--------|------|-------------|
+| `GET` | `/api/partners/{id}/interaktionen` | Alle Interaktionen |
+| `POST` | `/api/partners/{id}/interaktionen` | Interaktion protokollieren |
+| `PUT` | `/api/partners/{id}/interaktionen/{iid}` | Interaktion aktualisieren |
+| `DELETE` | `/api/partners/{id}/interaktionen/{iid}` | Interaktion löschen |
+
+## Kafka Topics & ODC
+
+| Topic | Version | Beschreibung | Breaking? |
+|-------|---------|-------------|-----------|
+| `partner.v2.created` | v2 | Partner erstellt (neue PartnerType-Werte, website, hausnummer) | **Ja** |
+| `partner.v1.updated` | v1 | Partner aktualisiert | Nein |
+| `partner.v1.deleted` | v1 | Partner gelöscht | Nein |
+| `partner.v1.contact-added` | v1 | Kontaktperson hinzugefügt | Neu |
+| `partner.v1.contract-created` | v1 | Vertrag erstellt | Neu |
+| `partner.v1.interaction-logged` | v1 | Interaktion protokolliert | Neu |
+
+ODC-Dateien: `src/main/resources/contracts/`
+
+## UI
+
+Die Web-Oberfläche ist unter `/partners` erreichbar und nutzt:
+- **Qute** – Server-Side Rendering
+- **Bootstrap 5** – Styling
+- **htmx** – Partial-Page-Updates ohne JavaScript-Framework
 
 ## Getting Started
 
-### Voraussetzungen
-
-- Java 21+
-- Maven 3.9+
-- Docker (für PostgreSQL + Kafka)
-- PostgreSQL 15+
-- Apache Kafka (mit Schema Registry)
-
-### 1. Development Environment starten
-
 ```bash
-# PostgreSQL (Docker)
-docker run -d \
-  --name partner-postgres \
-  -e POSTGRES_USER=partner_user \
-  -e POSTGRES_PASSWORD=partner_pass \
-  -e POSTGRES_DB=partner_db \
-  -p 5432:5432 \
-  postgres:15
+# Infrastruktur starten (PostgreSQL + Kafka)
+docker-compose up -d
 
-# Kafka + ZooKeeper + Schema Registry (via Docker Compose)
-docker-compose -f ../docker-compose.yml up -d
-```
-
-### 2. Service bauen und starten
-
-```bash
-cd partner-service
-
-# Build
-mvn clean package
-
-# Run im Dev-Modus (mit Auto-Reload)
-mvn quarkus:dev
-```
-
-Der Service läuft dann auf `http://localhost:8080`
-
-### 3. API testen
-
-**Partner suchen:**
-
-```bash
-curl "http://localhost:8080/api/partners/search?name=ACME"
-```
-
-**Partner erstellen:**
-
-```bash
-curl -X POST http://localhost:8080/api/partners \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "ACME Insurance GmbH",
-    "email": "contact@acme.ch",
-    "phone": "+41 44 123 45 67",
-    "partnerType": "CUSTOMER"
-  }'
-```
-
-**Partner Details abrufen:**
-
-```bash
-curl "http://localhost:8080/api/partners/{partnerId}"
-```
-
-### 4. Tests ausführen
-
-```bash
+# Tests ausführen
 mvn test
+
+# Dev-Modus (Auto-Reload, H2 in-memory)
+mvn quarkus:dev
+
+# Produktion
+mvn clean package
+java -jar target/quarkus-app/quarkus-run.jar
 ```
 
-## Nächste Schritte (Roadmap)
+## Umgebungsvariablen
 
-- ✅ **Phase 1 (Walking Skeleton):** Partner-Suche + CRUD
-- [ ] **Phase 2:** Event Sourcing + Audit Log
-- [ ] **Phase 3:** REST API für intra-domain Kommunikation
-- [ ] **Phase 4:** Advanced Search (Elasticsearch)
-- [ ] **Phase 5:** UI mit Qute Templates
-
-## Hexagonal Architecture Details
-
-### Ports (Interfaces)
-
-Das Service definiert folgende Ports:
-
-**Input Ports (Use Cases):**
-
-- `SearchPartnerPort` – Use Case: Partner nach Name suchen
-
-**Output Ports (Abhängigkeiten):**
-
-- `PartnerRepository` – Persistierung (aktuell PostgreSQL/JPA)
-- `PartnerEventPublisher` – Event-Publikation (aktuell Kafka)
-
-### Adapter (Implementierungen)
-
-- `PartnerJpaAdapter` → `PartnerRepository` (JPA/PostgreSQL)
-- `PartnerKafkaAdapter` → `PartnerEventPublisher` (Kafka Producer)
-- `PartnerRestAdapter` → REST Endpoints (HTTP)
-
-Die Domain-Logik in `PartnerApplicationService` ist **vollkommen framework-agnostisch** und nutzt nur die Port-Interfaces.
-
-## Open Data Contracts (ODC)
-
-Jedes publizierte Kafka-Topic hat einen ODC:
-
-```yaml
-# partner.v1.created.odcontract.yaml
-apiVersion: v2.3.0
-kind: DataContract
-id: partner-created-v1
-version: 1.0.0
-name: Partner Created Event
-schema:
-  type: avro
-  # ... Avro Schema Definition
-quality:
-  type: SodaCL
-  # ... Data Quality Rules
-serviceLevel:
-  availability: "99.9%"
-  retention: "7 years"
 ```
-
-ODCs sind der **verbindliche Vertrag** zwischen Producer (Partner Service) und Consumers (andere Domänen).
-
-## Configuration (application.yml)
-
-Wichtige Umgebungsvariablen:
-
-```yaml
 DATABASE_URL=jdbc:postgresql://localhost:5432/partner_db
 DATABASE_USER=partner_user
 DATABASE_PASSWORD=partner_pass
-
 KAFKA_BROKERS=localhost:9092
-KAFKA_SCHEMA_REGISTRY=http://localhost:8081
 ```
 
-Siehe `src/main/resources/application.yml` für alle Optionen.
+## Roadmap
 
-## Observability
-
-### Logging
-
-Logs werden als JSON ausgegeben (strukturiert):
-
-```json
-{
-  "timestamp": "2026-03-12T10:30:00Z",
-  "level": "INFO",
-  "message": "Partner created",
-  "partnerId": "550e8400-e29b-41d4-a716-446655440000",
-  "class": "ch.css.partner.domain.service.PartnerApplicationService"
-}
-```
+- ✅ **Phase 1:** Partner CRUD (Walking Skeleton)
+- ✅ **Phase 2:** Erweitertes Domänenmodell (Kontakt, Vertrag, Interaktion)
+- ✅ **Phase 3:** Vollständige REST API (CRUD + Sub-Ressourcen)
+- ✅ **Phase 4:** Qute UI mit htmx + Bootstrap
+- ✅ **Phase 5:** 6 Kafka Topics mit ODC
+- [ ] **Phase 6:** Outbox Pattern (ADR-001 Compliance)
+- [ ] **Phase 7:** Keycloak OIDC-Integration (RBAC)
+- [ ] **Phase 8:** gRPC-Integration für Policy-Domäne
 
 ## Lizenz
 

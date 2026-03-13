@@ -1,15 +1,15 @@
 quarkus:
   application:
-    name: partner-service
+    name: person-service
     version: 1.0.0
 
   http:
     port: 9080
 
   smallrye-openapi:
-    info-title: Partner Service API
+    info-title: Person Service API
     info-version: 1.0.0
-    info-description: REST API for Partner/Customer Management (Hexagonal Architecture)
+    info-description: REST API für Personenverwaltung (Hexagonal Architecture)
     info-contact-name: CSS Team
     path: /openapi
 
@@ -19,15 +19,16 @@ quarkus:
 
   datasource:
     db-kind: postgresql
-    db-version: "12.0"
-    username: ${DATABASE_USER:partner_user}
-    password: ${DATABASE_PASSWORD:partner_pass}
-    jdbc:
-      url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/partner_db}
 
   hibernate-orm:
     schema-management:
       strategy: none # Use Flyway for migrations
+
+  hibernate-envers:
+    store-data-at-delete: true
+    audit-table-suffix: _aud
+    revision-field-name: rev
+    revision-type-field-name: rev_type
 
   flyway:
     migrate-at-start: true
@@ -39,46 +40,51 @@ quarkus:
   log:
     level: INFO
 
-"%dev":
+# Prod: explicit DB + Kafka broker (env-var driven)
+"%prod":
   quarkus:
     datasource:
-      db-kind: h2
-      db-version: "2.4.240"
-      username: sa
-      password: sa
+      db-version: "12.0"
+      username: ${DATABASE_USER:partner_user}
+      password: ${DATABASE_PASSWORD:partner_pass}
       jdbc:
-        url: jdbc:h2:mem:partner_dev;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
-    hibernate-orm:
-      # Use Hibernate to manage schema in dev (Flyway migrations use PostgreSQL-specific syntax)
-      schema-management:
-        strategy: drop-and-create
-      database:
-        version-check:
-          enabled: false
-    flyway:
-      migrate-at-start: false
+        url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/partner_db}
+  mp:
+    messaging:
+      kafka:
+        bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}
 
-# Messaging Configuration
+# Messaging channels (connector/topic/serializers shared across all profiles)
+# bootstrap.servers is omitted → Kafka DevServices (Redpanda) used in dev/test
 mp:
   messaging:
     outgoing:
-      partner-created:
+      person-created:
         connector: smallrye-kafka
-        topic: partner.v1.created
+        topic: person.v1.created
         value.serializer: org.apache.kafka.common.serialization.StringSerializer
         key.serializer: org.apache.kafka.common.serialization.StringSerializer
-        bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}
 
-      partner-updated:
+      person-updated:
         connector: smallrye-kafka
-        topic: partner.v1.updated
+        topic: person.v1.updated
         value.serializer: org.apache.kafka.common.serialization.StringSerializer
         key.serializer: org.apache.kafka.common.serialization.StringSerializer
-        bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}
 
-      partner-deleted:
+      person-deleted:
         connector: smallrye-kafka
-        topic: partner.v1.deleted
+        topic: person.v1.deleted
         value.serializer: org.apache.kafka.common.serialization.StringSerializer
         key.serializer: org.apache.kafka.common.serialization.StringSerializer
-        bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}
+
+      person-address-added:
+        connector: smallrye-kafka
+        topic: person.v1.address-added
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+
+      person-address-updated:
+        connector: smallrye-kafka
+        topic: person.v1.address-updated
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer

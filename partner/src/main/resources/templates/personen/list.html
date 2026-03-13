@@ -1,0 +1,93 @@
+{#include layout/base.html}
+{#title}Personenverwaltung{/title}
+{#content}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Personenverwaltung</h2>
+  <button class="btn btn-primary"
+          hx-get="/personen/fragments/neu"
+          hx-target="#modal-container"
+          hx-swap="innerHTML">
+    + Neue Person
+  </button>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="row g-2">
+      <div class="col-md-3">
+        <input type="text" id="s-name" name="name" class="form-control" placeholder="Name"
+               hx-get="/personen/fragments/list"
+               hx-include="#s-name,#s-vorname,#s-ahv"
+               hx-target="#personen-tabelle" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+      </div>
+      <div class="col-md-3">
+        <input type="text" id="s-vorname" name="vorname" class="form-control" placeholder="Vorname"
+               hx-get="/personen/fragments/list"
+               hx-include="#s-name,#s-vorname,#s-ahv"
+               hx-target="#personen-tabelle" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+      </div>
+      <div class="col-md-4">
+        <input type="text" id="s-ahv" name="ahv" class="form-control"
+               placeholder="AHV-Nr. (756.XXXX.XXXX.XX)"
+               hx-get="/personen/fragments/list"
+               hx-include="#s-name,#s-vorname,#s-ahv"
+               hx-target="#personen-tabelle" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-outline-secondary w-100"
+                hx-get="/personen/fragments/list"
+                hx-include="#s-name,#s-vorname,#s-ahv"
+                hx-target="#personen-tabelle" hx-swap="innerHTML">
+          Suchen
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<table class="table table-hover">
+  <thead class="table-light">
+    <tr>
+      <th>Name</th>
+      <th>Vorname</th>
+      <th>Geburtsdatum</th>
+      <th>AHV-Nummer</th>
+      <th>Aktionen</th>
+    </tr>
+  </thead>
+  <tbody id="personen-tabelle">
+    {#fragment id="tabelle"}
+    {#if personen}
+      {#for person in personen}
+      <tr id="person-{person.personId}">
+        <td>{person.name}</td>
+        <td>{person.vorname}</td>
+        <td>{person.geburtsdatum}</td>
+        <td>{#if person.ahvNummer}{person.ahvNummer.formatted()}{#else}–{/if}</td>
+        <td>
+          <a href="/personen/{person.personId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+          <button class="btn btn-sm btn-outline-danger"
+                  hx-delete="/api/personen/{person.personId}"
+                  hx-confirm="Person '{person.vorname} {person.name}' wirklich löschen?"
+                  hx-target="#person-{person.personId}"
+                  hx-swap="outerHTML swap:0.3s">
+            Löschen
+          </button>
+        </td>
+      </tr>
+      {/for}
+      {#if personen.isEmpty()}
+      <tr><td colspan="5" class="text-muted text-center">Keine Personen gefunden</td></tr>
+      {/if}
+    {#else}
+      <tr><td colspan="5" class="text-muted text-center">Bitte Suchbegriff eingeben</td></tr>
+    {/if}
+    {/fragment}
+  </tbody>
+</table>
+
+{/content}
+{/include}

@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: DataContract
+metadata:
+  name: person.v1.deleted
+  version: "1.0.0"
+  domain: partner
+  description: Event published when a person is deleted (physical delete with cascade)
+
+spec:
+  topic: person.v1.deleted
+  format: JSON
+
+  schema:
+    fields:
+      - name: eventId
+        type: string
+        format: uuid
+        nullable: false
+      - name: eventType
+        type: string
+        enum: ["PersonDeleted"]
+        nullable: false
+      - name: personId
+        type: string
+        format: uuid
+        nullable: false
+      - name: timestamp
+        type: string
+        format: datetime
+        nullable: false
+
+  quality:
+    - type: SodaCL
+      checks: |
+        checks for person.v1.deleted:
+          - not_null:
+              columns: [eventId, eventType, personId, timestamp]
+          - no_duplicate_rows:
+              columns: [eventId]
+

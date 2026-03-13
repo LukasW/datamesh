@@ -5,6 +5,7 @@
 ### 1.1 Aufgabenstellung
 
 Aufbau einer modernen Versicherungsplattform für eine Sachversicherung auf Basis von:
+
 - **Domain-Driven Design (DDD)** mit klar abgegrenzten Bounded Contexts
 - **Hexagonal Architecture** (Ports & Adapters) pro Domäne
 - **Self-Contained Systems (SCS)** – jede Domäne ist eine eigenständige Applikation
@@ -46,6 +47,9 @@ Aufbau einer modernen Versicherungsplattform für eine Sachversicherung auf Basi
 | PostgreSQL | Relationale Persistenz pro Domäne (eigene DB-Instanz) |
 | Qute + Bootstrap + htmx | Server-seitige UIs, kein SPA-Overhead |
 | Open Data Contract (ODC) | Formale Beschreibung aller publizierten Datensätze |
+| Hibernate Envers | Versionierung und Audit-Trails für Entities |
+
+---
 
 ### 2.2 Organisatorische Randbedingungen
 

@@ -1,0 +1,44 @@
+{#include layout/base.html}
+{#title}Person bearbeiten{/title}
+{#content}
+<a href="/personen" class="btn btn-outline-secondary btn-sm mb-3">← Zurück zur Liste</a>
+<h2>Person bearbeiten: {person.vorname} {person.name}</h2>
+
+<div class="row mt-3">
+  <!-- Personalien -->
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header fw-bold">Personalien</div>
+      <div class="card-body">
+        {#include personen/fragments/personalien-form person=person success=false /}
+      </div>
+    </div>
+  </div>
+
+  <!-- Adressen -->
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-bold">Adressen</span>
+        <button class="btn btn-sm btn-outline-primary"
+                hx-get="/personen/fragments/{person.personId}/adresse-form"
+                hx-target="#adress-liste"
+                hx-swap="afterbegin">
+          + Adresse hinzufügen
+        </button>
+      </div>
+      <div class="card-body">
+        <div id="adress-liste">
+          {#for adresse in person.adressen}
+            {#include personen/fragments/adresse-karte adresse=adresse personId=person.personId /}
+          {/for}
+          {#if person.adressen.isEmpty()}
+            <p class="text-muted">Keine Adressen erfasst.</p>
+          {/if}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{/content}
+{/include}

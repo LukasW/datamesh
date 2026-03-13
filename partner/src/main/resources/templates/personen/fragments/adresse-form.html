@@ -1,0 +1,62 @@
+<div class="card mb-2 border-primary" id="adresse-neu-form">
+  <div class="card-body p-2">
+    <div id="adresse-form-errors">{#if errorMessage}{errorMessage.raw}{/if}</div>
+    <form hx-post="/personen/fragments/{personId}/adressen"
+          hx-target="#adresse-neu-form"
+          hx-swap="outerHTML">
+      <div class="row g-2 mb-2">
+        <div class="col-md-4">
+          <label class="form-label small">Adresstyp <span class="text-danger">*</span></label>
+          <select name="adressTyp" class="form-select form-select-sm" required>
+            <option value="">– wählen –</option>
+            <option value="WOHNADRESSE">Wohnadresse</option>
+            <option value="KORRESPONDENZADRESSE">Korrespondenzadresse</option>
+            <option value="ZUSTELLADRESSE">Zustelladresse</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small">Strasse <span class="text-danger">*</span></label>
+          <input type="text" name="strasse" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small">Nr. <span class="text-danger">*</span></label>
+          <input type="text" name="hausnummer" class="form-control form-control-sm" required>
+        </div>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-md-2">
+          <label class="form-label small">PLZ <span class="text-danger">*</span></label>
+          <input type="text" name="plz" class="form-control form-control-sm"
+                 maxlength="4" inputmode="numeric"
+                 placeholder="z. B. 6020"
+                 oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4)"
+                 required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">Ort <span class="text-danger">*</span></label>
+          <input type="text" name="ort" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small">Land</label>
+          <input type="text" name="land" class="form-control form-control-sm" value="Schweiz">
+        </div>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-md-4">
+          <label class="form-label small">Gültig von <span class="text-danger">*</span></label>
+          <input type="date" name="gueltigVon" class="form-control form-control-sm" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small">Gültig bis <small class="text-muted">(leer = ∞)</small></label>
+          <input type="date" name="gueltigBis" class="form-control form-control-sm">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
+      <button type="button" class="btn btn-sm btn-secondary"
+              hx-target="#adresse-neu-form" hx-swap="outerHTML"
+              hx-get="/personen/fragments/{personId}/adresse-form-cancel">
+        Abbrechen
+      </button>
+    </form>
+  </div>
+</div>
