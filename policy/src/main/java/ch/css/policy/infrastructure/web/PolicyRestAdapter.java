@@ -34,7 +34,7 @@ public class PolicyRestAdapter {
     public Response createPolicy(CreatePolicyRequest req) {
         try {
             String id = policyService.createPolicy(
-                    req.policyNummer(), req.partnerId(), req.produktId(),
+                    req.partnerId(), req.produktId(),
                     req.versicherungsbeginn(), req.versicherungsende(),
                     req.praemie(), req.selbstbehalt() != null ? req.selbstbehalt() : BigDecimal.ZERO);
             return Response.status(201).entity(Map.of("id", id)).build();
@@ -173,7 +173,7 @@ public class PolicyRestAdapter {
     // ── Request / Response DTOs ───────────────────────────────────────────────
 
     public record CreatePolicyRequest(
-            String policyNummer, String partnerId, String produktId,
+            String partnerId, String produktId,
             LocalDate versicherungsbeginn, LocalDate versicherungsende,
             BigDecimal praemie, BigDecimal selbstbehalt) {}
 

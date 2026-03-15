@@ -77,7 +77,7 @@ public class DevDataInitializer {
     /** Hausrat police – AKTIV, mit Deckungen */
     private void seedHausratMuster() {
         String id = policyService.createPolicy(
-                "POL-2024-0001", PARTNER_MUSTER, PRODUKT_HAUSRAT,
+                PARTNER_MUSTER, PRODUKT_HAUSRAT,
                 LocalDate.of(2024, 1, 1), null,
                 new BigDecimal("320.00"), new BigDecimal("200.00"));
         policyService.addDeckung(id, Deckungstyp.HAUSRAT, new BigDecimal("80000.00"));
@@ -89,7 +89,7 @@ public class DevDataInitializer {
     /** Gebäude police – AKTIV, unbefristet */
     private void seedGebaeudeAktiv() {
         String id = policyService.createPolicy(
-                "POL-2023-0042", PARTNER_MUELLER, PRODUKT_GEBAUDE,
+                PARTNER_MUELLER, PRODUKT_GEBAUDE,
                 LocalDate.of(2023, 3, 1), null,
                 new BigDecimal("1250.00"), new BigDecimal("500.00"));
         policyService.addDeckung(id, Deckungstyp.GEBAEUDE, new BigDecimal("750000.00"));
@@ -100,7 +100,7 @@ public class DevDataInitializer {
     /** Haftpflicht – im Entwurf, noch nicht aktiviert */
     private void seedHaftpflichtEntwurf() {
         String id = policyService.createPolicy(
-                "POL-2026-0007", PARTNER_MEIER, PRODUKT_HAFTPFL,
+                PARTNER_MEIER, PRODUKT_HAFTPFL,
                 LocalDate.of(2026, 4, 1), null,
                 new BigDecimal("180.00"), new BigDecimal("0.00"));
         policyService.addDeckung(id, Deckungstyp.HAFTPFLICHT, new BigDecimal("5000000.00"));
@@ -109,7 +109,7 @@ public class DevDataInitializer {
     /** Gekündigte Police */
     private void seedGekuendigt() {
         String id = policyService.createPolicy(
-                "POL-2022-0099", PARTNER_MUSTER, PRODUKT_HAUSRAT,
+                PARTNER_MUSTER, PRODUKT_HAUSRAT,
                 LocalDate.of(2022, 1, 1), LocalDate.of(2024, 12, 31),
                 new BigDecimal("280.00"), new BigDecimal("150.00"));
         policyService.addDeckung(id, Deckungstyp.HAUSRAT, new BigDecimal("60000.00"));

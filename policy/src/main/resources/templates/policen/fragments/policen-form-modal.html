@@ -15,8 +15,9 @@
         onsubmit="return validatePolicyNeuForm(this)">
     <div class="row g-2 mb-2">
       <div class="col-md-6">
-        <label class="form-label">Policen-Nummer <span class="text-danger">*</span></label>
-        <input type="text" name="policyNummer" class="form-control" placeholder="z.B. POL-2026-0001" required>
+        <label class="form-label">Policen-Nummer</label>
+        <input type="text" class="form-control" value="Wird automatisch erstellt" readonly>
+        <small class="text-muted">Format: POL-{aktuelles Jahr}-XXXX</small>
       </div>
       <div class="col-md-6">
         <label class="form-label">Partner <span class="text-danger">*</span></label>

@@ -16,6 +16,7 @@ import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 @ApplicationScoped
 public class PolicyApplicationService {
@@ -35,12 +36,10 @@ public class PolicyApplicationService {
     // ── Policy Management ──────────────────────────────────────────────────────
 
     @Transactional
-    public String createPolicy(String policyNummer, String partnerId, String produktId,
+    public String createPolicy(String partnerId, String produktId,
                                LocalDate versicherungsbeginn, LocalDate versicherungsende,
                                BigDecimal praemie, BigDecimal selbstbehalt) {
-        if (policyRepository.existsByPolicyNummer(policyNummer)) {
-            throw new IllegalArgumentException("PolicyNummer bereits vorhanden: " + policyNummer);
-        }
+        String policyNummer = generatePolicyNummer();
         Policy policy = new Policy(policyNummer, partnerId, produktId,
                 versicherungsbeginn, versicherungsende, praemie, selbstbehalt);
         policyRepository.save(policy);
@@ -151,6 +150,18 @@ public class PolicyApplicationService {
     private Policy findOrThrow(String policyId) {
         return policyRepository.findById(policyId)
                 .orElseThrow(() -> new PolicyNotFoundException(policyId));
+    }
+
+    private String generatePolicyNummer() {
+        int year = LocalDate.now().getYear();
+        for (int i = 0; i < 25; i++) {
+            int seq = ThreadLocalRandom.current().nextInt(1, 10_000);
+            String candidate = "POL-%d-%04d".formatted(year, seq);
+            if (!policyRepository.existsByPolicyNummer(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Konnte keine eindeutige Policen-Nummer erzeugen");
     }
 }
 

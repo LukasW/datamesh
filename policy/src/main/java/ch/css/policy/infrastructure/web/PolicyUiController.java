@@ -128,7 +128,6 @@ public class PolicyUiController {
     @Path("/fragments")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Object createPolicyFragment(
-            @FormParam("policyNummer") String policyNummer,
             @FormParam("partnerId") String partnerId,
             @FormParam("produktId") String produktId,
             @FormParam("versicherungsbeginn") String versicherungsbeginn,
@@ -140,7 +139,7 @@ public class PolicyUiController {
             LocalDate ende = isNotBlank(versicherungsende) ? LocalDate.parse(versicherungsende) : null;
             BigDecimal p = new BigDecimal(praemie);
             BigDecimal sb = isNotBlank(selbstbehalt) ? new BigDecimal(selbstbehalt) : BigDecimal.ZERO;
-            String id = policyService.createPolicy(policyNummer, partnerId, produktId, beginn, ende, p, sb);
+            String id = policyService.createPolicy(partnerId, produktId, beginn, ende, p, sb);
             Policy policy = policyService.findById(id);
             return policenRow.data("policy", policy)
                              .data("partnerSichten", policyService.getPartnerSichtenMap())
@@ -158,11 +157,7 @@ public class PolicyUiController {
     public Object getDetailsForm(@PathParam("id") String id) {
         try {
             Policy policy = policyService.findById(id);
-            return policyDetailsForm
-                    .data("policy", policy)
-                    .data("activeProdukte", policyService.getActiveProdukte())
-                    .data("success", false)
-                    .data("errorMessage", null);
+            return renderPolicyDetailsForm(policy, false, null);
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity("<p>" + escapeHtml(e.getMessage()) + "</p>").build();
         }
@@ -188,21 +183,14 @@ public class PolicyUiController {
             BigDecimal sb = isNotBlank(selbstbehalt) ? new BigDecimal(selbstbehalt) : BigDecimal.ZERO;
             policyService.updatePolicyDetails(policyId, produktId, beginn, ende, p, sb);
             Policy policy = policyService.findById(policyId);
-            return policyDetailsForm
-                    .data("policy", policy)
-                    .data("activeProdukte", policyService.getActiveProdukte())
-                    .data("success", true)
-                    .data("errorMessage", null);
+            return renderPolicyDetailsForm(policy, true, null);
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity("<p>" + escapeHtml(e.getMessage()) + "</p>").build();
         } catch (Exception e) {
             try {
                 Policy policy = policyService.findById(policyId);
-                return policyDetailsForm
-                        .data("policy", policy)
-                        .data("activeProdukte", policyService.getActiveProdukte())
-                        .data("success", false)
-                        .data("errorMessage", "<div class=\"alert alert-danger\">" + escapeHtml(e.getMessage()) + "</div>");
+                return renderPolicyDetailsForm(policy, false,
+                        "<div class=\"alert alert-danger\">" + escapeHtml(e.getMessage()) + "</div>");
             } catch (Exception ex) {
                 return Response.status(422)
                         .entity("<div class=\"alert alert-danger\">" + escapeHtml(e.getMessage()) + "</div>")
@@ -349,6 +337,15 @@ public class PolicyUiController {
 
     private static boolean isNotBlank(String s) {
         return s != null && !s.isBlank();
+    }
+
+    private TemplateInstance renderPolicyDetailsForm(Policy policy, boolean success, String errorMessage) {
+        return policyDetailsForm
+                .data("policy", policy)
+                .data("activeProdukte", policyService.getActiveProdukte())
+                .data("partnerSichten", policyService.getPartnerSichtenMap())
+                .data("success", success)
+                .data("errorMessage", errorMessage);
     }
 
     private static String escapeHtml(String s) {
