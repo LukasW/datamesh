@@ -83,7 +83,7 @@
       <td>
         {#if produktSichten.get(policy.productId)}
           {produktSichten.get(policy.productId).name}
-          <br><small class="text-muted">{produktSichten.get(policy.productId).productLine}</small>
+          <br><small class="text-muted">{produktSichten.get(policy.productId).productLineLabel}</small>
         {#else}
           <span class="text-muted small">{policy.productId}</span>
         {/if}

@@ -1,8 +1,9 @@
 package ch.css.product.domain.service;
 
+import ch.css.product.domain.model.OutboxEvent;
 import ch.css.product.domain.model.Product;
 import ch.css.product.domain.model.ProductLine;
-import ch.css.product.domain.port.out.ProductEventPublisher;
+import ch.css.product.domain.port.out.OutboxRepository;
 import ch.css.product.domain.port.out.ProductRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -10,6 +11,7 @@ import jakarta.transaction.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 @ApplicationScoped
 public class ProductApplicationService {
@@ -18,7 +20,7 @@ public class ProductApplicationService {
     ProductRepository productRepository;
 
     @Inject
-    ProductEventPublisher productEventPublisher;
+    OutboxRepository outboxRepository;
 
     // ── Product CRUD ──────────────────────────────────────────────────────────
 
@@ -26,7 +28,12 @@ public class ProductApplicationService {
     public String defineProduct(String name, String description, ProductLine productLine, BigDecimal basePremium) {
         Product product = new Product(name, description, productLine, basePremium);
         productRepository.save(product);
-        productEventPublisher.publishProductDefined(product);
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "product", product.getProductId(), "ProductDefined",
+                ProductEventPayloadBuilder.TOPIC_PRODUCT_DEFINED,
+                ProductEventPayloadBuilder.buildProductDefined(
+                        product.getProductId(), product.getName(),
+                        product.getProductLine().name(), product.getBasePremium())));
         return product.getProductId();
     }
 
@@ -36,7 +43,12 @@ public class ProductApplicationService {
         Product product = findOrThrow(productId);
         product.update(name, description, productLine, basePremium);
         productRepository.save(product);
-        productEventPublisher.publishProductUpdated(product);
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "product", productId, "ProductUpdated",
+                ProductEventPayloadBuilder.TOPIC_PRODUCT_UPDATED,
+                ProductEventPayloadBuilder.buildProductUpdated(
+                        productId, product.getName(),
+                        product.getProductLine().name(), product.getBasePremium())));
         return product;
     }
 
@@ -45,7 +57,10 @@ public class ProductApplicationService {
         Product product = findOrThrow(productId);
         product.deprecate();
         productRepository.save(product);
-        productEventPublisher.publishProductDeprecated(productId);
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "product", productId, "ProductDeprecated",
+                ProductEventPayloadBuilder.TOPIC_PRODUCT_DEPRECATED,
+                ProductEventPayloadBuilder.buildProductDeprecated(productId)));
         return product;
     }
 

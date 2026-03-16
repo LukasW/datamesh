@@ -22,7 +22,7 @@
         {#for line in productLines}
         <option value="{line.name()}"
                 {#if product.productLine.name() == line.name()}selected{/if}>
-          {line.name()}
+          {line.label}
         </option>
         {/for}
       </select>

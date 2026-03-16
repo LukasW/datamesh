@@ -3,7 +3,8 @@ package ch.css.product.domain;
 import ch.css.product.domain.model.Product;
 import ch.css.product.domain.model.ProductLine;
 import ch.css.product.domain.model.ProductStatus;
-import ch.css.product.domain.port.out.ProductEventPublisher;
+import ch.css.product.domain.model.OutboxEvent;
+import ch.css.product.domain.port.out.OutboxRepository;
 import ch.css.product.domain.port.out.ProductRepository;
 import ch.css.product.domain.service.ProductApplicationService;
 import ch.css.product.domain.service.ProductNotFoundException;
@@ -32,7 +33,7 @@ class ProductApplicationServiceTest {
     ProductRepository productRepository;
 
     @Mock
-    ProductEventPublisher productEventPublisher;
+    OutboxRepository outboxRepository;
 
     @InjectMocks
     ProductApplicationService service;
@@ -52,7 +53,7 @@ class ProductApplicationServiceTest {
 
         assertNotNull(id);
         verify(productRepository).save(any(Product.class));
-        verify(productEventPublisher).publishProductDefined(any(Product.class));
+        verify(outboxRepository).save(any(OutboxEvent.class));
     }
 
     @Test
@@ -61,7 +62,7 @@ class ProductApplicationServiceTest {
                 ProductLine.LIABILITY, new BigDecimal("300.00"));
 
         verify(productRepository).save(existingProduct);
-        verify(productEventPublisher).publishProductUpdated(existingProduct);
+        verify(outboxRepository).save(any(OutboxEvent.class));
         assertEquals("Geändert", existingProduct.getName());
     }
 
@@ -78,7 +79,7 @@ class ProductApplicationServiceTest {
         service.deprecateProduct(existingProduct.getProductId());
 
         verify(productRepository).save(existingProduct);
-        verify(productEventPublisher).publishProductDeprecated(existingProduct.getProductId());
+        verify(outboxRepository).save(any(OutboxEvent.class));
         assertEquals(ProductStatus.DEPRECATED, existingProduct.getStatus());
     }
 

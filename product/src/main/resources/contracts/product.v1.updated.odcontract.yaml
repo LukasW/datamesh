@@ -36,7 +36,7 @@ schema:
     - name: productLine
       type: string
       required: true
-      enum: [HAUSRAT, HAFTPFLICHT, MOTORFAHRZEUG, REISE, RECHTSSCHUTZ]
+      enum: [HOUSEHOLD_CONTENTS, LIABILITY, MOTOR_VEHICLE, TRAVEL, LEGAL_EXPENSES]
     - name: basePremium
       type: number
       required: true

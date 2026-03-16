@@ -1,6 +1,6 @@
 <tr id="product-{product.productId}">
   <td>{product.name}</td>
-  <td>{product.productLine.name()}</td>
+  <td>{product.productLine.label}</td>
   <td class="text-end">{product.basePremium}</td>
   <td>
     <span class="badge {#if product.status.name() == 'ACTIVE'}bg-success{#else}bg-secondary{/if}">

@@ -17,7 +17,18 @@ public record ProductView(
     public String getProductLine() { return productLine; }
     public BigDecimal getBasePremium() { return basePremium; }
     public boolean isActive() { return active; }
+    public String getProductLineLabel() {
+        return switch (productLine) {
+            case "HOUSEHOLD_CONTENTS" -> "Hausrat";
+            case "LIABILITY"          -> "Haftpflicht";
+            case "MOTOR_VEHICLE"      -> "Motorfahrzeug";
+            case "TRAVEL"             -> "Reise";
+            case "LEGAL_EXPENSES"     -> "Rechtsschutz";
+            default                   -> productLine;
+        };
+    }
+
     public String getDisplayLabel() {
-        return name + " (" + productLine + ")";
+        return name + " (" + getProductLineLabel() + ")";
     }
 }

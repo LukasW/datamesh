@@ -117,6 +117,8 @@ services:
         condition: service_healthy
       partner-db:
         condition: service_healthy
+      product-db:
+        condition: service_healthy
     ports:
       - "8083:8083"
     environment:
@@ -136,6 +138,7 @@ services:
       CONNECT_CONFIG_PROVIDERS: env
       CONNECT_CONFIG_PROVIDERS_ENV_CLASS: org.apache.kafka.common.config.provider.EnvVarConfigProvider
       PARTNER_DB_PASSWORD: ${PARTNER_DB_PASSWORD}
+      PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors || exit 1"]
       interval: 10s
@@ -166,16 +169,23 @@ services:
         curl -f -X POST http://debezium-connect:8083/connectors \
           -H 'Content-Type: application/json' \
           -d @/config/partner-outbox-connector.json \
-          && echo 'Connector registered.' \
-          || echo 'Connector registration failed (may already exist).'
+          && echo 'Partner connector registered.' \
+          || echo 'Partner connector registration failed (may already exist).'
+        curl -f -X POST http://debezium-connect:8083/connectors \
+          -H 'Content-Type: application/json' \
+          -d @/config/product-outbox-connector.json \
+          && echo 'Product connector registered.' \
+          || echo 'Product connector registration failed (may already exist).'
     volumes:
       - ./infra/debezium/partner-outbox-connector.json:/config/partner-outbox-connector.json
+      - ./infra/debezium/product-outbox-connector.json:/config/product-outbox-connector.json
     networks:
       - backend
 
   product-db:
     image: postgres:16
     restart: unless-stopped
+    command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
     environment:
       POSTGRES_DB: product_db
       POSTGRES_USER: product_user

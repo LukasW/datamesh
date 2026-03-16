@@ -25,7 +25,7 @@
       <select name="productLine" class="form-select" required>
         <option value="">– bitte wählen –</option>
         {#for line in productLines}
-        <option value="{line.name()}">{line.name()}</option>
+        <option value="{line.name()}">{line.label}</option>
         {/for}
       </select>
     </div>
