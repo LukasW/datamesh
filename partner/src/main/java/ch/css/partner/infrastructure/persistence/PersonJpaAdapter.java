@@ -38,8 +38,12 @@ public class PersonJpaAdapter implements PersonRepository {
 
     @Override
     public Optional<Person> findById(String personId) {
-        PersonEntity entity = em.find(PersonEntity.class, personId);
-        return Optional.ofNullable(entity).map(this::toDomain);
+        List<PersonEntity> results = em.createQuery(
+                "SELECT DISTINCT p FROM PersonEntity p LEFT JOIN FETCH p.addresses WHERE p.personId = :id",
+                PersonEntity.class)
+                .setParameter("id", personId)
+                .getResultList();
+        return results.isEmpty() ? Optional.empty() : Optional.of(toDomain(results.get(0)));
     }
 
     @Override

@@ -44,6 +44,10 @@ public class PersonApplicationService {
                 PersonEventPayloadBuilder.TOPIC_PERSON_CREATED,
                 PersonEventPayloadBuilder.buildPersonCreated(
                         person.getPersonId(), name, firstName, socialSecurityNumber, dateOfBirth)));
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "person", person.getPersonId(), "PersonState",
+                PersonEventPayloadBuilder.TOPIC_PERSON_STATE,
+                PersonEventPayloadBuilder.buildPersonState(person)));
         return person.getPersonId();
     }
 
@@ -57,6 +61,10 @@ public class PersonApplicationService {
                 UUID.randomUUID(), "person", personId, "PersonUpdated",
                 PersonEventPayloadBuilder.TOPIC_PERSON_UPDATED,
                 PersonEventPayloadBuilder.buildPersonUpdated(personId, name, firstName)));
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "person", personId, "PersonState",
+                PersonEventPayloadBuilder.TOPIC_PERSON_STATE,
+                PersonEventPayloadBuilder.buildPersonState(person)));
     }
 
     @Transactional
@@ -67,6 +75,10 @@ public class PersonApplicationService {
                 UUID.randomUUID(), "person", personId, "PersonDeleted",
                 PersonEventPayloadBuilder.TOPIC_PERSON_DELETED,
                 PersonEventPayloadBuilder.buildPersonDeleted(personId)));
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "person", personId, "PersonState",
+                PersonEventPayloadBuilder.TOPIC_PERSON_STATE,
+                PersonEventPayloadBuilder.buildPersonStateDeleted(personId)));
     }
 
     public Person findById(String personId) {
@@ -102,7 +114,12 @@ public class PersonApplicationService {
         outboxRepository.save(new OutboxEvent(
                 UUID.randomUUID(), "person", personId, "AddressAdded",
                 PersonEventPayloadBuilder.TOPIC_PERSON_ADDRESS_ADDED,
-                PersonEventPayloadBuilder.buildAddressAdded(personId, addressId, addressType, validFrom)));
+                PersonEventPayloadBuilder.buildAddressAdded(personId, addressId, addressType,
+                        street, houseNumber, postalCode, city, land, validFrom, validTo)));
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "person", personId, "PersonState",
+                PersonEventPayloadBuilder.TOPIC_PERSON_STATE,
+                PersonEventPayloadBuilder.buildPersonState(person)));
         return addressId;
     }
 
@@ -116,6 +133,10 @@ public class PersonApplicationService {
                 UUID.randomUUID(), "person", personId, "AddressUpdated",
                 PersonEventPayloadBuilder.TOPIC_PERSON_ADDRESS_UPDATED,
                 PersonEventPayloadBuilder.buildAddressUpdated(personId, addressId, validFrom, validTo)));
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "person", personId, "PersonState",
+                PersonEventPayloadBuilder.TOPIC_PERSON_STATE,
+                PersonEventPayloadBuilder.buildPersonState(person)));
     }
 
     @Transactional
@@ -123,6 +144,10 @@ public class PersonApplicationService {
         Person person = findOrThrow(personId);
         person.removeAddress(addressId);
         personRepository.save(person);
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "person", personId, "PersonState",
+                PersonEventPayloadBuilder.TOPIC_PERSON_STATE,
+                PersonEventPayloadBuilder.buildPersonState(person)));
     }
 
     public List<Address> getAddresses(String personId) {

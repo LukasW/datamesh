@@ -37,7 +37,7 @@
         {#for p in activeProdukte}
         <option value="{p.productId}"
           {#if p.productId == policy.productId}selected{/if}>
-          {p.name} ({p.productLine})
+          {p.name} ({p.productLineLabel})
         </option>
         {/for}
       </select>

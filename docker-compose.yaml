@@ -74,6 +74,14 @@ services:
                 bootstrap.servers: "kafka:29092"
               schema-registry:
                 url: "http://schema-registry:8081"
+        micronaut:
+          security:
+            token:
+              jwt:
+                signatures:
+                  secret:
+                    generator:
+                      secret: "${AKHQ_JWT_SECRET:changeme-at-least-256-bits-long-secret}"
     networks:
       - frontend
     deploy:
@@ -106,6 +114,27 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic person.v1.state \
+          --partitions 6 \
+          --replication-factor 1 \
+          --config cleanup.policy=compact \
+          --config min.cleanable.dirty.ratio=0.01 \
+          --config segment.ms=10000 \
+          && echo 'person.v1.state topic created.'
+    networks:
+      - backend
 
   debezium-connect:
     build:

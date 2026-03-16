@@ -39,7 +39,7 @@
       <select name="productId" class="form-select" required>
         <option value="">– bitte wählen –</option>
         {#for p in activeProdukte}
-        <option value="{p.productId}">{p.name} ({p.productLine}) – CHF {p.basePremium}/J</option>
+        <option value="{p.productId}">{p.name} ({p.productLineLabel}) – CHF {p.basePremium}/J</option>
         {/for}
       </select>
       {#else}
