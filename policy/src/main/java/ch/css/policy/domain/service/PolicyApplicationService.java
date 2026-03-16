@@ -1,14 +1,14 @@
 package ch.css.policy.domain.service;
 
-import ch.css.policy.domain.model.Deckungstyp;
-import ch.css.policy.domain.model.PartnerSicht;
+import ch.css.policy.domain.model.CoverageType;
+import ch.css.policy.domain.model.PartnerView;
 import ch.css.policy.domain.model.Policy;
 import ch.css.policy.domain.model.PolicyStatus;
-import ch.css.policy.domain.model.ProduktSicht;
-import ch.css.policy.domain.port.out.PartnerSichtRepository;
+import ch.css.policy.domain.model.ProductView;
+import ch.css.policy.domain.port.out.PartnerViewRepository;
 import ch.css.policy.domain.port.out.PolicyEventPublisher;
 import ch.css.policy.domain.port.out.PolicyRepository;
-import ch.css.policy.domain.port.out.ProduktSichtRepository;
+import ch.css.policy.domain.port.out.ProductViewRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -28,70 +28,70 @@ public class PolicyApplicationService {
     PolicyEventPublisher policyEventPublisher;
 
     @Inject
-    PartnerSichtRepository partnerSichtRepository;
+    PartnerViewRepository partnerViewRepository;
 
     @Inject
-    ProduktSichtRepository produktSichtRepository;
+    ProductViewRepository productViewRepository;
 
     // ── Policy Management ──────────────────────────────────────────────────────
 
     @Transactional
-    public String createPolicy(String partnerId, String produktId,
-                               LocalDate versicherungsbeginn, LocalDate versicherungsende,
-                               BigDecimal praemie, BigDecimal selbstbehalt) {
-        String policyNummer = generatePolicyNummer();
-        Policy policy = new Policy(policyNummer, partnerId, produktId,
-                versicherungsbeginn, versicherungsende, praemie, selbstbehalt);
+    public String createPolicy(String partnerId, String productId,
+                               LocalDate coverageStartDate, LocalDate coverageEndDate,
+                               BigDecimal premium, BigDecimal deductible) {
+        String policyNumber = generatePolicyNumber();
+        Policy policy = new Policy(policyNumber, partnerId, productId,
+                coverageStartDate, coverageEndDate, premium, deductible);
         policyRepository.save(policy);
         return policy.getPolicyId();
     }
 
     @Transactional
-    public void aktivierePolicy(String policyId) {
+    public void activatePolicy(String policyId) {
         Policy policy = findOrThrow(policyId);
-        policy.aktivieren();
+        policy.activate();
         policyRepository.save(policy);
         policyEventPublisher.publishPolicyIssued(
-                policy.getPolicyId(), policy.getPolicyNummer(),
-                policy.getPartnerId(), policy.getProduktId(),
-                policy.getVersicherungsbeginn(), policy.getPraemie());
+                policy.getPolicyId(), policy.getPolicyNumber(),
+                policy.getPartnerId(), policy.getProductId(),
+                policy.getCoverageStartDate(), policy.getPremium());
     }
 
     @Transactional
-    public void kuendigePolicy(String policyId) {
+    public void cancelPolicy(String policyId) {
         Policy policy = findOrThrow(policyId);
-        policy.kuendigen();
+        policy.cancel();
         policyRepository.save(policy);
-        policyEventPublisher.publishPolicyCancelled(policy.getPolicyId(), policy.getPolicyNummer());
+        policyEventPublisher.publishPolicyCancelled(policy.getPolicyId(), policy.getPolicyNumber());
     }
 
     @Transactional
-    public void updatePolicyDetails(String policyId, String produktId,
-                                    LocalDate versicherungsbeginn, LocalDate versicherungsende,
-                                    BigDecimal praemie, BigDecimal selbstbehalt) {
+    public void updatePolicyDetails(String policyId, String productId,
+                                    LocalDate coverageStartDate, LocalDate coverageEndDate,
+                                    BigDecimal premium, BigDecimal deductible) {
         Policy policy = findOrThrow(policyId);
-        policy.updateDetails(produktId, versicherungsbeginn, versicherungsende, praemie, selbstbehalt);
+        policy.updateDetails(productId, coverageStartDate, coverageEndDate, premium, deductible);
         policyRepository.save(policy);
         policyEventPublisher.publishPolicyChanged(
-                policy.getPolicyId(), policy.getPolicyNummer(),
-                policy.getPraemie(), policy.getSelbstbehalt());
+                policy.getPolicyId(), policy.getPolicyNumber(),
+                policy.getPremium(), policy.getDeductible());
     }
 
     @Transactional
-    public String addDeckung(String policyId, Deckungstyp deckungstyp, BigDecimal versicherungssumme) {
+    public String addCoverage(String policyId, CoverageType coverageType, BigDecimal insuredAmount) {
         Policy policy = findOrThrow(policyId);
-        String deckungId = policy.addDeckung(deckungstyp, versicherungssumme);
+        String coverageId = policy.addCoverage(coverageType, insuredAmount);
         policyRepository.save(policy);
-        policyEventPublisher.publishDeckungHinzugefuegt(policyId, deckungId, deckungstyp, versicherungssumme);
-        return deckungId;
+        policyEventPublisher.publishCoverageAdded(policyId, coverageId, coverageType, insuredAmount);
+        return coverageId;
     }
 
     @Transactional
-    public void removeDeckung(String policyId, String deckungId) {
+    public void removeCoverage(String policyId, String coverageId) {
         Policy policy = findOrThrow(policyId);
-        policy.removeDeckung(deckungId);
+        policy.removeCoverage(coverageId);
         policyRepository.save(policy);
-        policyEventPublisher.publishDeckungEntfernt(policyId, deckungId);
+        policyEventPublisher.publishCoverageRemoved(policyId, coverageId);
     }
 
     // ── Queries ────────────────────────────────────────────────────────────────
@@ -100,48 +100,48 @@ public class PolicyApplicationService {
         return findOrThrow(policyId);
     }
 
-    public Policy findByPolicyNummer(String policyNummer) {
-        return policyRepository.findByPolicyNummer(policyNummer)
-                .orElseThrow(() -> new PolicyNotFoundException(policyNummer));
+    public Policy findByPolicyNumber(String policyNumber) {
+        return policyRepository.findByPolicyNumber(policyNumber)
+                .orElseThrow(() -> new PolicyNotFoundException(policyNumber));
     }
 
-    public List<Policy> listAllPolicen() {
+    public List<Policy> listAllPolicies() {
         return policyRepository.search(null, null, null);
     }
 
-    public List<Policy> searchPolicen(String policyNummer, String partnerId, String statusStr) {
+    public List<Policy> searchPolicies(String policyNumber, String partnerId, String statusStr) {
         PolicyStatus status = (statusStr != null && !statusStr.isBlank())
                 ? PolicyStatus.valueOf(statusStr) : null;
-        return policyRepository.search(policyNummer, partnerId, status);
+        return policyRepository.search(policyNumber, partnerId, status);
     }
 
     // ── Read Model Queries (Partner & Product) ─────────────────────────────────
 
-    public java.util.Map<String, PartnerSicht> getPartnerSichtenMap() {
-        java.util.Map<String, PartnerSicht> map = new java.util.HashMap<>();
-        partnerSichtRepository.findAll().forEach(p -> map.put(p.getPartnerId(), p));
+    public java.util.Map<String, PartnerView> getPartnerViewsMap() {
+        java.util.Map<String, PartnerView> map = new java.util.HashMap<>();
+        partnerViewRepository.findAll().forEach(p -> map.put(p.getPartnerId(), p));
         return map;
     }
 
-    public java.util.Optional<PartnerSicht> findPartnerSicht(String partnerId) {
-        return partnerSichtRepository.findById(partnerId);
+    public java.util.Optional<PartnerView> findPartnerView(String partnerId) {
+        return partnerViewRepository.findById(partnerId);
     }
 
     /**
-     * Searches partner sichten by name fragment (case-insensitive, max 20 results).
+     * Searches partner views by name fragment (case-insensitive, max 20 results).
      * Returns top 20 partners when query is blank.
      */
-    public java.util.List<PartnerSicht> searchPartnerSichten(String nameQuery) {
-        return partnerSichtRepository.search(nameQuery);
+    public java.util.List<PartnerView> searchPartnerViews(String nameQuery) {
+        return partnerViewRepository.search(nameQuery);
     }
 
-    public java.util.List<ProduktSicht> getActiveProdukte() {
-        return produktSichtRepository.findAllActive();
+    public java.util.List<ProductView> getActiveProducts() {
+        return productViewRepository.findAllActive();
     }
 
-    public java.util.Map<String, ProduktSicht> getProduktSichtenMap() {
-        java.util.Map<String, ProduktSicht> map = new java.util.HashMap<>();
-        produktSichtRepository.findAll().forEach(p -> map.put(p.getProduktId(), p));
+    public java.util.Map<String, ProductView> getProductViewsMap() {
+        java.util.Map<String, ProductView> map = new java.util.HashMap<>();
+        productViewRepository.findAll().forEach(p -> map.put(p.getProductId(), p));
         return map;
     }
 
@@ -152,16 +152,15 @@ public class PolicyApplicationService {
                 .orElseThrow(() -> new PolicyNotFoundException(policyId));
     }
 
-    private String generatePolicyNummer() {
+    private String generatePolicyNumber() {
         int year = LocalDate.now().getYear();
         for (int i = 0; i < 25; i++) {
             int seq = ThreadLocalRandom.current().nextInt(1, 10_000);
             String candidate = "POL-%d-%04d".formatted(year, seq);
-            if (!policyRepository.existsByPolicyNummer(candidate)) {
+            if (!policyRepository.existsByPolicyNumber(candidate)) {
                 return candidate;
             }
         }
-        throw new IllegalStateException("Konnte keine eindeutige Policen-Nummer erzeugen");
+        throw new IllegalStateException("Could not generate a unique policy number");
     }
 }
-

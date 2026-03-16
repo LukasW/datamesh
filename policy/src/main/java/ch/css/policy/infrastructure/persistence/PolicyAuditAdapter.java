@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Reads Hibernate Envers audit history for Policy and Deckung entities.
+ * Reads Hibernate Envers audit history for Policy and Coverage entities.
  */
 @ApplicationScoped
 public class PolicyAuditAdapter {
@@ -34,14 +34,14 @@ public class PolicyAuditAdapter {
         return rows.stream().map(this::toPolicyRecord).toList();
     }
 
-    public List<DeckungRevisionRecord> getDeckungHistory(String deckungId) {
+    public List<CoverageRevisionRecord> getCoverageHistory(String coverageId) {
         AuditReader reader = AuditReaderFactory.get(em);
         @SuppressWarnings("unchecked")
         List<Object[]> rows = reader.createQuery()
-                .forRevisionsOfEntity(DeckungEntity.class, false, true)
-                .add(AuditEntity.id().eq(deckungId))
+                .forRevisionsOfEntity(CoverageEntity.class, false, true)
+                .add(AuditEntity.id().eq(coverageId))
                 .getResultList();
-        return rows.stream().map(this::toDeckungRecord).toList();
+        return rows.stream().map(this::toCoverageRecord).toList();
     }
 
     private PolicyRevisionRecord toPolicyRecord(Object[] row) {
@@ -53,21 +53,21 @@ public class PolicyAuditAdapter {
         LocalDateTime changedAt = revisionTimestamp(revEntity);
         String changedBy = changedBy(revEntity);
 
-        Map<String, Object> zustand = (entity != null) ? Map.of(
-                "policyNummer", nvl(entity.getPolicyNummer()),
+        Map<String, Object> state = (entity != null) ? Map.of(
+                "policyNumber", nvl(entity.getPolicyNumber()),
                 "partnerId", nvl(entity.getPartnerId()),
-                "produktId", nvl(entity.getProduktId()),
+                "productId", nvl(entity.getProductId()),
                 "status", nvl(entity.getStatus()),
-                "versicherungsbeginn", nvl(entity.getVersicherungsbeginn()),
-                "praemie", nvl(entity.getPraemie()),
-                "selbstbehalt", nvl(entity.getSelbstbehalt())
+                "coverageStartDate", nvl(entity.getCoverageStartDate()),
+                "premium", nvl(entity.getPremium()),
+                "deductible", nvl(entity.getDeductible())
         ) : Map.of();
 
-        return new PolicyRevisionRecord(revNum, revTypeName(revType), changedAt, changedBy, zustand);
+        return new PolicyRevisionRecord(revNum, revTypeName(revType), changedAt, changedBy, state);
     }
 
-    private DeckungRevisionRecord toDeckungRecord(Object[] row) {
-        DeckungEntity entity = (DeckungEntity) row[0];
+    private CoverageRevisionRecord toCoverageRecord(Object[] row) {
+        CoverageEntity entity = (CoverageEntity) row[0];
         Object revEntity = row[1];
         RevisionType revType = (RevisionType) row[2];
 
@@ -75,12 +75,12 @@ public class PolicyAuditAdapter {
         LocalDateTime changedAt = revisionTimestamp(revEntity);
         String changedBy = changedBy(revEntity);
 
-        Map<String, Object> zustand = (entity != null) ? Map.of(
-                "deckungstyp", nvl(entity.getDeckungstyp()),
-                "versicherungssumme", nvl(entity.getVersicherungssumme())
+        Map<String, Object> state = (entity != null) ? Map.of(
+                "coverageType", nvl(entity.getCoverageType()),
+                "insuredAmount", nvl(entity.getInsuredAmount())
         ) : Map.of();
 
-        return new DeckungRevisionRecord(revNum, revTypeName(revType), changedAt, changedBy, zustand);
+        return new CoverageRevisionRecord(revNum, revTypeName(revType), changedAt, changedBy, state);
     }
 
     private long revisionNumber(Object revEntity) {
@@ -123,19 +123,18 @@ public class PolicyAuditAdapter {
     // ── Records ───────────────────────────────────────────────────────────────
 
     public record PolicyRevisionRecord(
-            long revisionNummer,
-            String revisionTyp,
-            LocalDateTime geaendertAm,
-            String geaendertVon,
-            Map<String, Object> zustand
+            long revisionNumber,
+            String revisionType,
+            LocalDateTime changedAt,
+            String changedBy,
+            Map<String, Object> state
     ) {}
 
-    public record DeckungRevisionRecord(
-            long revisionNummer,
-            String revisionTyp,
-            LocalDateTime geaendertAm,
-            String geaendertVon,
-            Map<String, Object> zustand
+    public record CoverageRevisionRecord(
+            long revisionNumber,
+            String revisionType,
+            LocalDateTime changedAt,
+            String changedBy,
+            Map<String, Object> state
     ) {}
 }
-

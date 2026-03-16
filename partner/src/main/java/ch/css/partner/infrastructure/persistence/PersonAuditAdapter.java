@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Reads Hibernate Envers audit history for Person and Adresse entities.
+ * Reads Hibernate Envers audit history for Person and Address entities.
  */
 @ApplicationScoped
 public class PersonAuditAdapter {
@@ -33,14 +33,14 @@ public class PersonAuditAdapter {
         return rows.stream().map(this::toPersonRecord).toList();
     }
 
-    public List<AdresseRevisionRecord> getAdresseHistory(String adressId) {
+    public List<AddressRevisionRecord> getAddressHistory(String addressId) {
         AuditReader reader = AuditReaderFactory.get(em);
         @SuppressWarnings("unchecked")
         List<Object[]> rows = reader.createQuery()
-                .forRevisionsOfEntity(AdresseEntity.class, false, true)
-                .add(AuditEntity.id().eq(adressId))
+                .forRevisionsOfEntity(AddressEntity.class, false, true)
+                .add(AuditEntity.id().eq(addressId))
                 .getResultList();
-        return rows.stream().map(this::toAdresseRecord).toList();
+        return rows.stream().map(this::toAddressRecord).toList();
     }
 
     private PersonRevisionRecord toPersonRecord(Object[] row) {
@@ -52,19 +52,19 @@ public class PersonAuditAdapter {
         LocalDateTime changedAt = revisionTimestamp(revEntity);
         String changedBy = changedBy(revEntity);
 
-        Map<String, Object> zustand = (entity != null) ? Map.of(
+        Map<String, Object> state = (entity != null) ? Map.of(
                 "name", nvl(entity.getName()),
-                "vorname", nvl(entity.getVorname()),
-                "geschlecht", nvl(entity.getGeschlecht()),
-                "geburtsdatum", nvl(entity.getGeburtsdatum()),
-                "ahvNummer", nvl(entity.getAhvNummer())
+                "firstName", nvl(entity.getFirstName()),
+                "gender", nvl(entity.getGender()),
+                "dateOfBirth", nvl(entity.getDateOfBirth()),
+                "socialSecurityNumber", nvl(entity.getSocialSecurityNumber())
         ) : Map.of();
 
-        return new PersonRevisionRecord(revNum, revTypeName(revType), changedAt, changedBy, zustand);
+        return new PersonRevisionRecord(revNum, revTypeName(revType), changedAt, changedBy, state);
     }
 
-    private AdresseRevisionRecord toAdresseRecord(Object[] row) {
-        AdresseEntity entity = (AdresseEntity) row[0];
+    private AddressRevisionRecord toAddressRecord(Object[] row) {
+        AddressEntity entity = (AddressEntity) row[0];
         Object revEntity = row[1];
         RevisionType revType = (RevisionType) row[2];
 
@@ -72,17 +72,17 @@ public class PersonAuditAdapter {
         LocalDateTime changedAt = revisionTimestamp(revEntity);
         String changedBy = changedBy(revEntity);
 
-        Map<String, Object> zustand = (entity != null) ? Map.of(
-                "adressTyp", nvl(entity.getAdressTyp()),
-                "strasse", nvl(entity.getStrasse()),
-                "hausnummer", nvl(entity.getHausnummer()),
-                "plz", nvl(entity.getPlz()),
-                "ort", nvl(entity.getOrt()),
-                "gueltigVon", nvl(entity.getGueltigVon()),
-                "gueltigBis", entity.getGueltigBis() != null ? entity.getGueltigBis().toString() : null
+        Map<String, Object> state = (entity != null) ? Map.of(
+                "addressType", nvl(entity.getAddressType()),
+                "street", nvl(entity.getStreet()),
+                "houseNumber", nvl(entity.getHouseNumber()),
+                "postalCode", nvl(entity.getPostalCode()),
+                "city", nvl(entity.getCity()),
+                "validFrom", nvl(entity.getValidFrom()),
+                "validTo", entity.getValidTo() != null ? entity.getValidTo().toString() : null
         ) : Map.of();
 
-        return new AdresseRevisionRecord(revNum, revTypeName(revType), changedAt, changedBy, zustand);
+        return new AddressRevisionRecord(revNum, revTypeName(revType), changedAt, changedBy, state);
     }
 
     private long revisionNumber(Object revEntity) {
@@ -125,18 +125,18 @@ public class PersonAuditAdapter {
     // ── Records ───────────────────────────────────────────────────────────────
 
     public record PersonRevisionRecord(
-            long revisionNummer,
-            String revisionTyp,
-            LocalDateTime geaendertAm,
-            String geaendertVon,
-            Map<String, Object> zustand
+            long revisionNumber,
+            String revisionType,
+            LocalDateTime changedAt,
+            String changedBy,
+            Map<String, Object> state
     ) {}
 
-    public record AdresseRevisionRecord(
-            long revisionNummer,
-            String revisionTyp,
-            LocalDateTime geaendertAm,
-            String geaendertVon,
-            Map<String, Object> zustand
+    public record AddressRevisionRecord(
+            long revisionNumber,
+            String revisionType,
+            LocalDateTime changedAt,
+            String changedBy,
+            Map<String, Object> state
     ) {}
 }

@@ -41,14 +41,14 @@ class ProductApplicationServiceTest {
 
     @BeforeEach
     void setUp() {
-        existingProduct = new Product("Hausrat Basis", "Beschreibung", ProductLine.HAUSRAT, new BigDecimal("200.00"));
+        existingProduct = new Product("Hausrat Basis", "Beschreibung", ProductLine.HOUSEHOLD_CONTENTS, new BigDecimal("200.00"));
         when(productRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(productRepository.findById(existingProduct.getProductId())).thenReturn(Optional.of(existingProduct));
     }
 
     @Test
     void defineProduct_savesAndPublishesEvent() {
-        String id = service.defineProduct("Neues Produkt", "desc", ProductLine.REISE, new BigDecimal("100.00"));
+        String id = service.defineProduct("Neues Produkt", "desc", ProductLine.TRAVEL, new BigDecimal("100.00"));
 
         assertNotNull(id);
         verify(productRepository).save(any(Product.class));
@@ -58,7 +58,7 @@ class ProductApplicationServiceTest {
     @Test
     void updateProduct_updatesAndPublishesEvent() {
         service.updateProduct(existingProduct.getProductId(), "Geändert", "new desc",
-                ProductLine.HAFTPFLICHT, new BigDecimal("300.00"));
+                ProductLine.LIABILITY, new BigDecimal("300.00"));
 
         verify(productRepository).save(existingProduct);
         verify(productEventPublisher).publishProductUpdated(existingProduct);
@@ -70,7 +70,7 @@ class ProductApplicationServiceTest {
         when(productRepository.findById("unknown")).thenReturn(Optional.empty());
 
         assertThrows(ProductNotFoundException.class,
-                () -> service.updateProduct("unknown", "x", null, ProductLine.HAUSRAT, BigDecimal.ONE));
+                () -> service.updateProduct("unknown", "x", null, ProductLine.HOUSEHOLD_CONTENTS, BigDecimal.ONE));
     }
 
     @Test

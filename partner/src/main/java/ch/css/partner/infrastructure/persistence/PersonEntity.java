@@ -21,16 +21,16 @@ public class PersonEntity {
     private String name;
 
     @Column(name = "vorname", nullable = false, length = 100)
-    private String vorname;
+    private String firstName;
 
     @Column(name = "geschlecht", nullable = false, length = 10)
-    private String geschlecht;
+    private String gender;
 
     @Column(name = "geburtsdatum", nullable = false)
-    private LocalDate geburtsdatum;
+    private LocalDate dateOfBirth;
 
     @Column(name = "ahv_nummer", nullable = true, unique = true, length = 16)
-    private String ahvNummer;
+    private String socialSecurityNumber;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -40,7 +40,7 @@ public class PersonEntity {
 
     @OneToMany(mappedBy = "person", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Audited
-    private List<AdresseEntity> adressen = new ArrayList<>();
+    private List<AddressEntity> addresses = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {
@@ -58,16 +58,16 @@ public class PersonEntity {
     public void setPersonId(String personId) { this.personId = personId; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-    public String getVorname() { return vorname; }
-    public void setVorname(String vorname) { this.vorname = vorname; }
-    public String getGeschlecht() { return geschlecht; }
-    public void setGeschlecht(String geschlecht) { this.geschlecht = geschlecht; }
-    public LocalDate getGeburtsdatum() { return geburtsdatum; }
-    public void setGeburtsdatum(LocalDate geburtsdatum) { this.geburtsdatum = geburtsdatum; }
-    public String getAhvNummer() { return ahvNummer; }
-    public void setAhvNummer(String ahvNummer) { this.ahvNummer = ahvNummer; }
+    public String getFirstName() { return firstName; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
+    public LocalDate getDateOfBirth() { return dateOfBirth; }
+    public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
+    public String getSocialSecurityNumber() { return socialSecurityNumber; }
+    public void setSocialSecurityNumber(String socialSecurityNumber) { this.socialSecurityNumber = socialSecurityNumber; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public List<AdresseEntity> getAdressen() { return adressen; }
-    public void setAdressen(List<AdresseEntity> adressen) { this.adressen = adressen; }
+    public List<AddressEntity> getAddresses() { return addresses; }
+    public void setAddresses(List<AddressEntity> addresses) { this.addresses = addresses; }
 }

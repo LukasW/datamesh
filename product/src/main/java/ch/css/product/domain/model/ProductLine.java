@@ -1,9 +1,9 @@
 package ch.css.product.domain.model;
 
 public enum ProductLine {
-    HAUSRAT,
-    HAFTPFLICHT,
-    MOTORFAHRZEUG,
-    REISE,
-    RECHTSSCHUTZ
+    HOUSEHOLD_CONTENTS,
+    LIABILITY,
+    MOTOR_VEHICLE,
+    TRAVEL,
+    LEGAL_EXPENSES
 }

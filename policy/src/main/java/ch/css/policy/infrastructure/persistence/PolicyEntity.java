@@ -19,28 +19,28 @@ public class PolicyEntity {
     private String policyId;
 
     @Column(name = "policy_nummer", nullable = false, unique = true, length = 50)
-    private String policyNummer;
+    private String policyNumber;
 
     @Column(name = "partner_id", nullable = false, length = 36)
     private String partnerId;
 
     @Column(name = "produkt_id", nullable = false, length = 36)
-    private String produktId;
+    private String productId;
 
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
     @Column(name = "versicherungsbeginn", nullable = false)
-    private LocalDate versicherungsbeginn;
+    private LocalDate coverageStartDate;
 
     @Column(name = "versicherungsende")
-    private LocalDate versicherungsende;
+    private LocalDate coverageEndDate;
 
     @Column(name = "praemie", nullable = false, precision = 12, scale = 2)
-    private BigDecimal praemie;
+    private BigDecimal premium;
 
     @Column(name = "selbstbehalt", nullable = false, precision = 12, scale = 2)
-    private BigDecimal selbstbehalt;
+    private BigDecimal deductible;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -50,7 +50,7 @@ public class PolicyEntity {
 
     @OneToMany(mappedBy = "policy", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Audited
-    private List<DeckungEntity> deckungen = new ArrayList<>();
+    private List<CoverageEntity> coverages = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {
@@ -66,25 +66,24 @@ public class PolicyEntity {
     // Getters & Setters
     public String getPolicyId() { return policyId; }
     public void setPolicyId(String policyId) { this.policyId = policyId; }
-    public String getPolicyNummer() { return policyNummer; }
-    public void setPolicyNummer(String policyNummer) { this.policyNummer = policyNummer; }
+    public String getPolicyNumber() { return policyNumber; }
+    public void setPolicyNumber(String policyNumber) { this.policyNumber = policyNumber; }
     public String getPartnerId() { return partnerId; }
     public void setPartnerId(String partnerId) { this.partnerId = partnerId; }
-    public String getProduktId() { return produktId; }
-    public void setProduktId(String produktId) { this.produktId = produktId; }
+    public String getProductId() { return productId; }
+    public void setProductId(String productId) { this.productId = productId; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-    public LocalDate getVersicherungsbeginn() { return versicherungsbeginn; }
-    public void setVersicherungsbeginn(LocalDate versicherungsbeginn) { this.versicherungsbeginn = versicherungsbeginn; }
-    public LocalDate getVersicherungsende() { return versicherungsende; }
-    public void setVersicherungsende(LocalDate versicherungsende) { this.versicherungsende = versicherungsende; }
-    public BigDecimal getPraemie() { return praemie; }
-    public void setPraemie(BigDecimal praemie) { this.praemie = praemie; }
-    public BigDecimal getSelbstbehalt() { return selbstbehalt; }
-    public void setSelbstbehalt(BigDecimal selbstbehalt) { this.selbstbehalt = selbstbehalt; }
+    public LocalDate getCoverageStartDate() { return coverageStartDate; }
+    public void setCoverageStartDate(LocalDate coverageStartDate) { this.coverageStartDate = coverageStartDate; }
+    public LocalDate getCoverageEndDate() { return coverageEndDate; }
+    public void setCoverageEndDate(LocalDate coverageEndDate) { this.coverageEndDate = coverageEndDate; }
+    public BigDecimal getPremium() { return premium; }
+    public void setPremium(BigDecimal premium) { this.premium = premium; }
+    public BigDecimal getDeductible() { return deductible; }
+    public void setDeductible(BigDecimal deductible) { this.deductible = deductible; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public List<DeckungEntity> getDeckungen() { return deckungen; }
-    public void setDeckungen(List<DeckungEntity> deckungen) { this.deckungen = deckungen; }
+    public List<CoverageEntity> getCoverages() { return coverages; }
+    public void setCoverages(List<CoverageEntity> coverages) { this.coverages = coverages; }
 }
-

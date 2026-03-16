@@ -61,6 +61,11 @@ Aufbau einer modernen Versicherungsplattform für eine Sachversicherung auf Basi
 
 ## 3. Kontextabgrenzung
 
+> **Fachliche Spezifikationen der implementierten Services:**
+> - Partner/Customer Service → [`partner/specs/business_spec.md`](../partner/specs/business_spec.md)
+> - Product Management Service → [`product/specs/business_spec.md`](../product/specs/business_spec.md)
+> - Policy Management Service → [`policy/specs/business_spec.md`](../policy/specs/business_spec.md)
+
 ### 3.1 Fachlicher Kontext (Context Map)
 
 ```plantuml
@@ -257,6 +262,14 @@ rectangle "4. Federated Governance" as D4 {
 ---
 
 ## 5. Bausteinsicht
+
+> **Implementierte Services und ihre fachlichen Spezifikationen:**
+>
+> | Service | Fachspezifikation | Port |
+> |---|---|---|
+> | Partner/Customer Management | [`partner/specs/business_spec.md`](../partner/specs/business_spec.md) | 9080 |
+> | Product Management | [`product/specs/business_spec.md`](../product/specs/business_spec.md) | 9081 |
+> | Policy Management | [`policy/specs/business_spec.md`](../policy/specs/business_spec.md) | 9082 |
 
 ### 5.1 Ebene 1 – Systemübersicht
 
@@ -874,6 +887,31 @@ DB -> DB : mark as published
 
 ---
 
+### ADR-006: Transactional Outbox Pattern via Debezium CDC (Partner Service)
+
+**Status:** Accepted
+
+**Kontext:** Der bisherige Ansatz im Partner Service publizierte Kafka-Events direkt nach dem Datenbank-Commit (Dual-Write). Fiel der Kafka-Publish fehl, war das Event verloren, obwohl die DB-Transaktion committed war. Dies verletzt das Prinzip der at-least-once Delivery und widerspricht dem architektonischen Qualitätsziel «Ausfallsicherheit».
+
+**Entscheidung:** Der Partner Service schreibt Domain-Events atomar in eine `outbox`-Tabelle innerhalb derselben DB-Transaktion wie die Geschäftsdaten. Debezium Connect liest neue Zeilen via PostgreSQL WAL (logical replication) und publiziert sie an die Kafka-Topics. Der Application Service hat keine direkte Kafka-Abhängigkeit mehr.
+
+```
+PersonApplicationService
+  └─ outbox INSERT (same TX as domain entity)
+       └─ PostgreSQL WAL (wal_level=logical)
+            └─ Debezium Connect (EventRouter SMT)
+                 └─ Kafka topics  person.v1.*
+```
+
+**Konsequenzen:**
+- Garantierte at-least-once Delivery (keine Events gehen verloren)
+- Leichte Erhöhung der End-to-End-Latenz (WAL-Polling-Intervall von Debezium, typisch < 500ms)
+- Debezium Connect ist eine neue Infrastrukturkomponente (eigener Container, Port 8083)
+- PostgreSQL benötigt `wal_level=logical` (bereits in `docker-compose.yaml` konfiguriert)
+- Der Partner Service hat keine `quarkus-messaging-kafka`-Abhängigkeit mehr
+
+---
+
 ## 10. Qualitätsanforderungen
 
 ### 10.1 Qualitätsbaum
@@ -941,3 +979,5 @@ D --> D2
 | R-3 | Kafka Single Point of Failure | Alle Domänen betroffen | Multi-AZ Kafka Cluster, Replikationsfaktor 3 |
 | R-4 | REST Claims->Policy synchrone Abhängigkeit | Claims bei Policy-Ausfall nicht nutzbar | Circuit Breaker (SmallRye Fault Tolerance) + Fallback |
 | R-5 | Data Mesh Governance-Overhead | Teams umgehen ODC | Automatisierte ODC-Validierung in CI/CD-Pipeline |
+| R-6 | **Sprachinkonsistenz: Partner-Service (TD)** | Domainmodell verwendet deutsche Feldnamen und Klassennamen (`vorname`, `Adresse`, `Geschlecht`, `gueltigVon` etc.) anstatt englischer (ADR-005-Verletzung) | Koordiniertes Refactoring + ODC-Versionsbump für geänderte Event-Felder. Details: [`partner/specs/business_spec.md#10`](../partner/specs/business_spec.md) |
+| R-7 | **Sprachinkonsistenz: Policy-Service (TD)** | Domainmodell und Enums verwenden deutsche Bezeichner (`Deckung`, `Deckungstyp`, `ENTWURF`, `AKTIV`, `versicherungsbeginn` etc.) | Koordiniertes Refactoring über alle Consumer hinweg nötig. Details: [`policy/specs/business_spec.md#10`](../policy/specs/business_spec.md) |

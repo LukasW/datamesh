@@ -60,6 +60,7 @@ public class ProductKafkaAdapter implements ProductEventPublisher {
     }
 
     private void send(Emitter<String> emitter, String key, String json, String eventType) {
+        log.infof("Publishing Kafka event [%s] key=%s", eventType, key);
         try {
             emitter.send(KafkaRecord.of(key, json));
         } catch (Exception e) {

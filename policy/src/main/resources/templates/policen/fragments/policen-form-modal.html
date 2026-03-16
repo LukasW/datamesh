@@ -17,7 +17,7 @@
       <div class="col-md-6">
         <label class="form-label">Policen-Nummer</label>
         <input type="text" class="form-control" value="Wird automatisch erstellt" readonly>
-        <small class="text-muted">Format: POL-{aktuelles Jahr}-XXXX</small>
+        <small class="text-muted">Format: POL-{currentYear}-XXXX</small>
       </div>
       <div class="col-md-6">
         <label class="form-label">Partner <span class="text-danger">*</span></label>
@@ -36,36 +36,36 @@
     <div class="mb-2">
       <label class="form-label">Produkt <span class="text-danger">*</span></label>
       {#if activeProdukte && !activeProdukte.isEmpty()}
-      <select name="produktId" class="form-select" required>
+      <select name="productId" class="form-select" required>
         <option value="">– bitte wählen –</option>
         {#for p in activeProdukte}
-        <option value="{p.produktId}">{p.name} ({p.productLine}) – CHF {p.basePremium}/J</option>
+        <option value="{p.productId}">{p.name} ({p.productLine}) – CHF {p.basePremium}/J</option>
         {/for}
       </select>
       {#else}
-      <input type="text" name="produktId" class="form-control" placeholder="UUID des Produkts" required>
+      <input type="text" name="productId" class="form-control" placeholder="UUID des Produkts" required>
       <small class="text-muted">Keine Produkte im Katalog – bitte Produkt-UUID manuell eingeben.</small>
       {/if}
     </div>
     <div class="row g-2 mb-2">
       <div class="col-md-6">
         <label class="form-label">Versicherungsbeginn <span class="text-danger">*</span></label>
-        <input type="date" name="versicherungsbeginn" class="form-control" required>
+        <input type="date" name="coverageStartDate" class="form-control" required>
       </div>
       <div class="col-md-6">
         <label class="form-label">Versicherungsende <small class="text-muted">(leer = unbefristet)</small></label>
-        <input type="date" name="versicherungsende" class="form-control">
+        <input type="date" name="coverageEndDate" class="form-control">
       </div>
     </div>
     <div class="row g-2 mb-3">
       <div class="col-md-6">
         <label class="form-label">Jahresprämie (CHF) <span class="text-danger">*</span></label>
-        <input type="number" name="praemie" class="form-control" min="0.01" step="0.01"
+        <input type="number" name="premium" class="form-control" min="0.01" step="0.01"
                placeholder="z.B. 450.00" required>
       </div>
       <div class="col-md-6">
         <label class="form-label">Selbstbehalt (CHF)</label>
-        <input type="number" name="selbstbehalt" class="form-control" min="0" step="0.01"
+        <input type="number" name="deductible" class="form-control" min="0" step="0.01"
                value="0" placeholder="0.00">
       </div>
     </div>

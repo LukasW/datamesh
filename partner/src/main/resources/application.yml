@@ -40,7 +40,8 @@ quarkus:
   log:
     level: INFO
 
-# Prod: explicit DB + Kafka broker (env-var driven)
+# Prod: explicit DB connection (env-var driven)
+# Kafka publishing is handled by Debezium CDC reading the outbox table – no Kafka client needed here.
 "%prod":
   quarkus:
     datasource:
@@ -49,42 +50,3 @@ quarkus:
       password: ${DATABASE_PASSWORD:partner_pass}
       jdbc:
         url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/partner_db}
-  mp:
-    messaging:
-      kafka:
-        bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}
-
-# Messaging channels (connector/topic/serializers shared across all profiles)
-# bootstrap.servers is omitted → Kafka DevServices (Redpanda) used in dev/test
-mp:
-  messaging:
-    outgoing:
-      person-created:
-        connector: smallrye-kafka
-        topic: person.v1.created
-        value.serializer: org.apache.kafka.common.serialization.StringSerializer
-        key.serializer: org.apache.kafka.common.serialization.StringSerializer
-
-      person-updated:
-        connector: smallrye-kafka
-        topic: person.v1.updated
-        value.serializer: org.apache.kafka.common.serialization.StringSerializer
-        key.serializer: org.apache.kafka.common.serialization.StringSerializer
-
-      person-deleted:
-        connector: smallrye-kafka
-        topic: person.v1.deleted
-        value.serializer: org.apache.kafka.common.serialization.StringSerializer
-        key.serializer: org.apache.kafka.common.serialization.StringSerializer
-
-      person-address-added:
-        connector: smallrye-kafka
-        topic: person.v1.address-added
-        value.serializer: org.apache.kafka.common.serialization.StringSerializer
-        key.serializer: org.apache.kafka.common.serialization.StringSerializer
-
-      person-address-updated:
-        connector: smallrye-kafka
-        topic: person.v1.address-updated
-        value.serializer: org.apache.kafka.common.serialization.StringSerializer
-        key.serializer: org.apache.kafka.common.serialization.StringSerializer

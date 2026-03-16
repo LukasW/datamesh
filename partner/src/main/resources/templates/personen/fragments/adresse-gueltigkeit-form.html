@@ -1,25 +1,25 @@
 <div class="p-1">
-  <p class="fw-semibold mb-2">{adresse.adressTyp} — {adresse.strasse} {adresse.hausnummer}, {adresse.plz} {adresse.ort}</p>
-  <form hx-put="/personen/fragments/{personId}/adressen/{adresse.adressId}"
-        hx-target="#adresse-{adresse.adressId}"
+  <p class="fw-semibold mb-2">{adresse.addressType} — {adresse.street} {adresse.houseNumber}, {adresse.postalCode} {adresse.city}</p>
+  <form hx-put="/personen/fragments/{personId}/adressen/{adresse.addressId}"
+        hx-target="#adresse-{adresse.addressId}"
         hx-swap="outerHTML"
         hx-encoding="application/x-www-form-urlencoded">
     <div class="row g-2 mb-2">
       <div class="col-md-5">
         <label class="form-label small">Gültig von</label>
-        <input type="date" name="gueltigVon" class="form-control form-control-sm"
-               value="{adresse.gueltigVon}" required>
+        <input type="date" name="validFrom" class="form-control form-control-sm"
+               value="{adresse.validFrom}" required>
       </div>
       <div class="col-md-5">
         <label class="form-label small">Gültig bis <small class="text-muted">(leer = ∞)</small></label>
-        <input type="date" name="gueltigBis" class="form-control form-control-sm"
-               value="{#if adresse.gueltigBis}{adresse.gueltigBis}{/if}">
+        <input type="date" name="validTo" class="form-control form-control-sm"
+               value="{#if adresse.validTo}{adresse.validTo}{/if}">
       </div>
     </div>
     <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
     <button type="button" class="btn btn-sm btn-secondary"
-            hx-get="/personen/fragments/{personId}/adressen/{adresse.adressId}/karte"
-            hx-target="#adresse-{adresse.adressId}"
+            hx-get="/personen/fragments/{personId}/adressen/{adresse.addressId}/karte"
+            hx-target="#adresse-{adresse.addressId}"
             hx-swap="outerHTML">
       Abbrechen
     </button>

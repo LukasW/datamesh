@@ -51,6 +51,12 @@
             <artifactId>quarkus-messaging-kafka</artifactId>
         </dependency>
 
+        <!-- Container image build -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-container-image-podman</artifactId>
+        </dependency>
+
         <!-- Configuration -->
         <dependency>
             <groupId>io.quarkus</groupId>

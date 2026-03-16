@@ -1,10 +1,10 @@
 package ch.css.policy.infrastructure.dev;
 
-import ch.css.policy.domain.model.Deckungstyp;
-import ch.css.policy.domain.model.PartnerSicht;
-import ch.css.policy.domain.model.ProduktSicht;
-import ch.css.policy.domain.port.out.PartnerSichtRepository;
-import ch.css.policy.domain.port.out.ProduktSichtRepository;
+import ch.css.policy.domain.model.CoverageType;
+import ch.css.policy.domain.model.PartnerView;
+import ch.css.policy.domain.model.ProductView;
+import ch.css.policy.domain.port.out.PartnerViewRepository;
+import ch.css.policy.domain.port.out.ProductViewRepository;
 import ch.css.policy.domain.service.PolicyApplicationService;
 import io.quarkus.arc.profile.IfBuildProfile;
 import io.quarkus.runtime.StartupEvent;
@@ -31,90 +31,89 @@ public class DevDataInitializer {
     private static final String PARTNER_MUSTER   = "11111111-1111-1111-1111-111111111111";
     private static final String PARTNER_MUELLER  = "22222222-2222-2222-2222-222222222222";
     private static final String PARTNER_MEIER    = "33333333-3333-3333-3333-333333333333";
-    private static final String PRODUKT_HAUSRAT  = "aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-    private static final String PRODUKT_GEBAUDE  = "aaaaaaa2-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-    private static final String PRODUKT_HAFTPFL  = "aaaaaaa3-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    private static final String PRODUCT_HOUSEHOLD_CONTENTS_ID = "aaaaaaa1-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    private static final String PRODUCT_BUILDING_ID           = "aaaaaaa2-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    private static final String PRODUCT_LIABILITY_ID          = "aaaaaaa3-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
     @Inject
     PolicyApplicationService policyService;
 
     @Inject
-    PartnerSichtRepository partnerSichtRepository;
+    PartnerViewRepository partnerViewRepository;
 
     @Inject
-    ProduktSichtRepository produktSichtRepository;
+    ProductViewRepository productViewRepository;
 
     void onStart(@Observes StartupEvent event) {
-        if (!policyService.listAllPolicen().isEmpty()) {
+        if (!policyService.listAllPolicies().isEmpty()) {
             log.info("Dev data already present, skipping seed.");
             return;
         }
         log.info("Seeding dev test data...");
         seedReadModels();
-        seedHausratMuster();
-        seedGebaeudeAktiv();
-        seedHaftpflichtEntwurf();
-        seedGekuendigt();
-        log.info("Dev data seeded: 4 Policen.");
+        seedHouseholdContentsSample();
+        seedBuildingActive();
+        seedLiabilityDraft();
+        seedCancelled();
+        log.info("Dev data seeded: 4 policies.");
     }
 
     // ── Read Model Seed ───────────────────────────────────────────────────────
 
     /**
-     * Seed PartnerSicht and ProduktSicht read models.
+     * Seed PartnerView and ProductView read models.
      * Mirrors what would arrive via Kafka from the Partner and Product services.
      */
     private void seedReadModels() {
-        partnerSichtRepository.upsert(new PartnerSicht(PARTNER_MUSTER,  "Max Muster"));
-        partnerSichtRepository.upsert(new PartnerSicht(PARTNER_MUELLER, "Anna Müller"));
-        partnerSichtRepository.upsert(new PartnerSicht(PARTNER_MEIER,   "Hans Meier"));
+        partnerViewRepository.upsert(new PartnerView(PARTNER_MUSTER,  "Max Muster"));
+        partnerViewRepository.upsert(new PartnerView(PARTNER_MUELLER, "Anna Müller"));
+        partnerViewRepository.upsert(new PartnerView(PARTNER_MEIER,   "Hans Meier"));
 
-        produktSichtRepository.upsert(new ProduktSicht(PRODUKT_HAUSRAT, "Hausrat Basis",       "HAUSRAT",     new BigDecimal("100.00"), true));
-        produktSichtRepository.upsert(new ProduktSicht(PRODUKT_GEBAUDE, "Gebäude Kompakt",     "GEBAEUDE",    new BigDecimal("200.00"), true));
-        produktSichtRepository.upsert(new ProduktSicht(PRODUKT_HAFTPFL, "Haftpflicht Premium", "HAFTPFLICHT", new BigDecimal("80.00"),  true));
+        productViewRepository.upsert(new ProductView(PRODUCT_HOUSEHOLD_CONTENTS_ID, "Hausrat Basis",       "HOUSEHOLD_CONTENTS", new BigDecimal("100.00"), true));
+        productViewRepository.upsert(new ProductView(PRODUCT_BUILDING_ID, "Gebäude Kompakt",     "BUILDING",           new BigDecimal("200.00"), true));
+        productViewRepository.upsert(new ProductView(PRODUCT_LIABILITY_ID, "Haftpflicht Premium", "LIABILITY",          new BigDecimal("80.00"),  true));
     }
 
-    /** Hausrat police – AKTIV, mit Deckungen */
-    private void seedHausratMuster() {
+    /** Household contents policy – ACTIVE, with coverages */
+    private void seedHouseholdContentsSample() {
         String id = policyService.createPolicy(
-                PARTNER_MUSTER, PRODUKT_HAUSRAT,
+                PARTNER_MUSTER, PRODUCT_HOUSEHOLD_CONTENTS_ID,
                 LocalDate.of(2024, 1, 1), null,
                 new BigDecimal("320.00"), new BigDecimal("200.00"));
-        policyService.addDeckung(id, Deckungstyp.HAUSRAT, new BigDecimal("80000.00"));
-        policyService.addDeckung(id, Deckungstyp.GLASBRUCH, new BigDecimal("5000.00"));
-        policyService.addDeckung(id, Deckungstyp.DIEBSTAHL, new BigDecimal("10000.00"));
-        policyService.aktivierePolicy(id);
+        policyService.addCoverage(id, CoverageType.HOUSEHOLD_CONTENTS, new BigDecimal("80000.00"));
+        policyService.addCoverage(id, CoverageType.GLASS_BREAKAGE, new BigDecimal("5000.00"));
+        policyService.addCoverage(id, CoverageType.THEFT, new BigDecimal("10000.00"));
+        policyService.activatePolicy(id);
     }
 
-    /** Gebäude police – AKTIV, unbefristet */
-    private void seedGebaeudeAktiv() {
+    /** Building policy – ACTIVE, open-ended */
+    private void seedBuildingActive() {
         String id = policyService.createPolicy(
-                PARTNER_MUELLER, PRODUKT_GEBAUDE,
+                PARTNER_MUELLER, PRODUCT_BUILDING_ID,
                 LocalDate.of(2023, 3, 1), null,
                 new BigDecimal("1250.00"), new BigDecimal("500.00"));
-        policyService.addDeckung(id, Deckungstyp.GEBAEUDE, new BigDecimal("750000.00"));
-        policyService.addDeckung(id, Deckungstyp.ELEMENTAR, new BigDecimal("250000.00"));
-        policyService.aktivierePolicy(id);
+        policyService.addCoverage(id, CoverageType.BUILDING, new BigDecimal("750000.00"));
+        policyService.addCoverage(id, CoverageType.NATURAL_HAZARD, new BigDecimal("250000.00"));
+        policyService.activatePolicy(id);
     }
 
-    /** Haftpflicht – im Entwurf, noch nicht aktiviert */
-    private void seedHaftpflichtEntwurf() {
+    /** Liability – DRAFT, not yet activated */
+    private void seedLiabilityDraft() {
         String id = policyService.createPolicy(
-                PARTNER_MEIER, PRODUKT_HAFTPFL,
+                PARTNER_MEIER, PRODUCT_LIABILITY_ID,
                 LocalDate.of(2026, 4, 1), null,
                 new BigDecimal("180.00"), new BigDecimal("0.00"));
-        policyService.addDeckung(id, Deckungstyp.HAFTPFLICHT, new BigDecimal("5000000.00"));
+        policyService.addCoverage(id, CoverageType.LIABILITY, new BigDecimal("5000000.00"));
     }
 
-    /** Gekündigte Police */
-    private void seedGekuendigt() {
+    /** Cancelled policy */
+    private void seedCancelled() {
         String id = policyService.createPolicy(
-                PARTNER_MUSTER, PRODUKT_HAUSRAT,
+                PARTNER_MUSTER, PRODUCT_HOUSEHOLD_CONTENTS_ID,
                 LocalDate.of(2022, 1, 1), LocalDate.of(2024, 12, 31),
                 new BigDecimal("280.00"), new BigDecimal("150.00"));
-        policyService.addDeckung(id, Deckungstyp.HAUSRAT, new BigDecimal("60000.00"));
-        policyService.aktivierePolicy(id);
-        policyService.kuendigePolicy(id);
+        policyService.addCoverage(id, CoverageType.HOUSEHOLD_CONTENTS, new BigDecimal("60000.00"));
+        policyService.activatePolicy(id);
+        policyService.cancelPolicy(id);
     }
 }
-

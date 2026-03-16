@@ -1,7 +1,7 @@
 package ch.css.partner.domain;
 
 import ch.css.partner.domain.model.*;
-import ch.css.partner.domain.service.AdresseNotFoundException;
+import ch.css.partner.domain.service.AddressNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,14 +13,14 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("Person – Aggregate Tests")
 class PersonTest {
 
-    private static final AhvNummer AHV = new AhvNummer("756.1234.5678.97");
-    private static final LocalDate GEBURTSDATUM = LocalDate.of(1980, 5, 12);
+    private static final SocialSecurityNumber SSN = new SocialSecurityNumber("756.1234.5678.97");
+    private static final LocalDate DATE_OF_BIRTH = LocalDate.of(1980, 5, 12);
 
     private Person person;
 
     @BeforeEach
     void setUp() {
-        person = new Person("Muster", "Hans", Geschlecht.MAENNLICH, GEBURTSDATUM, AHV);
+        person = new Person("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH, SSN);
     }
 
     @Test
@@ -34,134 +34,133 @@ class PersonTest {
     @DisplayName("Neue Person wird korrekt initialisiert")
     void newPerson_fieldsSet() {
         assertEquals("Muster", person.getName());
-        assertEquals("Hans", person.getVorname());
-        assertEquals(Geschlecht.MAENNLICH, person.getGeschlecht());
-        assertEquals(GEBURTSDATUM, person.getGeburtsdatum());
-        assertEquals(AHV, person.getAhvNummer());
-        assertTrue(person.getAdressen().isEmpty());
+        assertEquals("Hans", person.getFirstName());
+        assertEquals(Gender.MALE, person.getGender());
+        assertEquals(DATE_OF_BIRTH, person.getDateOfBirth());
+        assertEquals(SSN, person.getSocialSecurityNumber());
+        assertTrue(person.getAddresses().isEmpty());
     }
 
     @Test
     @DisplayName("Pflichtfeld Name null → IllegalArgumentException")
     void missingName_throws() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Person(null, "Hans", Geschlecht.MAENNLICH, GEBURTSDATUM, AHV));
+                () -> new Person(null, "Hans", Gender.MALE, DATE_OF_BIRTH, SSN));
     }
 
     @Test
     @DisplayName("Pflichtfeld Vorname leer → IllegalArgumentException")
     void blankVorname_throws() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Person("Muster", "  ", Geschlecht.MAENNLICH, GEBURTSDATUM, AHV));
+                () -> new Person("Muster", "  ", Gender.MALE, DATE_OF_BIRTH, SSN));
     }
 
     @Test
     @DisplayName("Neue Person ohne AHV-Nummer wird akzeptiert")
     void newPersonWithoutAhv_accepted() {
-        Person p = new Person("Muster", "Hans", Geschlecht.MAENNLICH, GEBURTSDATUM, null);
+        Person p = new Person("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH, null);
         assertNotNull(p.getPersonId());
-        assertNull(p.getAhvNummer());
+        assertNull(p.getSocialSecurityNumber());
     }
 
     @Test
     @DisplayName("Pflichtfeld Geburtsdatum null → IllegalArgumentException")
     void missingGeburtsdatum_throws() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Person("Muster", "Hans", Geschlecht.MAENNLICH, null, AHV));
+                () -> new Person("Muster", "Hans", Gender.MALE, null, SSN));
     }
 
     @Test
-    @DisplayName("updatePersonalien ändert alle Felder korrekt")
-    void updatePersonalien_changesFields() {
-        person.updatePersonalien("Neuer", "Name", Geschlecht.WEIBLICH, LocalDate.of(1990, 1, 1));
+    @DisplayName("updatePersonalData ändert alle Felder korrekt")
+    void updatePersonalData_changesFields() {
+        person.updatePersonalData("Neuer", "Name", Gender.FEMALE, LocalDate.of(1990, 1, 1));
         assertEquals("Neuer", person.getName());
-        assertEquals("Name", person.getVorname());
-        assertEquals(Geschlecht.WEIBLICH, person.getGeschlecht());
-        assertEquals(LocalDate.of(1990, 1, 1), person.getGeburtsdatum());
-        // AHV-Nummer bleibt unverändert
-        assertEquals(AHV, person.getAhvNummer());
+        assertEquals("Name", person.getFirstName());
+        assertEquals(Gender.FEMALE, person.getGender());
+        assertEquals(LocalDate.of(1990, 1, 1), person.getDateOfBirth());
+        // SSN stays unchanged
+        assertEquals(SSN, person.getSocialSecurityNumber());
     }
 
     @Test
-    @DisplayName("addAdresse fügt Adresse hinzu und gibt adressId zurück")
-    void addAdresse_returnsId() {
-        String adressId = person.addAdresse(
-                AdressTyp.WOHNADRESSE, "Musterstr.", "1", "8001", "Zürich", "Schweiz",
+    @DisplayName("addAddress fügt Adresse hinzu und gibt addressId zurück")
+    void addAddress_returnsId() {
+        String addressId = person.addAddress(
+                AddressType.RESIDENCE, "Musterstr.", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
-        assertNotNull(adressId);
-        assertEquals(1, person.getAdressen().size());
-        assertEquals(AdressTyp.WOHNADRESSE, person.getAdressen().get(0).getAdressTyp());
+        assertNotNull(addressId);
+        assertEquals(1, person.getAddresses().size());
+        assertEquals(AddressType.RESIDENCE, person.getAddresses().get(0).getAddressType());
     }
 
     @Test
-    @DisplayName("addAdresse mit überlappenden Zeiträumen desselben Typs → erste Adresse wird zugeschnitten")
-    void addAdresse_overlapping_adjustsExisting() {
-        person.addAdresse(AdressTyp.WOHNADRESSE, "Str1", "1", "8001", "Zürich", "Schweiz",
+    @DisplayName("addAddress mit überlappenden Zeiträumen desselben Typs → erste Adresse wird zugeschnitten")
+    void addAddress_overlapping_adjustsExisting() {
+        person.addAddress(AddressType.RESIDENCE, "Str1", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
 
-        person.addAdresse(AdressTyp.WOHNADRESSE, "Str2", "2", "3000", "Bern", "Schweiz",
+        person.addAddress(AddressType.RESIDENCE, "Str2", "2", "3000", "Bern", "Schweiz",
                 LocalDate.of(2021, 1, 1), null);
 
-        assertEquals(2, person.getAdressen().size());
-        Adresse erste = person.getAdressen().stream()
-                .filter(a -> a.getHausnummer().equals("1")).findFirst().orElseThrow();
-        assertEquals(LocalDate.of(2020, 12, 31), erste.getGueltigBis());
+        assertEquals(2, person.getAddresses().size());
+        Address erste = person.getAddresses().stream()
+                .filter(a -> a.getHouseNumber().equals("1")).findFirst().orElseThrow();
+        assertEquals(LocalDate.of(2020, 12, 31), erste.getValidTo());
     }
 
     @Test
-    @DisplayName("addAdresse verschiedener Typen kann überlappen")
-    void addAdresse_differentTypes_noConflict() {
-        person.addAdresse(AdressTyp.WOHNADRESSE, "Str1", "1", "8001", "Zürich", "Schweiz",
+    @DisplayName("addAddress verschiedener Typen kann überlappen")
+    void addAddress_differentTypes_noConflict() {
+        person.addAddress(AddressType.RESIDENCE, "Str1", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
 
         assertDoesNotThrow(() ->
-                person.addAdresse(AdressTyp.KORRESPONDENZADRESSE, "Str2", "2", "3000", "Bern", "Schweiz",
+                person.addAddress(AddressType.CORRESPONDENCE, "Str2", "2", "3000", "Bern", "Schweiz",
                         LocalDate.of(2020, 1, 1), null));
-        assertEquals(2, person.getAdressen().size());
+        assertEquals(2, person.getAddresses().size());
     }
 
     @Test
-    @DisplayName("removeAdresse entfernt die Adresse aus der Liste")
-    void removeAdresse_removes() {
-        String adressId = person.addAdresse(
-                AdressTyp.WOHNADRESSE, "Str", "1", "8001", "Zürich", "Schweiz",
+    @DisplayName("removeAddress entfernt die Adresse aus der Liste")
+    void removeAddress_removes() {
+        String addressId = person.addAddress(
+                AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
-        person.removeAdresse(adressId);
-        assertTrue(person.getAdressen().isEmpty());
+        person.removeAddress(addressId);
+        assertTrue(person.getAddresses().isEmpty());
     }
 
     @Test
-    @DisplayName("removeAdresse mit unbekannter ID → AdresseNotFoundException")
-    void removeAdresse_unknownId_throws() {
-        assertThrows(AdresseNotFoundException.class,
-                () -> person.removeAdresse("unknown-id"));
+    @DisplayName("removeAddress mit unbekannter ID → AddressNotFoundException")
+    void removeAddress_unknownId_throws() {
+        assertThrows(AddressNotFoundException.class,
+                () -> person.removeAddress("unknown-id"));
     }
 
     @Test
-    @DisplayName("getAktuelleAdresse liefert die aktuell gültige Adresse")
-    void getAktuelleAdresse_returnsCurrentAddress() {
-        person.addAdresse(AdressTyp.WOHNADRESSE, "Alt", "5", "3000", "Bern", "Schweiz",
+    @DisplayName("getCurrentAddress liefert die aktuell gültige Adresse")
+    void getCurrentAddress_returnsCurrentAddress() {
+        person.addAddress(AddressType.RESIDENCE, "Alt", "5", "3000", "Bern", "Schweiz",
                 LocalDate.of(2015, 1, 1), LocalDate.of(2019, 12, 31));
-        person.addAdresse(AdressTyp.WOHNADRESSE, "Neu", "1", "8001", "Zürich", "Schweiz",
+        person.addAddress(AddressType.RESIDENCE, "Neu", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
 
-        Adresse aktuell = person.getAktuelleAdresse(AdressTyp.WOHNADRESSE);
-        assertNotNull(aktuell);
-        assertEquals("Neu", aktuell.getStrasse());
+        Address current = person.getCurrentAddress(AddressType.RESIDENCE);
+        assertNotNull(current);
+        assertEquals("Neu", current.getStreet());
     }
 
     @Test
-    @DisplayName("getAdressverlauf liefert alle Adressen chronologisch")
-    void getAdressverlauf_returnsSortedAddresses() {
-        person.addAdresse(AdressTyp.WOHNADRESSE, "Neu", "1", "8001", "Zürich", "Schweiz",
+    @DisplayName("getAddressHistory liefert alle Adressen chronologisch")
+    void getAddressHistory_returnsSortedAddresses() {
+        person.addAddress(AddressType.RESIDENCE, "Neu", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
-        person.addAdresse(AdressTyp.WOHNADRESSE, "Alt", "5", "3000", "Bern", "Schweiz",
+        person.addAddress(AddressType.RESIDENCE, "Alt", "5", "3000", "Bern", "Schweiz",
                 LocalDate.of(2015, 1, 1), LocalDate.of(2019, 12, 31));
 
-        var verlauf = person.getAdressverlauf(AdressTyp.WOHNADRESSE);
-        assertEquals(2, verlauf.size());
-        assertEquals("Alt", verlauf.get(0).getStrasse());
-        assertEquals("Neu", verlauf.get(1).getStrasse());
+        var history = person.getAddressHistory(AddressType.RESIDENCE);
+        assertEquals(2, history.size());
+        assertEquals("Alt", history.get(0).getStreet());
+        assertEquals("Neu", history.get(1).getStreet());
     }
 }
-

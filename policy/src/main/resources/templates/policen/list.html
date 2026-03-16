@@ -37,10 +37,10 @@
                 hx-target="#policen-tabelle" hx-swap="innerHTML"
                 hx-trigger="change">
           <option value="">– alle Status –</option>
-          <option value="ENTWURF">Entwurf</option>
-          <option value="AKTIV">Aktiv</option>
-          <option value="GEKUENDIGT">Gekündigt</option>
-          <option value="ABGELAUFEN">Abgelaufen</option>
+          <option value="DRAFT">Entwurf</option>
+          <option value="ACTIVE">Aktiv</option>
+          <option value="CANCELLED">Gekündigt</option>
+          <option value="EXPIRED">Abgelaufen</option>
         </select>
       </div>
       <div class="col-md-3">
@@ -71,7 +71,7 @@
     {#fragment id="tabelle"}
     {#for policy in policen}
     <tr id="policy-{policy.policyId}">
-      <td><strong>{policy.policyNummer}</strong></td>
+      <td><strong>{policy.policyNumber}</strong></td>
       <td>
         {#if partnerSichten.get(policy.partnerId)}
           {partnerSichten.get(policy.partnerId).name}
@@ -81,35 +81,35 @@
         {/if}
       </td>
       <td>
-        {#if produktSichten.get(policy.produktId)}
-          {produktSichten.get(policy.produktId).name}
-          <br><small class="text-muted">{produktSichten.get(policy.produktId).productLine}</small>
+        {#if produktSichten.get(policy.productId)}
+          {produktSichten.get(policy.productId).name}
+          <br><small class="text-muted">{produktSichten.get(policy.productId).productLine}</small>
         {#else}
-          <span class="text-muted small">{policy.produktId}</span>
+          <span class="text-muted small">{policy.productId}</span>
         {/if}
       </td>
       <td>
         <span class="badge badge-{policy.status}">{policy.status}</span>
       </td>
-      <td>{policy.versicherungsbeginn}</td>
-      <td>CHF {policy.praemie}</td>
+      <td>{policy.coverageStartDate}</td>
+      <td>CHF {policy.premium}</td>
       <td>
         <a href="/policen/{policy.policyId}/edit" class="btn btn-sm btn-outline-secondary">Details</a>
-        {#if policy.status.name() == "ENTWURF"}
+        {#if policy.status.name() == "DRAFT"}
         <button class="btn btn-sm btn-outline-success"
                 hx-post="/policen/fragments/{policy.policyId}/aktivieren"
                 hx-target="#policy-{policy.policyId}"
                 hx-swap="outerHTML"
-                hx-confirm="Police '{policy.policyNummer}' aktivieren?">
+                hx-confirm="Police '{policy.policyNumber}' aktivieren?">
           Aktivieren
         </button>
         {/if}
-        {#if policy.status.name() == "AKTIV"}
+        {#if policy.status.name() == "ACTIVE"}
         <button class="btn btn-sm btn-outline-danger"
                 hx-post="/policen/fragments/{policy.policyId}/kuendigen"
                 hx-target="#policy-{policy.policyId}"
                 hx-swap="outerHTML"
-                hx-confirm="Police '{policy.policyNummer}' kündigen?">
+                hx-confirm="Police '{policy.policyNumber}' kündigen?">
           Kündigen
         </button>
         {/if}
@@ -125,4 +125,3 @@
 
 {/content}
 {/include}
-

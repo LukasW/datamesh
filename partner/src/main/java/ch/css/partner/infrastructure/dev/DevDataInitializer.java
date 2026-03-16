@@ -1,7 +1,7 @@
 package ch.css.partner.infrastructure.dev;
 
-import ch.css.partner.domain.model.AdressTyp;
-import ch.css.partner.domain.model.Geschlecht;
+import ch.css.partner.domain.model.AddressType;
+import ch.css.partner.domain.model.Gender;
 import ch.css.partner.domain.service.PersonApplicationService;
 import io.quarkus.arc.profile.IfBuildProfile;
 import io.quarkus.runtime.StartupEvent;
@@ -27,7 +27,7 @@ public class DevDataInitializer {
     PersonApplicationService personService;
 
     void onStart(@Observes StartupEvent event) {
-        if (!personService.listAllPersonen().isEmpty()) {
+        if (!personService.listAllPersons().isEmpty()) {
             log.info("Dev data already present, skipping seed.");
             return;
         }
@@ -43,16 +43,16 @@ public class DevDataInitializer {
     // ── Persons ───────────────────────────────────────────────────────────────
 
     /**
-     * Max Muster – zwei aktuelle Adresstypen (WOHNADRESSE + KORRESPONDENZADRESSE).
+     * Max Muster – zwei aktuelle Adresstypen (RESIDENCE + CORRESPONDENCE).
      */
     private void seedMaxMuster() {
         String id = personService.createPerson(
-                "Muster", "Max", Geschlecht.MAENNLICH,
+                "Muster", "Max", Gender.MALE,
                 LocalDate.of(1978, 5, 12), "756.1234.5678.97");
-        personService.addAdresse(id, AdressTyp.WOHNADRESSE,
+        personService.addAddress(id, AddressType.RESIDENCE,
                 "Musterstrasse", "10", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2015, 1, 1), null);
-        personService.addAdresse(id, AdressTyp.KORRESPONDENZADRESSE,
+        personService.addAddress(id, AddressType.CORRESPONDENCE,
                 "Postfach", "99", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 3, 15), null);
     }
@@ -62,13 +62,13 @@ public class DevDataInitializer {
      */
     private void seedAnnaMueller() {
         String id = personService.createPerson(
-                "Müller", "Anna", Geschlecht.WEIBLICH,
+                "Müller", "Anna", Gender.FEMALE,
                 LocalDate.of(1990, 9, 3), "756.5432.1987.61");
         // historisch zuerst einfügen, damit keine auto-Anpassung nötig
-        personService.addAdresse(id, AdressTyp.WOHNADRESSE,
+        personService.addAddress(id, AddressType.RESIDENCE,
                 "Altgasse", "12", "4000", "Basel", "Schweiz",
                 LocalDate.of(2010, 1, 1), LocalDate.of(2018, 5, 31));
-        personService.addAdresse(id, AdressTyp.WOHNADRESSE,
+        personService.addAddress(id, AddressType.RESIDENCE,
                 "Bahnhofstrasse", "5", "3000", "Bern", "Schweiz",
                 LocalDate.of(2018, 6, 1), null);
     }
@@ -79,17 +79,17 @@ public class DevDataInitializer {
      */
     private void seedHansMeier() {
         String id = personService.createPerson(
-                "Meier", "Hans", Geschlecht.MAENNLICH,
+                "Meier", "Hans", Gender.MALE,
                 LocalDate.of(1965, 3, 22), "756.7654.3219.89");
         // aktuelle zuerst – wird beim Hinzufügen der vorerfassten automatisch geclippt
-        personService.addAdresse(id, AdressTyp.WOHNADRESSE,
+        personService.addAddress(id, AddressType.RESIDENCE,
                 "Hauptstrasse", "7", "6000", "Luzern", "Schweiz",
                 LocalDate.of(2019, 1, 1), null);
         // vorerfasst: löst auto-Clip der Luzern-Adresse auf 2026-05-31 aus
-        personService.addAdresse(id, AdressTyp.WOHNADRESSE,
+        personService.addAddress(id, AddressType.RESIDENCE,
                 "Neugasse", "3", "6300", "Zug", "Schweiz",
                 LocalDate.of(2026, 6, 1), null);
-        personService.addAdresse(id, AdressTyp.ZUSTELLADRESSE,
+        personService.addAddress(id, AddressType.DELIVERY,
                 "Lieferweg", "1", "6000", "Luzern", "Schweiz",
                 LocalDate.of(2023, 1, 1), null);
     }
@@ -99,28 +99,28 @@ public class DevDataInitializer {
      */
     private void seedMariaBraun() {
         String id = personService.createPerson(
-                "Braun", "Maria", Geschlecht.WEIBLICH,
+                "Braun", "Maria", Gender.FEMALE,
                 LocalDate.of(1985, 11, 8), "756.8765.4321.51");
-        personService.addAdresse(id, AdressTyp.WOHNADRESSE,
+        personService.addAddress(id, AddressType.RESIDENCE,
                 "Rosengasse", "4", "9000", "St. Gallen", "Schweiz",
                 LocalDate.of(2021, 4, 1), null);
     }
 
     /**
-     * Peter Schmid – WOHNADRESSE aktuell + KORRESPONDENZADRESSE mit Verlauf (abgelaufen → aktuell).
+     * Peter Schmid – RESIDENCE aktuell + CORRESPONDENCE mit Verlauf (abgelaufen → aktuell).
      */
     private void seedPeterSchmid() {
         String id = personService.createPerson(
-                "Schmid", "Peter", Geschlecht.MAENNLICH,
+                "Schmid", "Peter", Gender.MALE,
                 LocalDate.of(2000, 7, 15), "756.9876.5432.00");
-        personService.addAdresse(id, AdressTyp.WOHNADRESSE,
+        personService.addAddress(id, AddressType.RESIDENCE,
                 "Industriestrasse", "22", "8400", "Winterthur", "Schweiz",
                 LocalDate.of(2022, 9, 1), null);
         // abgelaufene Korrespondenzadresse zuerst, dann aktuelle (aneinanderliegend → kein Overlap)
-        personService.addAdresse(id, AdressTyp.KORRESPONDENZADRESSE,
+        personService.addAddress(id, AddressType.CORRESPONDENCE,
                 "Alte Adresse", "1", "8400", "Winterthur", "Schweiz",
                 LocalDate.of(2022, 9, 1), LocalDate.of(2024, 12, 31));
-        personService.addAdresse(id, AdressTyp.KORRESPONDENZADRESSE,
+        personService.addAddress(id, AddressType.CORRESPONDENCE,
                 "Neue Adresse", "2", "8400", "Winterthur", "Schweiz",
                 LocalDate.of(2025, 1, 1), null);
     }

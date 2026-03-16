@@ -25,6 +25,7 @@
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
         <quarkus.platform.version>3.32.3</quarkus.platform.version>
+        <quarkus.container-image.additional-tags>latest</quarkus.container-image.additional-tags>
         <skipITs>true</skipITs>
         <surefire-plugin.version>3.5.4</surefire-plugin.version>
     </properties>
@@ -92,4 +93,5 @@
             </plugins>
         </pluginManagement>
     </build>
+
 </project>

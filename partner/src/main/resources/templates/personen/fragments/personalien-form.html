@@ -15,25 +15,25 @@
     </div>
     <div class="mb-2">
       <label class="form-label">Vorname</label>
-      <input type="text" name="vorname" class="form-control" value="{person.vorname}" required>
+      <input type="text" name="firstName" class="form-control" value="{person.firstName}" required>
     </div>
     <div class="mb-2">
       <label class="form-label">Geschlecht</label>
-      <select name="geschlecht" class="form-select">
-        <option value="MAENNLICH" {#if person.geschlecht.name() == "MAENNLICH"}selected{/if}>Männlich</option>
-        <option value="WEIBLICH"  {#if person.geschlecht.name() == "WEIBLICH"}selected{/if}>Weiblich</option>
-        <option value="DIVERS"    {#if person.geschlecht.name() == "DIVERS"}selected{/if}>Divers</option>
+      <select name="gender" class="form-select">
+        <option value="MALE" {#if person.gender.name() == "MALE"}selected{/if}>Männlich</option>
+        <option value="FEMALE"  {#if person.gender.name() == "FEMALE"}selected{/if}>Weiblich</option>
+        <option value="DIVERSE"    {#if person.gender.name() == "DIVERSE"}selected{/if}>Divers</option>
       </select>
     </div>
     <div class="mb-2">
       <label class="form-label">Geburtsdatum</label>
-      <input type="date" name="geburtsdatum" class="form-control"
-             value="{person.geburtsdatum}" required>
+      <input type="date" name="dateOfBirth" class="form-control"
+             value="{person.dateOfBirth}" required>
     </div>
     <div class="mb-3">
       <label class="form-label">AHV-Nummer <small class="text-muted">(optional)</small></label>
-      {#if person.ahvNummer}
-      <input type="text" class="form-control" value="{person.ahvNummer.formatted()}" readonly>
+      {#if person.socialSecurityNumber}
+      <input type="text" class="form-control" value="{person.socialSecurityNumber.formatted()}" readonly>
       {#else}
       <input type="text" class="form-control" placeholder="Nicht angegeben" readonly>
       {/if}

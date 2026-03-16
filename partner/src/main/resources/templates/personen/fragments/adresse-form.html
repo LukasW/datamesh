@@ -7,26 +7,26 @@
       <div class="row g-2 mb-2">
         <div class="col-md-4">
           <label class="form-label small">Adresstyp <span class="text-danger">*</span></label>
-          <select name="adressTyp" class="form-select form-select-sm" required>
+          <select name="addressType" class="form-select form-select-sm" required>
             <option value="">– wählen –</option>
-            <option value="WOHNADRESSE">Wohnadresse</option>
-            <option value="KORRESPONDENZADRESSE">Korrespondenzadresse</option>
-            <option value="ZUSTELLADRESSE">Zustelladresse</option>
+            <option value="RESIDENCE">Wohnadresse</option>
+            <option value="CORRESPONDENCE">Korrespondenzadresse</option>
+            <option value="DELIVERY">Zustelladresse</option>
           </select>
         </div>
         <div class="col-md-6">
           <label class="form-label small">Strasse <span class="text-danger">*</span></label>
-          <input type="text" name="strasse" class="form-control form-control-sm" required>
+          <input type="text" name="street" class="form-control form-control-sm" required>
         </div>
         <div class="col-md-2">
           <label class="form-label small">Nr. <span class="text-danger">*</span></label>
-          <input type="text" name="hausnummer" class="form-control form-control-sm" required>
+          <input type="text" name="houseNumber" class="form-control form-control-sm" required>
         </div>
       </div>
       <div class="row g-2 mb-2">
         <div class="col-md-2">
           <label class="form-label small">PLZ <span class="text-danger">*</span></label>
-          <input type="text" name="plz" class="form-control form-control-sm"
+          <input type="text" name="postalCode" class="form-control form-control-sm"
                  maxlength="4" inputmode="numeric"
                  placeholder="z. B. 6020"
                  oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,4)"
@@ -34,7 +34,7 @@
         </div>
         <div class="col-md-4">
           <label class="form-label small">Ort <span class="text-danger">*</span></label>
-          <input type="text" name="ort" class="form-control form-control-sm" required>
+          <input type="text" name="city" class="form-control form-control-sm" required>
         </div>
         <div class="col-md-6">
           <label class="form-label small">Land</label>
@@ -44,11 +44,11 @@
       <div class="row g-2 mb-2">
         <div class="col-md-4">
           <label class="form-label small">Gültig von <span class="text-danger">*</span></label>
-          <input type="date" name="gueltigVon" class="form-control form-control-sm" required>
+          <input type="date" name="validFrom" class="form-control form-control-sm" required>
         </div>
         <div class="col-md-4">
           <label class="form-label small">Gültig bis <small class="text-muted">(leer = ∞)</small></label>
-          <input type="date" name="gueltigBis" class="form-control form-control-sm">
+          <input type="date" name="validTo" class="form-control form-control-sm">
         </div>
       </div>
       <button type="submit" class="btn btn-sm btn-primary">Speichern</button>

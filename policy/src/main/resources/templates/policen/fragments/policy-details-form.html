@@ -15,7 +15,7 @@
     <div class="mb-2">
       <label class="form-label small">Policen-Nummer</label>
       <input type="text" class="form-control form-control-sm"
-             value="{policy.policyNummer}" readonly>
+             value="{policy.policyNumber}" readonly>
       <small class="text-muted">Kann nach Erstellung nicht geändert werden.</small>
     </div>
     <div class="mb-2">
@@ -33,44 +33,44 @@
     <div class="mb-2">
       <label class="form-label small">Produkt <span class="text-danger">*</span></label>
       {#if activeProdukte && !activeProdukte.isEmpty()}
-      <select name="produktId" class="form-select form-select-sm" required>
+      <select name="productId" class="form-select form-select-sm" required>
         {#for p in activeProdukte}
-        <option value="{p.produktId}"
-          {#if p.produktId == policy.produktId}selected{/if}>
+        <option value="{p.productId}"
+          {#if p.productId == policy.productId}selected{/if}>
           {p.name} ({p.productLine})
         </option>
         {/for}
       </select>
       {#else}
-      <input type="text" name="produktId" class="form-control form-control-sm"
-             value="{policy.produktId}" required>
+      <input type="text" name="productId" class="form-control form-control-sm"
+             value="{policy.productId}" required>
       {/if}
     </div>
     <div class="row g-2 mb-2">
       <div class="col-md-6">
         <label class="form-label small">Versicherungsbeginn <span class="text-danger">*</span></label>
-        <input type="date" name="versicherungsbeginn" class="form-control form-control-sm"
-               value="{policy.versicherungsbeginn}" required>
+        <input type="date" name="coverageStartDate" class="form-control form-control-sm"
+               value="{policy.coverageStartDate}" required>
       </div>
       <div class="col-md-6">
         <label class="form-label small">Versicherungsende</label>
-        <input type="date" name="versicherungsende" class="form-control form-control-sm"
-               value="{#if policy.versicherungsende}{policy.versicherungsende}{/if}">
+        <input type="date" name="coverageEndDate" class="form-control form-control-sm"
+               value="{#if policy.coverageEndDate}{policy.coverageEndDate}{/if}">
       </div>
     </div>
     <div class="row g-2 mb-2">
       <div class="col-md-6">
         <label class="form-label small">Jahresprämie (CHF) <span class="text-danger">*</span></label>
-        <input type="number" name="praemie" class="form-control form-control-sm"
-               value="{policy.praemie}" min="0.01" step="0.01" required>
+        <input type="number" name="premium" class="form-control form-control-sm"
+               value="{policy.premium}" min="0.01" step="0.01" required>
       </div>
       <div class="col-md-6">
         <label class="form-label small">Selbstbehalt (CHF)</label>
-        <input type="number" name="selbstbehalt" class="form-control form-control-sm"
-               value="{policy.selbstbehalt}" min="0" step="0.01">
+        <input type="number" name="deductible" class="form-control form-control-sm"
+               value="{policy.deductible}" min="0" step="0.01">
       </div>
     </div>
-    {#if policy.status.name() != "GEKUENDIGT" && policy.status.name() != "ABGELAUFEN"}
+    {#if policy.status.name() != "CANCELLED" && policy.status.name() != "EXPIRED"}
     <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
     {#else}
     <button type="submit" class="btn btn-sm btn-primary" disabled>Speichern</button>
@@ -78,4 +78,3 @@
     {/if}
   </form>
 </div>
-

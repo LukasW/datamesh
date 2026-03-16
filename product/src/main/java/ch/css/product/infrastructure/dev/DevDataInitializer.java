@@ -35,38 +35,38 @@ public class DevDataInitializer {
         productService.defineProduct(
                 "CSS Hausrat Basis",
                 "Grundschutz für Hausrat gegen Feuer, Wasser und Diebstahl.",
-                ProductLine.HAUSRAT,
+                ProductLine.HOUSEHOLD_CONTENTS,
                 new BigDecimal("180.00"));
 
         productService.defineProduct(
                 "CSS Hausrat Komfort",
                 "Erweiterter Hausratschutz inkl. Glasbruch und grobe Fahrlässigkeit.",
-                ProductLine.HAUSRAT,
+                ProductLine.HOUSEHOLD_CONTENTS,
                 new BigDecimal("320.00"));
 
         productService.defineProduct(
                 "CSS Privathaftpflicht",
                 "Schutz bei Schäden, die Sie als Privatperson verursachen.",
-                ProductLine.HAFTPFLICHT,
+                ProductLine.LIABILITY,
                 new BigDecimal("95.00"));
 
         String motorId = productService.defineProduct(
                 "CSS Motorfahrzeug Classic",
                 "Vollkasko- und Haftpflichtschutz für Personenwagen.",
-                ProductLine.MOTORFAHRZEUG,
+                ProductLine.MOTOR_VEHICLE,
                 new BigDecimal("650.00"));
 
         productService.defineProduct(
                 "CSS Reiseversicherung",
                 "Annullierungskosten, Assistance und Gepäckschutz weltweit.",
-                ProductLine.REISE,
+                ProductLine.TRAVEL,
                 new BigDecimal("120.00"));
 
         // Demonstrate deprecated status
         String oldId = productService.defineProduct(
                 "CSS Motorfahrzeug Legacy",
                 "Älteres Motorfahrzeugprodukt (nicht mehr erhältlich).",
-                ProductLine.MOTORFAHRZEUG,
+                ProductLine.MOTOR_VEHICLE,
                 new BigDecimal("500.00"));
         productService.deprecateProduct(oldId);
 

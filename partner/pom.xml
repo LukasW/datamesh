@@ -45,10 +45,10 @@
             <artifactId>quarkus-flyway</artifactId>
         </dependency>
 
-        <!-- Kafka -->
+        <!-- Container image build -->
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-messaging-kafka</artifactId>
+            <artifactId>quarkus-container-image-podman</artifactId>
         </dependency>
 
         <!-- Configuration -->

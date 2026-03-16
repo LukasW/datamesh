@@ -2,17 +2,26 @@ package ch.css.partner;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Integration Tests for Person REST API
+ * Integration Tests for Person REST API.
+ * Kafka publishing is replaced by Debezium CDC – no Kafka broker needed.
+ * Outbox writes are verified via direct EntityManager queries.
  */
 @QuarkusTest
 class PersonRestAdapterTest {
+
+    @Inject
+    EntityManager em;
 
     private static final String VALID_AHV = "756.1234.5678.97";
 
@@ -37,7 +46,7 @@ class PersonRestAdapterTest {
                 .when().post("/api/personen")
                 .then()
                 .statusCode(400)
-                .body("message", containsString("Prüfziffer"));
+                .body("message", containsString("check digit"));
     }
 
     @Test
@@ -51,8 +60,8 @@ class PersonRestAdapterTest {
                 .statusCode(200)
                 .body("personId", equalTo(id))
                 .body("name", equalTo("Müller"))
-                .body("vorname", equalTo("Anna"))
-                .body("ahvNummer", equalTo("756.9217.0769.85"));
+                .body("firstName", equalTo("Anna"))
+                .body("socialSecurityNumber", equalTo("756.9217.0769.85"));
     }
 
     @Test
@@ -71,7 +80,7 @@ class PersonRestAdapterTest {
 
         given()
                 .contentType(ContentType.JSON)
-                .body("{\"name\":\"Neu\",\"vorname\":\"Name\",\"geschlecht\":\"WEIBLICH\",\"geburtsdatum\":\"1990-01-01\"}")
+                .body("{\"name\":\"Neu\",\"firstName\":\"Name\",\"gender\":\"FEMALE\",\"dateOfBirth\":\"1990-01-01\"}")
                 .when().put("/api/personen/" + id)
                 .then()
                 .statusCode(200)
@@ -93,13 +102,13 @@ class PersonRestAdapterTest {
 
         String adressePayload = """
                 {
-                  "adressTyp": "WOHNADRESSE",
-                  "strasse": "Musterstrasse",
-                  "hausnummer": "1",
-                  "plz": "8001",
-                  "ort": "Zürich",
+                  "addressType": "RESIDENCE",
+                  "street": "Musterstrasse",
+                  "houseNumber": "1",
+                  "postalCode": "8001",
+                  "city": "Zürich",
                   "land": "Schweiz",
-                  "gueltigVon": "2020-01-01"
+                  "validFrom": "2020-01-01"
                 }
                 """;
         given()
@@ -108,7 +117,7 @@ class PersonRestAdapterTest {
                 .when().post("/api/personen/" + personId + "/adressen")
                 .then()
                 .statusCode(201)
-                .body("adressId", notNullValue());
+                .body("addressId", notNullValue());
     }
 
     @Test
@@ -117,27 +126,25 @@ class PersonRestAdapterTest {
         String personId = createTestPerson("Overlap", "Test", "756.5432.1987.61");
 
         String ersteAdresse = """
-                {"adressTyp":"WOHNADRESSE","strasse":"Str","hausnummer":"1",
-                 "plz":"8001","ort":"Zürich","land":"Schweiz","gueltigVon":"2020-01-01"}
+                {"addressType":"RESIDENCE","street":"Str","houseNumber":"1",
+                 "postalCode":"8001","city":"Zürich","land":"Schweiz","validFrom":"2020-01-01"}
                 """;
         String ersteAdressId = given().contentType(ContentType.JSON).body(ersteAdresse)
                 .when().post("/api/personen/" + personId + "/adressen")
                 .then().statusCode(201)
-                .extract().path("adressId");
+                .extract().path("addressId");
 
         String zweiteAdresse = """
-                {"adressTyp":"WOHNADRESSE","strasse":"Neue Str","hausnummer":"2",
-                 "plz":"3000","ort":"Bern","land":"Schweiz","gueltigVon":"2022-01-01"}
+                {"addressType":"RESIDENCE","street":"Neue Str","houseNumber":"2",
+                 "postalCode":"3000","city":"Bern","land":"Schweiz","validFrom":"2022-01-01"}
                 """;
-        // Zweite Adresse ab 2022 → erste wird automatisch auf 2021-12-31 zugeschnitten
         given().contentType(ContentType.JSON).body(zweiteAdresse)
                 .when().post("/api/personen/" + personId + "/adressen")
                 .then().statusCode(201);
 
-        // Erste Adresse prüfen: gueltigBis muss 2021-12-31 sein
         given().when().get("/api/personen/" + personId + "/adressen")
                 .then().statusCode(200)
-                .body("find { it.adressId == '" + ersteAdressId + "' }.gueltigBis",
+                .body("find { it.addressId == '" + ersteAdressId + "' }.validTo",
                         equalTo("2021-12-31"));
     }
 
@@ -147,34 +154,70 @@ class PersonRestAdapterTest {
         String personId = createTestPerson("DelAddr", "Test", "756.7654.3219.89");
 
         String adresse = """
-                {"adressTyp":"KORRESPONDENZADRESSE","strasse":"Str","hausnummer":"2",
-                 "plz":"3000","ort":"Bern","land":"Schweiz","gueltigVon":"2022-01-01"}
+                {"addressType":"CORRESPONDENCE","street":"Str","houseNumber":"2",
+                 "postalCode":"3000","city":"Bern","land":"Schweiz","validFrom":"2022-01-01"}
                 """;
         String adressId = given()
                 .contentType(ContentType.JSON).body(adresse)
                 .when().post("/api/personen/" + personId + "/adressen")
                 .then().statusCode(201)
-                .extract().path("adressId");
+                .extract().path("addressId");
 
         given().when().delete("/api/personen/" + personId + "/adressen/" + adressId)
                 .then().statusCode(204);
     }
 
+    @Test
+    @DisplayName("POST /api/personen – PersonCreated-Eintrag wird in Outbox geschrieben")
+    @Transactional
+    void testCreatePerson_writesPersonCreatedToOutbox() {
+        long countBefore = outboxCount("PersonCreated");
+
+        given()
+                .contentType(ContentType.JSON)
+                .body(personPayload("OutboxTest", "User", "756.4444.5555.60"))
+                .when().post("/api/personen")
+                .then().statusCode(201);
+
+        assertTrue(outboxCount("PersonCreated") > countBefore,
+                "Expected a PersonCreated entry in the outbox table");
+    }
+
+    @Test
+    @DisplayName("DELETE /api/personen/{id} – PersonDeleted-Eintrag wird in Outbox geschrieben")
+    @Transactional
+    void testDeletePerson_writesPersonDeletedToOutbox() {
+        String id = createTestPerson("OutboxDel", "Test", "756.6543.2198.73");
+        long countBefore = outboxCount("PersonDeleted");
+
+        given().when().delete("/api/personen/" + id).then().statusCode(204);
+
+        assertTrue(outboxCount("PersonDeleted") > countBefore,
+                "Expected a PersonDeleted entry in the outbox table");
+    }
+
     // ── Helper ────────────────────────────────────────────────────────────────
 
-    private String createTestPerson(String name, String vorname, String ahv) {
+    private String createTestPerson(String name, String firstName, String ahv) {
         return given()
                 .contentType(ContentType.JSON)
-                .body(personPayload(name, vorname, ahv))
+                .body(personPayload(name, firstName, ahv))
                 .when().post("/api/personen")
                 .then().statusCode(201)
                 .extract().path("id");
     }
 
-    private String personPayload(String name, String vorname, String ahv) {
+    private String personPayload(String name, String firstName, String ahv) {
         return String.format(
-                "{\"name\":\"%s\",\"vorname\":\"%s\",\"geschlecht\":\"MAENNLICH\"," +
-                "\"geburtsdatum\":\"1980-05-12\",\"ahvNummer\":\"%s\"}",
-                name, vorname, ahv);
+                "{\"name\":\"%s\",\"firstName\":\"%s\",\"gender\":\"MALE\"," +
+                "\"dateOfBirth\":\"1980-05-12\",\"socialSecurityNumber\":\"%s\"}",
+                name, firstName, ahv);
+    }
+
+    private long outboxCount(String eventType) {
+        return em.createQuery(
+                "SELECT COUNT(o) FROM OutboxEntity o WHERE o.eventType = :type", Long.class)
+                .setParameter("type", eventType)
+                .getSingleResult();
     }
 }

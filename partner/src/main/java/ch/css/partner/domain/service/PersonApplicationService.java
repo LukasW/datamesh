@@ -1,11 +1,12 @@
 package ch.css.partner.domain.service;
 
-import ch.css.partner.domain.model.Adresse;
-import ch.css.partner.domain.model.AdressTyp;
-import ch.css.partner.domain.model.AhvNummer;
-import ch.css.partner.domain.model.Geschlecht;
+import ch.css.partner.domain.model.Address;
+import ch.css.partner.domain.model.AddressType;
+import ch.css.partner.domain.model.Gender;
+import ch.css.partner.domain.model.OutboxEvent;
 import ch.css.partner.domain.model.Person;
-import ch.css.partner.domain.port.out.PersonEventPublisher;
+import ch.css.partner.domain.model.SocialSecurityNumber;
+import ch.css.partner.domain.port.out.OutboxRepository;
 import ch.css.partner.domain.port.out.PersonRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -13,6 +14,7 @@ import jakarta.transaction.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @ApplicationScoped
 public class PersonApplicationService {
@@ -21,94 +23,110 @@ public class PersonApplicationService {
     PersonRepository personRepository;
 
     @Inject
-    PersonEventPublisher personEventPublisher;
+    OutboxRepository outboxRepository;
 
-    // ── Personenverwaltung ────────────────────────────────────────────────────
+    // ── Person management ─────────────────────────────────────────────────────
 
     @Transactional
-    public String createPerson(String name, String vorname, Geschlecht geschlecht,
-                               LocalDate geburtsdatum, String ahvNummerRaw) {
-        AhvNummer ahvNummer = null;
-        if (ahvNummerRaw != null && !ahvNummerRaw.isBlank()) {
-            ahvNummer = new AhvNummer(ahvNummerRaw); // throws on invalid format
-            if (personRepository.existsByAhvNummer(ahvNummer)) {
-                throw new IllegalArgumentException("AHV-Nummer bereits vorhanden: " + ahvNummer.formatted());
+    public String createPerson(String name, String firstName, Gender gender,
+                               LocalDate dateOfBirth, String socialSecurityNumberRaw) {
+        SocialSecurityNumber socialSecurityNumber = null;
+        if (socialSecurityNumberRaw != null && !socialSecurityNumberRaw.isBlank()) {
+            socialSecurityNumber = new SocialSecurityNumber(socialSecurityNumberRaw);
+            if (personRepository.existsBySocialSecurityNumber(socialSecurityNumber)) {
+                throw new IllegalArgumentException("AHV number already exists: " + socialSecurityNumber.formatted());
             }
         }
-        Person person = new Person(name, vorname, geschlecht, geburtsdatum, ahvNummer);
+        Person person = new Person(name, firstName, gender, dateOfBirth, socialSecurityNumber);
         personRepository.save(person);
-        personEventPublisher.publishPersonErstellt(person.getPersonId(), name, vorname, ahvNummer, geburtsdatum);
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "person", person.getPersonId(), "PersonCreated",
+                PersonEventPayloadBuilder.TOPIC_PERSON_CREATED,
+                PersonEventPayloadBuilder.buildPersonCreated(
+                        person.getPersonId(), name, firstName, socialSecurityNumber, dateOfBirth)));
         return person.getPersonId();
     }
 
     @Transactional
-    public void updatePersonalien(String personId, String name, String vorname,
-                                  Geschlecht geschlecht, LocalDate geburtsdatum) {
+    public void updatePersonalData(String personId, String name, String firstName,
+                                   Gender gender, LocalDate dateOfBirth) {
         Person person = findOrThrow(personId);
-        person.updatePersonalien(name, vorname, geschlecht, geburtsdatum);
+        person.updatePersonalData(name, firstName, gender, dateOfBirth);
         personRepository.save(person);
-        personEventPublisher.publishPersonAktualisiert(personId, name, vorname);
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "person", personId, "PersonUpdated",
+                PersonEventPayloadBuilder.TOPIC_PERSON_UPDATED,
+                PersonEventPayloadBuilder.buildPersonUpdated(personId, name, firstName)));
     }
 
     @Transactional
     public void deletePerson(String personId) {
         findOrThrow(personId);
         personRepository.delete(personId);
-        personEventPublisher.publishPersonGeloescht(personId);
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "person", personId, "PersonDeleted",
+                PersonEventPayloadBuilder.TOPIC_PERSON_DELETED,
+                PersonEventPayloadBuilder.buildPersonDeleted(personId)));
     }
 
     public Person findById(String personId) {
         return findOrThrow(personId);
     }
 
-    public List<Person> listAllPersonen() {
+    public List<Person> listAllPersons() {
         return personRepository.search(null, null, null, null);
     }
 
-    public List<Person> searchPersonen(String name, String vorname, String ahvNummerRaw, LocalDate geburtsdatum) {
+    public List<Person> searchPersons(String name, String firstName, String socialSecurityNumberRaw, LocalDate dateOfBirth) {
         boolean hasFilter = (name != null && !name.isBlank())
-                || (vorname != null && !vorname.isBlank())
-                || (ahvNummerRaw != null && !ahvNummerRaw.isBlank())
-                || geburtsdatum != null;
+                || (firstName != null && !firstName.isBlank())
+                || (socialSecurityNumberRaw != null && !socialSecurityNumberRaw.isBlank())
+                || dateOfBirth != null;
         if (!hasFilter) {
-            throw new IllegalArgumentException("Mindestens ein Suchfeld muss befüllt sein");
+            throw new IllegalArgumentException("At least one search field must be provided");
         }
-        AhvNummer ahvNummer = (ahvNummerRaw != null && !ahvNummerRaw.isBlank())
-                ? new AhvNummer(ahvNummerRaw) : null;
-        return personRepository.search(name, vorname, ahvNummer, geburtsdatum);
+        SocialSecurityNumber socialSecurityNumber = (socialSecurityNumberRaw != null && !socialSecurityNumberRaw.isBlank())
+                ? new SocialSecurityNumber(socialSecurityNumberRaw) : null;
+        return personRepository.search(name, firstName, socialSecurityNumber, dateOfBirth);
     }
 
-    // ── Adressverwaltung ─────────────────────────────────────────────────────
+    // ── Address management ────────────────────────────────────────────────────
 
     @Transactional
-    public String addAdresse(String personId, AdressTyp adressTyp,
-                             String strasse, String hausnummer, String plz, String ort, String land,
-                             LocalDate gueltigVon, LocalDate gueltigBis) {
+    public String addAddress(String personId, AddressType addressType,
+                             String street, String houseNumber, String postalCode, String city, String land,
+                             LocalDate validFrom, LocalDate validTo) {
         Person person = findOrThrow(personId);
-        String adressId = person.addAdresse(adressTyp, strasse, hausnummer, plz, ort, land, gueltigVon, gueltigBis);
+        String addressId = person.addAddress(addressType, street, houseNumber, postalCode, city, land, validFrom, validTo);
         personRepository.save(person);
-        personEventPublisher.publishAdresseHinzugefuegt(personId, adressId, adressTyp, gueltigVon);
-        return adressId;
-    }
-
-    @Transactional
-    public void updateAdressGueltigkeit(String personId, String adressId,
-                                        LocalDate gueltigVon, LocalDate gueltigBis) {
-        Person person = findOrThrow(personId);
-        person.updateAdressGueltigkeit(adressId, gueltigVon, gueltigBis);
-        personRepository.save(person);
-        personEventPublisher.publishAdresseAktualisiert(personId, adressId, gueltigVon, gueltigBis);
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "person", personId, "AddressAdded",
+                PersonEventPayloadBuilder.TOPIC_PERSON_ADDRESS_ADDED,
+                PersonEventPayloadBuilder.buildAddressAdded(personId, addressId, addressType, validFrom)));
+        return addressId;
     }
 
     @Transactional
-    public void deleteAdresse(String personId, String adressId) {
+    public void updateAddressValidity(String personId, String addressId,
+                                      LocalDate validFrom, LocalDate validTo) {
         Person person = findOrThrow(personId);
-        person.removeAdresse(adressId);
+        person.updateAddressValidity(addressId, validFrom, validTo);
+        personRepository.save(person);
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "person", personId, "AddressUpdated",
+                PersonEventPayloadBuilder.TOPIC_PERSON_ADDRESS_UPDATED,
+                PersonEventPayloadBuilder.buildAddressUpdated(personId, addressId, validFrom, validTo)));
+    }
+
+    @Transactional
+    public void deleteAddress(String personId, String addressId) {
+        Person person = findOrThrow(personId);
+        person.removeAddress(addressId);
         personRepository.save(person);
     }
 
-    public List<Adresse> getAdressen(String personId) {
-        return findOrThrow(personId).getAdressen();
+    public List<Address> getAddresses(String personId) {
+        return findOrThrow(personId).getAddresses();
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

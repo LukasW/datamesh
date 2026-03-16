@@ -13,7 +13,7 @@ class ProductTest {
 
     @Test
     void newProduct_hasActiveStatus() {
-        Product product = new Product("Test Produkt", "Beschreibung", ProductLine.HAUSRAT, new BigDecimal("200.00"));
+        Product product = new Product("Test Produkt", "Beschreibung", ProductLine.HOUSEHOLD_CONTENTS, new BigDecimal("200.00"));
 
         assertEquals(ProductStatus.ACTIVE, product.getStatus());
         assertTrue(product.isActive());
@@ -23,9 +23,9 @@ class ProductTest {
     @Test
     void newProduct_requiresName() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Product("", "desc", ProductLine.HAUSRAT, new BigDecimal("100")));
+                () -> new Product("", "desc", ProductLine.HOUSEHOLD_CONTENTS, new BigDecimal("100")));
         assertThrows(IllegalArgumentException.class,
-                () -> new Product(null, "desc", ProductLine.HAUSRAT, new BigDecimal("100")));
+                () -> new Product(null, "desc", ProductLine.HOUSEHOLD_CONTENTS, new BigDecimal("100")));
     }
 
     @Test
@@ -37,30 +37,30 @@ class ProductTest {
     @Test
     void newProduct_rejectsNegativePremium() {
         assertThrows(IllegalArgumentException.class,
-                () -> new Product("Name", "desc", ProductLine.HAUSRAT, new BigDecimal("-1")));
+                () -> new Product("Name", "desc", ProductLine.HOUSEHOLD_CONTENTS, new BigDecimal("-1")));
     }
 
     @Test
     void newProduct_allowsZeroPremium() {
-        assertDoesNotThrow(() -> new Product("Name", "desc", ProductLine.HAFTPFLICHT, BigDecimal.ZERO));
+        assertDoesNotThrow(() -> new Product("Name", "desc", ProductLine.LIABILITY, BigDecimal.ZERO));
     }
 
     @Test
     void update_changesFields() {
-        Product product = new Product("Original", "Old desc", ProductLine.HAUSRAT, new BigDecimal("100.00"));
+        Product product = new Product("Original", "Old desc", ProductLine.HOUSEHOLD_CONTENTS, new BigDecimal("100.00"));
 
-        product.update("Geändert", "New desc", ProductLine.REISE, new BigDecimal("250.00"));
+        product.update("Geändert", "New desc", ProductLine.TRAVEL, new BigDecimal("250.00"));
 
         assertEquals("Geändert", product.getName());
         assertEquals("New desc", product.getDescription());
-        assertEquals(ProductLine.REISE, product.getProductLine());
+        assertEquals(ProductLine.TRAVEL, product.getProductLine());
         assertEquals(new BigDecimal("250.00"), product.getBasePremium());
         assertEquals(ProductStatus.ACTIVE, product.getStatus()); // status unchanged
     }
 
     @Test
     void deprecate_changesStatusToDeprecated() {
-        Product product = new Product("Produkt", null, ProductLine.HAFTPFLICHT, new BigDecimal("100.00"));
+        Product product = new Product("Produkt", null, ProductLine.LIABILITY, new BigDecimal("100.00"));
 
         product.deprecate();
 
@@ -70,7 +70,7 @@ class ProductTest {
 
     @Test
     void deprecate_alreadyDeprecated_throws() {
-        Product product = new Product("Produkt", null, ProductLine.RECHTSSCHUTZ, new BigDecimal("100.00"));
+        Product product = new Product("Produkt", null, ProductLine.LEGAL_EXPENSES, new BigDecimal("100.00"));
         product.deprecate();
 
         assertThrows(IllegalStateException.class, product::deprecate);

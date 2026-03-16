@@ -1,9 +1,9 @@
 package ch.css.partner.infrastructure.persistence;
 
-import ch.css.partner.domain.model.Adresse;
-import ch.css.partner.domain.model.AdressTyp;
-import ch.css.partner.domain.model.AhvNummer;
-import ch.css.partner.domain.model.Geschlecht;
+import ch.css.partner.domain.model.Address;
+import ch.css.partner.domain.model.AddressType;
+import ch.css.partner.domain.model.SocialSecurityNumber;
+import ch.css.partner.domain.model.Gender;
 import ch.css.partner.domain.model.Person;
 import ch.css.partner.domain.port.out.PersonRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -43,27 +43,27 @@ public class PersonJpaAdapter implements PersonRepository {
     }
 
     @Override
-    public Optional<Person> findByAhvNummer(AhvNummer ahvNummer) {
+    public Optional<Person> findBySocialSecurityNumber(SocialSecurityNumber socialSecurityNumber) {
         List<PersonEntity> results = em.createQuery(
-                "SELECT p FROM PersonEntity p WHERE p.ahvNummer = :ahv", PersonEntity.class)
-                .setParameter("ahv", ahvNummer.getValue())
+                "SELECT p FROM PersonEntity p WHERE p.socialSecurityNumber = :ssn", PersonEntity.class)
+                .setParameter("ssn", socialSecurityNumber.getValue())
                 .getResultList();
         return results.isEmpty() ? Optional.empty() : Optional.of(toDomain(results.get(0)));
     }
 
     @Override
-    public List<Person> search(String name, String vorname, AhvNummer ahvNummer, LocalDate geburtsdatum) {
+    public List<Person> search(String name, String firstName, SocialSecurityNumber socialSecurityNumber, LocalDate dateOfBirth) {
         StringBuilder jpql = new StringBuilder("SELECT p FROM PersonEntity p WHERE 1=1");
         if (name != null && !name.isBlank()) jpql.append(" AND LOWER(p.name) LIKE LOWER(:name)");
-        if (vorname != null && !vorname.isBlank()) jpql.append(" AND LOWER(p.vorname) LIKE LOWER(:vorname)");
-        if (ahvNummer != null) jpql.append(" AND p.ahvNummer = :ahv");
-        if (geburtsdatum != null) jpql.append(" AND p.geburtsdatum = :geburtsdatum");
+        if (firstName != null && !firstName.isBlank()) jpql.append(" AND LOWER(p.firstName) LIKE LOWER(:firstName)");
+        if (socialSecurityNumber != null) jpql.append(" AND p.socialSecurityNumber = :ssn");
+        if (dateOfBirth != null) jpql.append(" AND p.dateOfBirth = :dateOfBirth");
 
         TypedQuery<PersonEntity> query = em.createQuery(jpql.toString(), PersonEntity.class);
         if (name != null && !name.isBlank()) query.setParameter("name", "%" + name + "%");
-        if (vorname != null && !vorname.isBlank()) query.setParameter("vorname", "%" + vorname + "%");
-        if (ahvNummer != null) query.setParameter("ahv", ahvNummer.getValue());
-        if (geburtsdatum != null) query.setParameter("geburtsdatum", geburtsdatum);
+        if (firstName != null && !firstName.isBlank()) query.setParameter("firstName", "%" + firstName + "%");
+        if (socialSecurityNumber != null) query.setParameter("ssn", socialSecurityNumber.getValue());
+        if (dateOfBirth != null) query.setParameter("dateOfBirth", dateOfBirth);
 
         return query.getResultList().stream().map(this::toDomain).toList();
     }
@@ -78,10 +78,10 @@ public class PersonJpaAdapter implements PersonRepository {
     }
 
     @Override
-    public boolean existsByAhvNummer(AhvNummer ahvNummer) {
+    public boolean existsBySocialSecurityNumber(SocialSecurityNumber socialSecurityNumber) {
         Long count = em.createQuery(
-                "SELECT COUNT(p) FROM PersonEntity p WHERE p.ahvNummer = :ahv", Long.class)
-                .setParameter("ahv", ahvNummer.getValue())
+                "SELECT COUNT(p) FROM PersonEntity p WHERE p.socialSecurityNumber = :ssn", Long.class)
+                .setParameter("ssn", socialSecurityNumber.getValue())
                 .getSingleResult();
         return count > 0;
     }
@@ -92,56 +92,56 @@ public class PersonJpaAdapter implements PersonRepository {
         PersonEntity e = new PersonEntity();
         e.setPersonId(person.getPersonId());
         e.setName(person.getName());
-        e.setVorname(person.getVorname());
-        e.setGeschlecht(person.getGeschlecht().name());
-        e.setGeburtsdatum(person.getGeburtsdatum());
-        e.setAhvNummer(person.getAhvNummer() != null ? person.getAhvNummer().getValue() : null);
-        for (Adresse a : person.getAdressen()) {
-            AdresseEntity ae = toAdresseEntity(a, e);
-            e.getAdressen().add(ae);
+        e.setFirstName(person.getFirstName());
+        e.setGender(person.getGender().name());
+        e.setDateOfBirth(person.getDateOfBirth());
+        e.setSocialSecurityNumber(person.getSocialSecurityNumber() != null ? person.getSocialSecurityNumber().getValue() : null);
+        for (Address a : person.getAddresses()) {
+            AddressEntity ae = toAddressEntity(a, e);
+            e.getAddresses().add(ae);
         }
         return e;
     }
 
     private void updateEntity(PersonEntity e, Person person) {
         e.setName(person.getName());
-        e.setVorname(person.getVorname());
-        e.setGeschlecht(person.getGeschlecht().name());
-        e.setGeburtsdatum(person.getGeburtsdatum());
+        e.setFirstName(person.getFirstName());
+        e.setGender(person.getGender().name());
+        e.setDateOfBirth(person.getDateOfBirth());
 
-        // sync adressen: remove deleted, update existing, add new
-        e.getAdressen().removeIf(ae ->
-                person.getAdressen().stream().noneMatch(a -> a.getAdressId().equals(ae.getAdressId())));
-        for (Adresse a : person.getAdressen()) {
-            AdresseEntity existing = e.getAdressen().stream()
-                    .filter(ae -> ae.getAdressId().equals(a.getAdressId()))
+        // sync addresses: remove deleted, update existing, add new
+        e.getAddresses().removeIf(ae ->
+                person.getAddresses().stream().noneMatch(a -> a.getAddressId().equals(ae.getAddressId())));
+        for (Address a : person.getAddresses()) {
+            AddressEntity existing = e.getAddresses().stream()
+                    .filter(ae -> ae.getAddressId().equals(a.getAddressId()))
                     .findFirst().orElse(null);
             if (existing != null) {
-                existing.setGueltigVon(a.getGueltigVon());
-                existing.setGueltigBis(a.getGueltigBis());
-                existing.setStrasse(a.getStrasse());
-                existing.setHausnummer(a.getHausnummer());
-                existing.setPlz(a.getPlz());
-                existing.setOrt(a.getOrt());
+                existing.setValidFrom(a.getValidFrom());
+                existing.setValidTo(a.getValidTo());
+                existing.setStreet(a.getStreet());
+                existing.setHouseNumber(a.getHouseNumber());
+                existing.setPostalCode(a.getPostalCode());
+                existing.setCity(a.getCity());
                 existing.setLand(a.getLand());
             } else {
-                e.getAdressen().add(toAdresseEntity(a, e));
+                e.getAddresses().add(toAddressEntity(a, e));
             }
         }
     }
 
-    private AdresseEntity toAdresseEntity(Adresse a, PersonEntity personEntity) {
-        AdresseEntity ae = new AdresseEntity();
-        ae.setAdressId(a.getAdressId());
+    private AddressEntity toAddressEntity(Address a, PersonEntity personEntity) {
+        AddressEntity ae = new AddressEntity();
+        ae.setAddressId(a.getAddressId());
         ae.setPerson(personEntity);
-        ae.setAdressTyp(a.getAdressTyp().name());
-        ae.setStrasse(a.getStrasse());
-        ae.setHausnummer(a.getHausnummer());
-        ae.setPlz(a.getPlz());
-        ae.setOrt(a.getOrt());
+        ae.setAddressType(a.getAddressType().name());
+        ae.setStreet(a.getStreet());
+        ae.setHouseNumber(a.getHouseNumber());
+        ae.setPostalCode(a.getPostalCode());
+        ae.setCity(a.getCity());
         ae.setLand(a.getLand());
-        ae.setGueltigVon(a.getGueltigVon());
-        ae.setGueltigBis(a.getGueltigBis());
+        ae.setValidFrom(a.getValidFrom());
+        ae.setValidTo(a.getValidTo());
         return ae;
     }
 
@@ -149,27 +149,27 @@ public class PersonJpaAdapter implements PersonRepository {
         Person person = new Person(
                 e.getPersonId(),
                 e.getName(),
-                e.getVorname(),
-                Geschlecht.valueOf(e.getGeschlecht()),
-                e.getGeburtsdatum(),
-                e.getAhvNummer() != null ? new AhvNummer(e.getAhvNummer()) : null
+                e.getFirstName(),
+                Gender.valueOf(e.getGender()),
+                e.getDateOfBirth(),
+                e.getSocialSecurityNumber() != null ? new SocialSecurityNumber(e.getSocialSecurityNumber()) : null
         );
-        List<Adresse> adressen = new ArrayList<>();
-        for (AdresseEntity ae : e.getAdressen()) {
-            adressen.add(new Adresse(
-                    ae.getAdressId(),
+        List<Address> addresses = new ArrayList<>();
+        for (AddressEntity ae : e.getAddresses()) {
+            addresses.add(new Address(
+                    ae.getAddressId(),
                     e.getPersonId(),
-                    AdressTyp.valueOf(ae.getAdressTyp()),
-                    ae.getStrasse(),
-                    ae.getHausnummer(),
-                    ae.getPlz(),
-                    ae.getOrt(),
+                    AddressType.valueOf(ae.getAddressType()),
+                    ae.getStreet(),
+                    ae.getHouseNumber(),
+                    ae.getPostalCode(),
+                    ae.getCity(),
                     ae.getLand(),
-                    ae.getGueltigVon(),
-                    ae.getGueltigBis()
+                    ae.getValidFrom(),
+                    ae.getValidTo()
             ));
         }
-        person.setAdressen(adressen);
+        person.setAddresses(addresses);
         return person;
     }
 }

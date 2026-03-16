@@ -1,6 +1,6 @@
 package ch.css.policy.domain.model;
 
-import ch.css.policy.domain.service.DeckungNotFoundException;
+import ch.css.policy.domain.service.CoverageNotFoundException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -15,149 +15,149 @@ import java.util.UUID;
 public class Policy {
 
     private final String policyId;
-    private final String policyNummer;
+    private final String policyNumber;
     private final String partnerId;
-    private String produktId;
+    private String productId;
     private PolicyStatus status;
-    private LocalDate versicherungsbeginn;
-    private LocalDate versicherungsende; // null = unbefristet
-    private BigDecimal praemie;
-    private BigDecimal selbstbehalt;
-    private List<Deckung> deckungen;
+    private LocalDate coverageStartDate;
+    private LocalDate coverageEndDate; // null = open-ended
+    private BigDecimal premium;
+    private BigDecimal deductible;
+    private List<Coverage> coverages;
 
-    /** Constructor for creating a new Policy (status = ENTWURF). */
-    public Policy(String policyNummer, String partnerId, String produktId,
-                  LocalDate versicherungsbeginn, LocalDate versicherungsende,
-                  BigDecimal praemie, BigDecimal selbstbehalt) {
-        validate(policyNummer, partnerId, produktId, versicherungsbeginn, praemie, selbstbehalt);
-        if (versicherungsende != null && versicherungsbeginn.isAfter(versicherungsende)) {
-            throw new IllegalArgumentException("versicherungsbeginn darf nicht nach versicherungsende liegen");
+    /** Constructor for creating a new Policy (status = DRAFT). */
+    public Policy(String policyNumber, String partnerId, String productId,
+                  LocalDate coverageStartDate, LocalDate coverageEndDate,
+                  BigDecimal premium, BigDecimal deductible) {
+        validate(policyNumber, partnerId, productId, coverageStartDate, premium, deductible);
+        if (coverageEndDate != null && coverageStartDate.isAfter(coverageEndDate)) {
+            throw new IllegalArgumentException("coverageStartDate must not be after coverageEndDate");
         }
         this.policyId = UUID.randomUUID().toString();
-        this.policyNummer = policyNummer;
+        this.policyNumber = policyNumber;
         this.partnerId = partnerId;
-        this.produktId = produktId;
-        this.status = PolicyStatus.ENTWURF;
-        this.versicherungsbeginn = versicherungsbeginn;
-        this.versicherungsende = versicherungsende;
-        this.praemie = praemie;
-        this.selbstbehalt = selbstbehalt;
-        this.deckungen = new ArrayList<>();
+        this.productId = productId;
+        this.status = PolicyStatus.DRAFT;
+        this.coverageStartDate = coverageStartDate;
+        this.coverageEndDate = coverageEndDate;
+        this.premium = premium;
+        this.deductible = deductible;
+        this.coverages = new ArrayList<>();
     }
 
     /** Constructor for reconstructing from persistence. */
-    public Policy(String policyId, String policyNummer, String partnerId, String produktId,
-                  PolicyStatus status, LocalDate versicherungsbeginn, LocalDate versicherungsende,
-                  BigDecimal praemie, BigDecimal selbstbehalt) {
+    public Policy(String policyId, String policyNumber, String partnerId, String productId,
+                  PolicyStatus status, LocalDate coverageStartDate, LocalDate coverageEndDate,
+                  BigDecimal premium, BigDecimal deductible) {
         this.policyId = policyId;
-        this.policyNummer = policyNummer;
+        this.policyNumber = policyNumber;
         this.partnerId = partnerId;
-        this.produktId = produktId;
+        this.productId = productId;
         this.status = status;
-        this.versicherungsbeginn = versicherungsbeginn;
-        this.versicherungsende = versicherungsende;
-        this.praemie = praemie;
-        this.selbstbehalt = selbstbehalt;
-        this.deckungen = new ArrayList<>();
+        this.coverageStartDate = coverageStartDate;
+        this.coverageEndDate = coverageEndDate;
+        this.premium = premium;
+        this.deductible = deductible;
+        this.coverages = new ArrayList<>();
     }
 
     // ── Business Methods ──────────────────────────────────────────────────────
 
-    /** Activates the policy (ENTWURF → AKTIV). */
-    public void aktivieren() {
-        if (status != PolicyStatus.ENTWURF) {
-            throw new IllegalStateException("Nur Entwürfe können aktiviert werden (aktueller Status: " + status + ")");
+    /** Activates the policy (DRAFT → ACTIVE). */
+    public void activate() {
+        if (status != PolicyStatus.DRAFT) {
+            throw new IllegalStateException("Only DRAFT policies can be activated (current status: " + status + ")");
         }
-        this.status = PolicyStatus.AKTIV;
+        this.status = PolicyStatus.ACTIVE;
     }
 
-    /** Cancels the policy (AKTIV → GEKUENDIGT). */
-    public void kuendigen() {
-        if (status != PolicyStatus.AKTIV) {
-            throw new IllegalStateException("Nur aktive Policen können gekündigt werden (aktueller Status: " + status + ")");
+    /** Cancels the policy (ACTIVE → CANCELLED). */
+    public void cancel() {
+        if (status != PolicyStatus.ACTIVE) {
+            throw new IllegalStateException("Only ACTIVE policies can be cancelled (current status: " + status + ")");
         }
-        this.status = PolicyStatus.GEKUENDIGT;
+        this.status = PolicyStatus.CANCELLED;
     }
 
-    /** Updates the policy details. Only allowed in ENTWURF or AKTIV status. */
-    public void updateDetails(String produktId, LocalDate versicherungsbeginn,
-                               LocalDate versicherungsende, BigDecimal praemie, BigDecimal selbstbehalt) {
-        if (status == PolicyStatus.GEKUENDIGT || status == PolicyStatus.ABGELAUFEN) {
-            throw new IllegalStateException("Gekündigte oder abgelaufene Policen können nicht geändert werden");
+    /** Updates the policy details. Only allowed in DRAFT or ACTIVE status. */
+    public void updateDetails(String productId, LocalDate coverageStartDate,
+                               LocalDate coverageEndDate, BigDecimal premium, BigDecimal deductible) {
+        if (status == PolicyStatus.CANCELLED || status == PolicyStatus.EXPIRED) {
+            throw new IllegalStateException("CANCELLED or EXPIRED policies cannot be modified");
         }
-        if (produktId == null || produktId.isBlank()) throw new IllegalArgumentException("produktId ist Pflichtfeld");
-        if (versicherungsbeginn == null) throw new IllegalArgumentException("versicherungsbeginn ist Pflichtfeld");
-        if (praemie == null || praemie.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("praemie muss grösser als 0 sein");
-        if (selbstbehalt == null || selbstbehalt.compareTo(BigDecimal.ZERO) < 0) throw new IllegalArgumentException("selbstbehalt darf nicht negativ sein");
-        if (versicherungsende != null && versicherungsbeginn.isAfter(versicherungsende)) {
-            throw new IllegalArgumentException("versicherungsbeginn darf nicht nach versicherungsende liegen");
+        if (productId == null || productId.isBlank()) throw new IllegalArgumentException("productId is required");
+        if (coverageStartDate == null) throw new IllegalArgumentException("coverageStartDate is required");
+        if (premium == null || premium.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("premium must be greater than 0");
+        if (deductible == null || deductible.compareTo(BigDecimal.ZERO) < 0) throw new IllegalArgumentException("deductible must not be negative");
+        if (coverageEndDate != null && coverageStartDate.isAfter(coverageEndDate)) {
+            throw new IllegalArgumentException("coverageStartDate must not be after coverageEndDate");
         }
-        this.produktId = produktId;
-        this.versicherungsbeginn = versicherungsbeginn;
-        this.versicherungsende = versicherungsende;
-        this.praemie = praemie;
-        this.selbstbehalt = selbstbehalt;
+        this.productId = productId;
+        this.coverageStartDate = coverageStartDate;
+        this.coverageEndDate = coverageEndDate;
+        this.premium = premium;
+        this.deductible = deductible;
     }
 
     /**
      * Adds a coverage to the policy.
-     * Each Deckungstyp may only appear once per policy.
-     * @return the new deckungId
+     * Each CoverageType may only appear once per policy.
+     * @return the new coverageId
      */
-    public String addDeckung(Deckungstyp deckungstyp, BigDecimal versicherungssumme) {
-        if (status == PolicyStatus.GEKUENDIGT || status == PolicyStatus.ABGELAUFEN) {
-            throw new IllegalStateException("Deckungen können bei dieser Police nicht mehr hinzugefügt werden");
+    public String addCoverage(CoverageType coverageType, BigDecimal insuredAmount) {
+        if (status == PolicyStatus.CANCELLED || status == PolicyStatus.EXPIRED) {
+            throw new IllegalStateException("Coverages cannot be added to this policy");
         }
-        boolean exists = deckungen.stream().anyMatch(d -> d.getDeckungstyp() == deckungstyp);
+        boolean exists = coverages.stream().anyMatch(c -> c.getCoverageType() == coverageType);
         if (exists) {
-            throw new IllegalArgumentException("Deckungstyp " + deckungstyp + " ist bereits vorhanden");
+            throw new IllegalArgumentException("Coverage type " + coverageType + " already exists");
         }
-        String deckungId = UUID.randomUUID().toString();
-        deckungen.add(new Deckung(deckungId, policyId, deckungstyp, versicherungssumme));
-        return deckungId;
+        String coverageId = UUID.randomUUID().toString();
+        coverages.add(new Coverage(coverageId, policyId, coverageType, insuredAmount));
+        return coverageId;
     }
 
     /** Removes a coverage by ID. */
-    public void removeDeckung(String deckungId) {
-        findDeckung(deckungId); // throws DeckungNotFoundException if not found
-        deckungen.removeIf(d -> d.getDeckungId().equals(deckungId));
+    public void removeCoverage(String coverageId) {
+        findCoverage(coverageId); // throws CoverageNotFoundException if not found
+        coverages.removeIf(c -> c.getCoverageId().equals(coverageId));
     }
 
     // ── Private Helpers ───────────────────────────────────────────────────────
 
-    private Deckung findDeckung(String deckungId) {
-        return deckungen.stream()
-                .filter(d -> d.getDeckungId().equals(deckungId))
+    private Coverage findCoverage(String coverageId) {
+        return coverages.stream()
+                .filter(c -> c.getCoverageId().equals(coverageId))
                 .findFirst()
-                .orElseThrow(() -> new DeckungNotFoundException(deckungId));
+                .orElseThrow(() -> new CoverageNotFoundException(coverageId));
     }
 
-    private static void validate(String policyNummer, String partnerId, String produktId,
-                                  LocalDate versicherungsbeginn, BigDecimal praemie, BigDecimal selbstbehalt) {
-        if (policyNummer == null || policyNummer.isBlank()) throw new IllegalArgumentException("policyNummer ist Pflichtfeld");
-        if (partnerId == null || partnerId.isBlank()) throw new IllegalArgumentException("partnerId ist Pflichtfeld");
-        if (produktId == null || produktId.isBlank()) throw new IllegalArgumentException("produktId ist Pflichtfeld");
-        if (versicherungsbeginn == null) throw new IllegalArgumentException("versicherungsbeginn ist Pflichtfeld");
-        if (praemie == null || praemie.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("praemie muss grösser als 0 sein");
-        if (selbstbehalt == null || selbstbehalt.compareTo(BigDecimal.ZERO) < 0) throw new IllegalArgumentException("selbstbehalt darf nicht negativ sein");
+    private static void validate(String policyNumber, String partnerId, String productId,
+                                  LocalDate coverageStartDate, BigDecimal premium, BigDecimal deductible) {
+        if (policyNumber == null || policyNumber.isBlank()) throw new IllegalArgumentException("policyNumber is required");
+        if (partnerId == null || partnerId.isBlank()) throw new IllegalArgumentException("partnerId is required");
+        if (productId == null || productId.isBlank()) throw new IllegalArgumentException("productId is required");
+        if (coverageStartDate == null) throw new IllegalArgumentException("coverageStartDate is required");
+        if (premium == null || premium.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("premium must be greater than 0");
+        if (deductible == null || deductible.compareTo(BigDecimal.ZERO) < 0) throw new IllegalArgumentException("deductible must not be negative");
     }
 
     // ── Getters ───────────────────────────────────────────────────────────────
 
     public String getPolicyId() { return policyId; }
-    public String getPolicyNummer() { return policyNummer; }
+    public String getPolicyNumber() { return policyNumber; }
     public String getPartnerId() { return partnerId; }
-    public String getProduktId() { return produktId; }
+    public String getProductId() { return productId; }
     public PolicyStatus getStatus() { return status; }
-    public LocalDate getVersicherungsbeginn() { return versicherungsbeginn; }
-    public LocalDate getVersicherungsende() { return versicherungsende; }
-    public BigDecimal getPraemie() { return praemie; }
-    public BigDecimal getSelbstbehalt() { return selbstbehalt; }
-    public List<Deckung> getDeckungen() { return deckungen; }
+    public LocalDate getCoverageStartDate() { return coverageStartDate; }
+    public LocalDate getCoverageEndDate() { return coverageEndDate; }
+    public BigDecimal getPremium() { return premium; }
+    public BigDecimal getDeductible() { return deductible; }
+    public List<Coverage> getCoverages() { return coverages; }
 
     /** Used by JPA adapter to restore persisted coverages. */
-    public void setDeckungen(List<Deckung> deckungen) {
-        this.deckungen = deckungen != null ? new ArrayList<>(deckungen) : new ArrayList<>();
+    public void setCoverages(List<Coverage> coverages) {
+        this.coverages = coverages != null ? new ArrayList<>(coverages) : new ArrayList<>();
     }
 
     /** Used by JPA adapter to restore status after persistence. */

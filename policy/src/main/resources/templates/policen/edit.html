@@ -2,7 +2,7 @@
     {#title}Police bearbeiten{/title}
     {#content}
         <a href="/policen" class="btn btn-outline-secondary btn-sm mb-3">← Zurück zur Liste</a>
-        <h2>Police: {policy.policyNummer}
+        <h2>Police: {policy.policyNumber}
             <span class="badge badge-{policy.status} fs-6 ms-2">{policy.status}</span>
         </h2>
 
@@ -13,7 +13,7 @@
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span class="fw-bold">Policendetails</span>
                         <div>
-                            {#if policy.status.name() == "ENTWURF"}
+                            {#if policy.status.name() == "DRAFT"}
                                 <button class="btn btn-sm btn-success"
                                         hx-post="/policen/fragments/{policy.policyId}/aktivieren"
                                         hx-target="body"
@@ -22,7 +22,7 @@
                                     Aktivieren
                                 </button>
                             {/if}
-                            {#if policy.status.name() == "AKTIV"}
+                            {#if policy.status.name() == "ACTIVE"}
                                 <button class="btn btn-sm btn-danger"
                                         hx-post="/policen/fragments/{policy.policyId}/kuendigen"
                                         hx-target="body"
@@ -44,7 +44,7 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <span class="fw-bold">Deckungen</span>
-                        {#if policy.status.name() != "GEKUENDIGT" && policy.status.name() != "ABGELAUFEN"}
+                        {#if policy.status.name() != "CANCELLED" && policy.status.name() != "EXPIRED"}
                             <button class="btn btn-sm btn-outline-success"
                                     hx-get="/policen/fragments/{policy.policyId}/deckung-form"
                                     hx-target="#deckung-liste"
@@ -55,10 +55,10 @@
                     </div>
                     <div class="card-body">
                         <div id="deckung-liste">
-                            {#for deckung in policy.deckungen}
-                                    {#include policen/fragments/deckung-karte deckung = deckung policyId = policy.policyId policyStatus = policy.status.name() /}
+                            {#for coverage in policy.coverages}
+                                    {#include policen/fragments/coverage-card coverage = coverage policyId = policy.policyId policyStatus = policy.status.name() /}
                             {/for}
-                            {#if policy.deckungen.isEmpty()}
+                            {#if policy.coverages.isEmpty()}
                                 <p class="text-muted">Keine Deckungen erfasst.</p>
                             {/if}
                         </div>
@@ -68,4 +68,3 @@
         </div>
     {/content}
 {/include}
-

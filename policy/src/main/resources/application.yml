@@ -52,7 +52,7 @@ quarkus:
   mp:
     messaging:
       kafka:
-        bootstrap.servers: ${KAFKA_BROKERS:localhost:9092}
+        bootstrap.servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
 # Messaging channels (bootstrap.servers omitted → Kafka DevServices in dev/test)
 mp:

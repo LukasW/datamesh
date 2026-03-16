@@ -1,28 +1,28 @@
-<div class="card mb-2 border-{#if adresse.aktuell}success{#else if adresse.vorerfasst}info{#else}secondary{/if}" id="adresse-{adresse.adressId}">
+<div class="card mb-2 border-{#if adresse.current}success{#else if adresse.preRecorded}info{#else}secondary{/if}" id="adresse-{adresse.addressId}">
   <div class="card-body p-3">
     <div class="d-flex justify-content-between align-items-start">
       <div>
-        <span class="badge {#if adresse.aktuell}bg-success{#else if adresse.vorerfasst}bg-info{#else}bg-secondary{/if} me-1">
-          {adresse.adressTyp}
+        <span class="badge {#if adresse.current}bg-success{#else if adresse.preRecorded}bg-info{#else}bg-secondary{/if} me-1">
+          {adresse.addressType}
         </span>
-        <span class="text-muted small">{#if adresse.aktuell}aktuell{#else if adresse.vorerfasst}vorerfasst{#else}abgelaufen{/if}</span>
-        <div class="mt-1 fw-semibold">{adresse.strasse} {adresse.hausnummer}, {adresse.plz} {adresse.ort}</div>
+        <span class="text-muted small">{#if adresse.current}aktuell{#else if adresse.preRecorded}vorerfasst{#else}abgelaufen{/if}</span>
+        <div class="mt-1 fw-semibold">{adresse.street} {adresse.houseNumber}, {adresse.postalCode} {adresse.city}</div>
         <small class="text-muted">
-          Gültig: {adresse.gueltigVon} –
-          {#if adresse.gueltigBis}{adresse.gueltigBis}{#else}∞{/if}
+          Gültig: {adresse.validFrom} –
+          {#if adresse.validTo}{adresse.validTo}{#else}∞{/if}
         </small>
       </div>
       <div class="btn-group btn-group-sm">
         <button class="btn btn-outline-secondary"
-                hx-get="/personen/fragments/{personId}/adressen/{adresse.adressId}/gueltigkeit"
-                hx-target="#adresse-{adresse.adressId} .card-body"
+                hx-get="/personen/fragments/{personId}/adressen/{adresse.addressId}/gueltigkeit"
+                hx-target="#adresse-{adresse.addressId} .card-body"
                 hx-swap="innerHTML">
           Gültigkeit
         </button>
         <button class="btn btn-outline-danger"
-                hx-delete="/api/personen/{personId}/adressen/{adresse.adressId}"
+                hx-delete="/api/personen/{personId}/adressen/{adresse.addressId}"
                 hx-confirm="Adresse löschen?"
-                hx-target="#adresse-{adresse.adressId}"
+                hx-target="#adresse-{adresse.addressId}"
                 hx-swap="outerHTML">
           Löschen
         </button>

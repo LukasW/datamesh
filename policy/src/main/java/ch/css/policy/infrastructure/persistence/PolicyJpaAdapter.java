@@ -1,7 +1,7 @@
 package ch.css.policy.infrastructure.persistence;
 
-import ch.css.policy.domain.model.Deckung;
-import ch.css.policy.domain.model.Deckungstyp;
+import ch.css.policy.domain.model.Coverage;
+import ch.css.policy.domain.model.CoverageType;
 import ch.css.policy.domain.model.Policy;
 import ch.css.policy.domain.model.PolicyStatus;
 import ch.css.policy.domain.port.out.PolicyRepository;
@@ -41,19 +41,19 @@ public class PolicyJpaAdapter implements PolicyRepository {
     }
 
     @Override
-    public Optional<Policy> findByPolicyNummer(String policyNummer) {
+    public Optional<Policy> findByPolicyNumber(String policyNumber) {
         List<PolicyEntity> results = em.createQuery(
-                "SELECT p FROM PolicyEntity p WHERE p.policyNummer = :nr", PolicyEntity.class)
-                .setParameter("nr", policyNummer)
+                "SELECT p FROM PolicyEntity p WHERE p.policyNumber = :nr", PolicyEntity.class)
+                .setParameter("nr", policyNumber)
                 .getResultList();
         return results.isEmpty() ? Optional.empty() : Optional.of(toDomain(results.get(0)));
     }
 
     @Override
-    public List<Policy> search(String policyNummer, String partnerId, PolicyStatus status) {
+    public List<Policy> search(String policyNumber, String partnerId, PolicyStatus status) {
         StringBuilder jpql = new StringBuilder("SELECT p FROM PolicyEntity p WHERE 1=1");
-        if (policyNummer != null && !policyNummer.isBlank())
-            jpql.append(" AND LOWER(p.policyNummer) LIKE LOWER(:policyNummer)");
+        if (policyNumber != null && !policyNumber.isBlank())
+            jpql.append(" AND LOWER(p.policyNumber) LIKE LOWER(:policyNumber)");
         if (partnerId != null && !partnerId.isBlank())
             jpql.append(" AND p.partnerId = :partnerId");
         if (status != null)
@@ -61,8 +61,8 @@ public class PolicyJpaAdapter implements PolicyRepository {
         jpql.append(" ORDER BY p.createdAt DESC");
 
         TypedQuery<PolicyEntity> query = em.createQuery(jpql.toString(), PolicyEntity.class);
-        if (policyNummer != null && !policyNummer.isBlank())
-            query.setParameter("policyNummer", "%" + policyNummer + "%");
+        if (policyNumber != null && !policyNumber.isBlank())
+            query.setParameter("policyNumber", "%" + policyNumber + "%");
         if (partnerId != null && !partnerId.isBlank())
             query.setParameter("partnerId", partnerId);
         if (status != null)
@@ -81,10 +81,10 @@ public class PolicyJpaAdapter implements PolicyRepository {
     }
 
     @Override
-    public boolean existsByPolicyNummer(String policyNummer) {
+    public boolean existsByPolicyNumber(String policyNumber) {
         Long count = em.createQuery(
-                "SELECT COUNT(p) FROM PolicyEntity p WHERE p.policyNummer = :nr", Long.class)
-                .setParameter("nr", policyNummer)
+                "SELECT COUNT(p) FROM PolicyEntity p WHERE p.policyNumber = :nr", Long.class)
+                .setParameter("nr", policyNumber)
                 .getSingleResult();
         return count > 0;
     }
@@ -94,75 +94,74 @@ public class PolicyJpaAdapter implements PolicyRepository {
     private PolicyEntity toEntity(Policy policy) {
         PolicyEntity e = new PolicyEntity();
         e.setPolicyId(policy.getPolicyId());
-        e.setPolicyNummer(policy.getPolicyNummer());
+        e.setPolicyNumber(policy.getPolicyNumber());
         e.setPartnerId(policy.getPartnerId());
-        e.setProduktId(policy.getProduktId());
+        e.setProductId(policy.getProductId());
         e.setStatus(policy.getStatus().name());
-        e.setVersicherungsbeginn(policy.getVersicherungsbeginn());
-        e.setVersicherungsende(policy.getVersicherungsende());
-        e.setPraemie(policy.getPraemie());
-        e.setSelbstbehalt(policy.getSelbstbehalt());
-        for (Deckung d : policy.getDeckungen()) {
-            e.getDeckungen().add(toDeckungEntity(d, e));
+        e.setCoverageStartDate(policy.getCoverageStartDate());
+        e.setCoverageEndDate(policy.getCoverageEndDate());
+        e.setPremium(policy.getPremium());
+        e.setDeductible(policy.getDeductible());
+        for (Coverage c : policy.getCoverages()) {
+            e.getCoverages().add(toCoverageEntity(c, e));
         }
         return e;
     }
 
     private void updateEntity(PolicyEntity e, Policy policy) {
-        e.setProduktId(policy.getProduktId());
+        e.setProductId(policy.getProductId());
         e.setStatus(policy.getStatus().name());
-        e.setVersicherungsbeginn(policy.getVersicherungsbeginn());
-        e.setVersicherungsende(policy.getVersicherungsende());
-        e.setPraemie(policy.getPraemie());
-        e.setSelbstbehalt(policy.getSelbstbehalt());
+        e.setCoverageStartDate(policy.getCoverageStartDate());
+        e.setCoverageEndDate(policy.getCoverageEndDate());
+        e.setPremium(policy.getPremium());
+        e.setDeductible(policy.getDeductible());
 
-        // sync deckungen: remove deleted, update existing, add new
-        e.getDeckungen().removeIf(de ->
-                policy.getDeckungen().stream().noneMatch(d -> d.getDeckungId().equals(de.getDeckungId())));
-        for (Deckung d : policy.getDeckungen()) {
-            DeckungEntity existing = e.getDeckungen().stream()
-                    .filter(de -> de.getDeckungId().equals(d.getDeckungId()))
+        // sync coverages: remove deleted, update existing, add new
+        e.getCoverages().removeIf(ce ->
+                policy.getCoverages().stream().noneMatch(c -> c.getCoverageId().equals(ce.getCoverageId())));
+        for (Coverage c : policy.getCoverages()) {
+            CoverageEntity existing = e.getCoverages().stream()
+                    .filter(ce -> ce.getCoverageId().equals(c.getCoverageId()))
                     .findFirst().orElse(null);
             if (existing != null) {
-                existing.setVersicherungssumme(d.getVersicherungssumme());
+                existing.setInsuredAmount(c.getInsuredAmount());
             } else {
-                e.getDeckungen().add(toDeckungEntity(d, e));
+                e.getCoverages().add(toCoverageEntity(c, e));
             }
         }
     }
 
-    private DeckungEntity toDeckungEntity(Deckung d, PolicyEntity policyEntity) {
-        DeckungEntity de = new DeckungEntity();
-        de.setDeckungId(d.getDeckungId());
-        de.setPolicy(policyEntity);
-        de.setDeckungstyp(d.getDeckungstyp().name());
-        de.setVersicherungssumme(d.getVersicherungssumme());
-        return de;
+    private CoverageEntity toCoverageEntity(Coverage c, PolicyEntity policyEntity) {
+        CoverageEntity ce = new CoverageEntity();
+        ce.setCoverageId(c.getCoverageId());
+        ce.setPolicy(policyEntity);
+        ce.setCoverageType(c.getCoverageType().name());
+        ce.setInsuredAmount(c.getInsuredAmount());
+        return ce;
     }
 
     private Policy toDomain(PolicyEntity e) {
         Policy policy = new Policy(
                 e.getPolicyId(),
-                e.getPolicyNummer(),
+                e.getPolicyNumber(),
                 e.getPartnerId(),
-                e.getProduktId(),
+                e.getProductId(),
                 PolicyStatus.valueOf(e.getStatus()),
-                e.getVersicherungsbeginn(),
-                e.getVersicherungsende(),
-                e.getPraemie(),
-                e.getSelbstbehalt()
+                e.getCoverageStartDate(),
+                e.getCoverageEndDate(),
+                e.getPremium(),
+                e.getDeductible()
         );
-        List<Deckung> deckungen = new ArrayList<>();
-        for (DeckungEntity de : e.getDeckungen()) {
-            deckungen.add(new Deckung(
-                    de.getDeckungId(),
+        List<Coverage> coverages = new ArrayList<>();
+        for (CoverageEntity ce : e.getCoverages()) {
+            coverages.add(new Coverage(
+                    ce.getCoverageId(),
                     e.getPolicyId(),
-                    Deckungstyp.valueOf(de.getDeckungstyp()),
-                    de.getVersicherungssumme()
+                    CoverageType.valueOf(ce.getCoverageType()),
+                    ce.getInsuredAmount()
             ));
         }
-        policy.setDeckungen(deckungen);
+        policy.setCoverages(coverages);
         return policy;
     }
 }
-

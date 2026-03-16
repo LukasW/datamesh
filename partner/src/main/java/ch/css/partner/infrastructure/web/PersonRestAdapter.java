@@ -1,11 +1,11 @@
 package ch.css.partner.infrastructure.web;
 
-import ch.css.partner.domain.model.Adresse;
-import ch.css.partner.domain.model.AdressTyp;
-import ch.css.partner.domain.model.Geschlecht;
+import ch.css.partner.domain.model.Address;
+import ch.css.partner.domain.model.AddressType;
+import ch.css.partner.domain.model.Gender;
 import ch.css.partner.domain.model.Person;
-import ch.css.partner.domain.service.AdressUeberschneidungException;
-import ch.css.partner.domain.service.AdresseNotFoundException;
+import ch.css.partner.domain.service.AddressOverlapException;
+import ch.css.partner.domain.service.AddressNotFoundException;
 import ch.css.partner.domain.service.PersonApplicationService;
 import ch.css.partner.domain.service.PersonNotFoundException;
 import ch.css.partner.infrastructure.persistence.PersonAuditAdapter;
@@ -39,9 +39,9 @@ public class PersonRestAdapter {
     public Response createPerson(CreatePersonRequest req) {
         try {
             String id = personService.createPerson(
-                    req.name(), req.vorname(),
-                    Geschlecht.valueOf(req.geschlecht()),
-                    req.geburtsdatum(), req.ahvNummer());
+                    req.name(), req.firstName(),
+                    Gender.valueOf(req.gender()),
+                    req.dateOfBirth(), req.socialSecurityNumber());
             return Response.status(201).entity(Map.of("id", id)).build();
         } catch (IllegalArgumentException e) {
             return Response.status(400).entity(Map.of("message", e.getMessage())).build();
@@ -49,19 +49,19 @@ public class PersonRestAdapter {
     }
 
     @GET
-    public Response searchPersonen(
+    public Response searchPersons(
             @QueryParam("name") String name,
-            @QueryParam("vorname") String vorname,
+            @QueryParam("firstName") String firstName,
             @QueryParam("ahv") String ahv,
-            @QueryParam("geburtsdatum") String geburtsdatum) {
-        boolean hasFilter = isNotBlank(name) || isNotBlank(vorname)
-                || isNotBlank(ahv) || isNotBlank(geburtsdatum);
+            @QueryParam("dateOfBirth") String dateOfBirth) {
+        boolean hasFilter = isNotBlank(name) || isNotBlank(firstName)
+                || isNotBlank(ahv) || isNotBlank(dateOfBirth);
         if (!hasFilter) {
             return Response.ok(List.of()).build();
         }
         try {
-            LocalDate geb = isNotBlank(geburtsdatum) ? LocalDate.parse(geburtsdatum) : null;
-            List<PersonDto> result = personService.searchPersonen(name, vorname, ahv, geb)
+            LocalDate dob = isNotBlank(dateOfBirth) ? LocalDate.parse(dateOfBirth) : null;
+            List<PersonDto> result = personService.searchPersons(name, firstName, ahv, dob)
                     .stream().map(PersonDto::from).toList();
             return Response.ok(result).build();
         } catch (IllegalArgumentException e) {
@@ -83,8 +83,8 @@ public class PersonRestAdapter {
     @Path("/{id}")
     public Response updatePerson(@PathParam("id") String id, UpdatePersonRequest req) {
         try {
-            personService.updatePersonalien(id, req.name(), req.vorname(),
-                    Geschlecht.valueOf(req.geschlecht()), req.geburtsdatum());
+            personService.updatePersonalData(id, req.name(), req.firstName(),
+                    Gender.valueOf(req.gender()), req.dateOfBirth());
             return Response.ok(PersonDto.from(personService.findById(id))).build();
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -104,23 +104,23 @@ public class PersonRestAdapter {
         }
     }
 
-    // ── Adressen ──────────────────────────────────────────────────────────────
+    // ── Addresses ─────────────────────────────────────────────────────────────
 
     @GET
     @Path("/{id}/adressen")
-    public Response getAdressen(@PathParam("id") String id,
-                                 @QueryParam("typ") String typ,
-                                 @QueryParam("aktuell") Boolean aktuell) {
+    public Response getAddresses(@PathParam("id") String id,
+                                  @QueryParam("typ") String typ,
+                                  @QueryParam("current") Boolean current) {
         try {
-            List<Adresse> adressen = personService.getAdressen(id);
+            List<Address> addresses = personService.getAddresses(id);
             if (isNotBlank(typ)) {
-                AdressTyp adressTyp = AdressTyp.valueOf(typ);
-                adressen = adressen.stream().filter(a -> a.getAdressTyp() == adressTyp).toList();
+                AddressType addressType = AddressType.valueOf(typ);
+                addresses = addresses.stream().filter(a -> a.getAddressType() == addressType).toList();
             }
-            if (Boolean.TRUE.equals(aktuell)) {
-                adressen = adressen.stream().filter(Adresse::isAktuell).toList();
+            if (Boolean.TRUE.equals(current)) {
+                addresses = addresses.stream().filter(Address::isCurrent).toList();
             }
-            return Response.ok(adressen.stream().map(AdresseDto::from).toList()).build();
+            return Response.ok(addresses.stream().map(AddressDto::from).toList()).build();
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalArgumentException e) {
@@ -130,19 +130,19 @@ public class PersonRestAdapter {
 
     @POST
     @Path("/{id}/adressen")
-    public Response addAdresse(@PathParam("id") String id, AddAdresseRequest req) {
+    public Response addAddress(@PathParam("id") String id, AddAddressRequest req) {
         try {
-            String adressId = personService.addAdresse(
+            String addressId = personService.addAddress(
                     id,
-                    AdressTyp.valueOf(req.adressTyp()),
-                    req.strasse(), req.hausnummer(), req.plz(), req.ort(),
+                    AddressType.valueOf(req.addressType()),
+                    req.street(), req.houseNumber(), req.postalCode(), req.city(),
                     req.land() != null ? req.land() : "Schweiz",
-                    req.gueltigVon(), req.gueltigBis());
-            Adresse adresse = personService.findById(id).getAdressen().stream()
-                    .filter(a -> a.getAdressId().equals(adressId))
+                    req.validFrom(), req.validTo());
+            Address address = personService.findById(id).getAddresses().stream()
+                    .filter(a -> a.getAddressId().equals(addressId))
                     .findFirst().orElseThrow();
-            return Response.status(201).entity(AdresseDto.from(adresse)).build();
-        } catch (AdressUeberschneidungException e) {
+            return Response.status(201).entity(AddressDto.from(address)).build();
+        } catch (AddressOverlapException e) {
             return Response.status(409).entity(Map.of("message", e.getMessage())).build();
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -153,18 +153,18 @@ public class PersonRestAdapter {
 
     @PUT
     @Path("/{id}/adressen/{aid}")
-    public Response updateAdresseGueltigkeit(@PathParam("id") String id,
-                                              @PathParam("aid") String aid,
-                                              UpdateAdresseRequest req) {
+    public Response updateAddressValidity(@PathParam("id") String id,
+                                          @PathParam("aid") String aid,
+                                          UpdateAddressRequest req) {
         try {
-            personService.updateAdressGueltigkeit(id, aid, req.gueltigVon(), req.gueltigBis());
-            Adresse adresse = personService.findById(id).getAdressen().stream()
-                    .filter(a -> a.getAdressId().equals(aid))
+            personService.updateAddressValidity(id, aid, req.validFrom(), req.validTo());
+            Address address = personService.findById(id).getAddresses().stream()
+                    .filter(a -> a.getAddressId().equals(aid))
                     .findFirst().orElseThrow();
-            return Response.ok(AdresseDto.from(adresse)).build();
-        } catch (AdressUeberschneidungException e) {
+            return Response.ok(AddressDto.from(address)).build();
+        } catch (AddressOverlapException e) {
             return Response.status(409).entity(Map.of("message", e.getMessage())).build();
-        } catch (PersonNotFoundException | AdresseNotFoundException e) {
+        } catch (PersonNotFoundException | AddressNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalArgumentException e) {
             return Response.status(400).entity(Map.of("message", e.getMessage())).build();
@@ -173,11 +173,11 @@ public class PersonRestAdapter {
 
     @DELETE
     @Path("/{id}/adressen/{aid}")
-    public Response deleteAdresse(@PathParam("id") String id, @PathParam("aid") String aid) {
+    public Response deleteAddress(@PathParam("id") String id, @PathParam("aid") String aid) {
         try {
-            personService.deleteAdresse(id, aid);
+            personService.deleteAddress(id, aid);
             return Response.noContent().build();
-        } catch (PersonNotFoundException | AdresseNotFoundException e) {
+        } catch (PersonNotFoundException | AddressNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         }
     }
@@ -192,49 +192,49 @@ public class PersonRestAdapter {
 
     @GET
     @Path("/{id}/adressen/{aid}/history")
-    public Response getAdresseHistory(@PathParam("id") String id, @PathParam("aid") String aid) {
-        return Response.ok(auditAdapter.getAdresseHistory(aid)).build();
+    public Response getAddressHistory(@PathParam("id") String id, @PathParam("aid") String aid) {
+        return Response.ok(auditAdapter.getAddressHistory(aid)).build();
     }
 
     // ── Request/Response DTOs ─────────────────────────────────────────────────
 
     public record CreatePersonRequest(
-            String name, String vorname, String geschlecht,
-            LocalDate geburtsdatum, String ahvNummer) {}
+            String name, String firstName, String gender,
+            LocalDate dateOfBirth, String socialSecurityNumber) {}
 
     public record UpdatePersonRequest(
-            String name, String vorname, String geschlecht, LocalDate geburtsdatum) {}
+            String name, String firstName, String gender, LocalDate dateOfBirth) {}
 
-    public record AddAdresseRequest(
-            String adressTyp, String strasse, String hausnummer,
-            String plz, String ort, String land,
-            LocalDate gueltigVon, LocalDate gueltigBis) {}
+    public record AddAddressRequest(
+            String addressType, String street, String houseNumber,
+            String postalCode, String city, String land,
+            LocalDate validFrom, LocalDate validTo) {}
 
-    public record UpdateAdresseRequest(LocalDate gueltigVon, LocalDate gueltigBis) {}
+    public record UpdateAddressRequest(LocalDate validFrom, LocalDate validTo) {}
 
     public record PersonDto(
-            String personId, String name, String vorname, String geschlecht,
-            LocalDate geburtsdatum, String ahvNummer, List<AdresseDto> adressen) {
+            String personId, String name, String firstName, String gender,
+            LocalDate dateOfBirth, String socialSecurityNumber, List<AddressDto> addresses) {
 
         public static PersonDto from(Person p) {
             return new PersonDto(
-                    p.getPersonId(), p.getName(), p.getVorname(),
-                    p.getGeschlecht().name(), p.getGeburtsdatum(),
-                    p.getAhvNummer() != null ? p.getAhvNummer().formatted() : null,
-                    p.getAdressen().stream().map(AdresseDto::from).toList());
+                    p.getPersonId(), p.getName(), p.getFirstName(),
+                    p.getGender().name(), p.getDateOfBirth(),
+                    p.getSocialSecurityNumber() != null ? p.getSocialSecurityNumber().formatted() : null,
+                    p.getAddresses().stream().map(AddressDto::from).toList());
         }
     }
 
-    public record AdresseDto(
-            String adressId, String personId, String adressTyp,
-            String strasse, String hausnummer, String plz, String ort, String land,
-            LocalDate gueltigVon, LocalDate gueltigBis, boolean aktuell) {
+    public record AddressDto(
+            String addressId, String personId, String addressType,
+            String street, String houseNumber, String postalCode, String city, String land,
+            LocalDate validFrom, LocalDate validTo, boolean current) {
 
-        public static AdresseDto from(Adresse a) {
-            return new AdresseDto(
-                    a.getAdressId(), a.getPersonId(), a.getAdressTyp().name(),
-                    a.getStrasse(), a.getHausnummer(), a.getPlz(), a.getOrt(), a.getLand(),
-                    a.getGueltigVon(), a.getGueltigBis(), a.isAktuell());
+        public static AddressDto from(Address a) {
+            return new AddressDto(
+                    a.getAddressId(), a.getPersonId(), a.getAddressType().name(),
+                    a.getStreet(), a.getHouseNumber(), a.getPostalCode(), a.getCity(), a.getLand(),
+                    a.getValidFrom(), a.getValidTo(), a.isCurrent());
         }
     }
 
@@ -244,4 +244,3 @@ public class PersonRestAdapter {
         return s != null && !s.isBlank();
     }
 }
-

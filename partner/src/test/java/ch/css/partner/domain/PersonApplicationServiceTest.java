@@ -1,8 +1,7 @@
 package ch.css.partner.domain;
 
-import ch.css.partner.domain.model.Adresse;
 import ch.css.partner.domain.model.*;
-import ch.css.partner.domain.port.out.PersonEventPublisher;
+import ch.css.partner.domain.port.out.OutboxRepository;
 import ch.css.partner.domain.port.out.PersonRepository;
 import ch.css.partner.domain.service.PersonApplicationService;
 import ch.css.partner.domain.service.PersonNotFoundException;
@@ -10,6 +9,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,7 +21,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,48 +31,57 @@ class PersonApplicationServiceTest {
     PersonRepository personRepository;
 
     @Mock
-    PersonEventPublisher personEventPublisher;
+    OutboxRepository outboxRepository;
 
     @InjectMocks
     PersonApplicationService service;
 
-    private static final String AHV_RAW = "756.1234.5678.97";
-    private static final AhvNummer AHV = new AhvNummer(AHV_RAW);
-    private static final LocalDate GEBURTSDATUM = LocalDate.of(1980, 5, 12);
+    @Captor
+    ArgumentCaptor<OutboxEvent> outboxCaptor;
+
+    private static final String SSN_RAW = "756.1234.5678.97";
+    private static final SocialSecurityNumber SSN = new SocialSecurityNumber(SSN_RAW);
+    private static final LocalDate DATE_OF_BIRTH = LocalDate.of(1980, 5, 12);
 
     private Person testPerson;
 
     @BeforeEach
     void setUp() {
-        testPerson = new Person("Muster", "Hans", Geschlecht.MAENNLICH, GEBURTSDATUM, AHV);
+        testPerson = new Person("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH, SSN);
     }
 
     // ── createPerson ──────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("createPerson – Person wird gespeichert und Event publiziert")
-    void createPerson_savesAndPublishesEvent() {
-        when(personRepository.existsByAhvNummer(AHV)).thenReturn(false);
+    @DisplayName("createPerson – Person wird gespeichert und Outbox-Event geschrieben")
+    void createPerson_savesAndWritesOutboxEvent() {
+        when(personRepository.existsBySocialSecurityNumber(SSN)).thenReturn(false);
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        String id = service.createPerson("Muster", "Hans", Geschlecht.MAENNLICH, GEBURTSDATUM, AHV_RAW);
+        String id = service.createPerson("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH, SSN_RAW);
 
         assertNotNull(id);
         verify(personRepository).save(any(Person.class));
-        verify(personEventPublisher).publishPersonErstellt(anyString(), eq("Muster"), eq("Hans"),
-                any(AhvNummer.class), eq(GEBURTSDATUM));
+        verify(outboxRepository).save(outboxCaptor.capture());
+        OutboxEvent event = outboxCaptor.getValue();
+        assertEquals("PersonCreated", event.getEventType());
+        assertEquals("person.v1.created", event.getTopic());
+        assertEquals("person", event.getAggregateType());
+        assertEquals(id, event.getAggregateId());
+        assertNotNull(event.getPayload());
+        assertTrue(event.getPayload().contains("\"eventType\":\"PersonCreated\""));
     }
 
     @Test
-    @DisplayName("createPerson – doppelte AHV-Nummer → IllegalArgumentException")
+    @DisplayName("createPerson – doppelte AHV-Nummer → IllegalArgumentException, kein Outbox-Event")
     void createPerson_duplicateAhv_throws() {
-        when(personRepository.existsByAhvNummer(AHV)).thenReturn(true);
+        when(personRepository.existsBySocialSecurityNumber(SSN)).thenReturn(true);
 
         assertThrows(IllegalArgumentException.class,
-                () -> service.createPerson("Muster", "Hans", Geschlecht.MAENNLICH, GEBURTSDATUM, AHV_RAW));
+                () -> service.createPerson("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH, SSN_RAW));
 
         verify(personRepository, never()).save(any());
-        verify(personEventPublisher, never()).publishPersonErstellt(any(), any(), any(), any(), any());
+        verify(outboxRepository, never()).save(any());
     }
 
     @Test
@@ -80,57 +89,65 @@ class PersonApplicationServiceTest {
     void createPerson_withoutAhv_succeeds() {
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        String id = service.createPerson("Muster", "Hans", Geschlecht.MAENNLICH, GEBURTSDATUM, null);
+        String id = service.createPerson("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH, null);
 
         assertNotNull(id);
-        verify(personRepository, never()).existsByAhvNummer(any());
+        verify(personRepository, never()).existsBySocialSecurityNumber(any());
         verify(personRepository).save(any(Person.class));
+        verify(outboxRepository).save(any(OutboxEvent.class));
     }
 
     @Test
     @DisplayName("createPerson – ungültige AHV-Nummer → IllegalArgumentException")
     void createPerson_invalidAhv_throws() {
         assertThrows(IllegalArgumentException.class,
-                () -> service.createPerson("Muster", "Hans", Geschlecht.MAENNLICH, GEBURTSDATUM,
+                () -> service.createPerson("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH,
                         "756.0000.0000.00"));
     }
 
-    // ── updatePersonalien ─────────────────────────────────────────────────────
+    // ── updatePersonalData ────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("updatePersonalien – Personalien werden aktualisiert und Event publiziert")
-    void updatePersonalien_updatesAndPublishes() {
+    @DisplayName("updatePersonalData – Personalien werden aktualisiert und Outbox-Event geschrieben")
+    void updatePersonalData_updatesAndWritesOutboxEvent() {
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        service.updatePersonalien(testPerson.getPersonId(), "Neuer", "Name",
-                Geschlecht.WEIBLICH, LocalDate.of(1990, 1, 1));
+        service.updatePersonalData(testPerson.getPersonId(), "Neuer", "Name",
+                Gender.FEMALE, LocalDate.of(1990, 1, 1));
 
         assertEquals("Neuer", testPerson.getName());
-        verify(personEventPublisher).publishPersonAktualisiert(testPerson.getPersonId(), "Neuer", "Name");
+        verify(outboxRepository).save(outboxCaptor.capture());
+        OutboxEvent event = outboxCaptor.getValue();
+        assertEquals("PersonUpdated", event.getEventType());
+        assertEquals("person.v1.updated", event.getTopic());
+        assertTrue(event.getPayload().contains("\"name\":\"Neuer\""));
     }
 
     @Test
-    @DisplayName("updatePersonalien – Person nicht gefunden → PersonNotFoundException")
-    void updatePersonalien_notFound_throws() {
+    @DisplayName("updatePersonalData – Person nicht gefunden → PersonNotFoundException")
+    void updatePersonalData_notFound_throws() {
         when(personRepository.findById("unknown")).thenReturn(Optional.empty());
 
         assertThrows(PersonNotFoundException.class,
-                () -> service.updatePersonalien("unknown", "Neuer", "Name",
-                        Geschlecht.MAENNLICH, LocalDate.of(1980, 1, 1)));
+                () -> service.updatePersonalData("unknown", "Neuer", "Name",
+                        Gender.MALE, LocalDate.of(1980, 1, 1)));
     }
 
     // ── deletePerson ──────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("deletePerson – Person wird gelöscht und Event publiziert")
-    void deletePerson_deletesAndPublishes() {
+    @DisplayName("deletePerson – Person wird gelöscht und Outbox-Event geschrieben")
+    void deletePerson_deletesAndWritesOutboxEvent() {
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
 
         service.deletePerson(testPerson.getPersonId());
 
         verify(personRepository).delete(testPerson.getPersonId());
-        verify(personEventPublisher).publishPersonGeloescht(testPerson.getPersonId());
+        verify(outboxRepository).save(outboxCaptor.capture());
+        OutboxEvent event = outboxCaptor.getValue();
+        assertEquals("PersonDeleted", event.getEventType());
+        assertEquals("person.v1.deleted", event.getTopic());
     }
 
     @Test
@@ -141,105 +158,104 @@ class PersonApplicationServiceTest {
         assertThrows(PersonNotFoundException.class, () -> service.deletePerson("unknown"));
     }
 
-    // ── searchPersonen ────────────────────────────────────────────────────────
+    // ── searchPersons ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("searchPersonen – kein Suchfeld → IllegalArgumentException")
-    void searchPersonen_noFilter_throws() {
+    @DisplayName("searchPersons – kein Suchfeld → IllegalArgumentException")
+    void searchPersons_noFilter_throws() {
         assertThrows(IllegalArgumentException.class,
-                () -> service.searchPersonen(null, null, null, null));
+                () -> service.searchPersons(null, null, null, null));
     }
 
     @Test
-    @DisplayName("searchPersonen – mit Name → delegiert an Repository")
-    void searchPersonen_byName_delegates() {
+    @DisplayName("searchPersons – mit Name → delegiert an Repository")
+    void searchPersons_byName_delegates() {
         when(personRepository.search("Muster", null, null, null))
                 .thenReturn(List.of(testPerson));
 
-        List<Person> result = service.searchPersonen("Muster", null, null, null);
+        List<Person> result = service.searchPersons("Muster", null, null, null);
         assertEquals(1, result.size());
     }
 
-    // ── addAdresse ────────────────────────────────────────────────────────────
+    // ── addAddress ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("addAdresse – Adresse wird hinzugefügt und Event publiziert")
-    void addAdresse_addsAndPublishes() {
+    @DisplayName("addAddress – Adresse wird hinzugefügt und Outbox-Event geschrieben")
+    void addAddress_addsAndWritesOutboxEvent() {
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        String adressId = service.addAdresse(
-                testPerson.getPersonId(), AdressTyp.WOHNADRESSE,
+        String addressId = service.addAddress(
+                testPerson.getPersonId(), AddressType.RESIDENCE,
                 "Musterstr.", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
 
-        assertNotNull(adressId);
-        assertEquals(1, testPerson.getAdressen().size());
-        verify(personEventPublisher).publishAdresseHinzugefuegt(
-                eq(testPerson.getPersonId()), anyString(),
-                eq(AdressTyp.WOHNADRESSE), eq(LocalDate.of(2020, 1, 1)));
+        assertNotNull(addressId);
+        assertEquals(1, testPerson.getAddresses().size());
+        verify(outboxRepository).save(outboxCaptor.capture());
+        OutboxEvent event = outboxCaptor.getValue();
+        assertEquals("AddressAdded", event.getEventType());
+        assertEquals("person.v1.address-added", event.getTopic());
+        assertTrue(event.getPayload().contains("\"addressType\":\"RESIDENCE\""));
     }
 
     @Test
-    @DisplayName("addAdresse – Überschneidung → erste Adresse wird automatisch zugeschnitten")
-    void addAdresse_overlap_autoAdjusts() {
+    @DisplayName("addAddress – Überschneidung → erste Adresse wird automatisch zugeschnitten")
+    void addAddress_overlap_autoAdjusts() {
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        // Erste Adresse: 2020-01-01 – ∞
-        service.addAdresse(testPerson.getPersonId(), AdressTyp.WOHNADRESSE,
+        service.addAddress(testPerson.getPersonId(), AddressType.RESIDENCE,
                 "Str", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
-
-        // Zweite Adresse: 2021-01-01 – ∞ → erste wird auf 2020-12-31 zugeschnitten
-        service.addAdresse(testPerson.getPersonId(), AdressTyp.WOHNADRESSE,
+        service.addAddress(testPerson.getPersonId(), AddressType.RESIDENCE,
                 "Str", "2", "3000", "Bern", "Schweiz",
                 LocalDate.of(2021, 1, 1), null);
 
-        assertEquals(2, testPerson.getAdressen().size());
-        Adresse erste = testPerson.getAdressen().stream()
-                .filter(a -> a.getHausnummer().equals("1")).findFirst().orElseThrow();
-        assertEquals(LocalDate.of(2020, 12, 31), erste.getGueltigBis());
+        assertEquals(2, testPerson.getAddresses().size());
+        Address first = testPerson.getAddresses().stream()
+                .filter(a -> a.getHouseNumber().equals("1")).findFirst().orElseThrow();
+        assertEquals(LocalDate.of(2020, 12, 31), first.getValidTo());
     }
 
-    // ── updateAdressGueltigkeit ───────────────────────────────────────────────
+    // ── updateAddressValidity ─────────────────────────────────────────────────
 
     @Test
-    @DisplayName("updateAdressGueltigkeit – Gültigkeit wird aktualisiert und Event publiziert")
-    void updateAdressGueltigkeit_updatesAndPublishes() {
-        // Setup: add an address first
-        testPerson.addAdresse(AdressTyp.WOHNADRESSE, "Str", "1", "8001", "Zürich", "Schweiz",
+    @DisplayName("updateAddressValidity – Gültigkeit wird aktualisiert und Outbox-Event geschrieben")
+    void updateAddressValidity_updatesAndWritesOutboxEvent() {
+        testPerson.addAddress(AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
-        String adressId = testPerson.getAdressen().get(0).getAdressId();
+        String addressId = testPerson.getAddresses().get(0).getAddressId();
 
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        service.updateAdressGueltigkeit(testPerson.getPersonId(), adressId,
+        service.updateAddressValidity(testPerson.getPersonId(), addressId,
                 LocalDate.of(2020, 1, 1), LocalDate.of(2022, 12, 31));
 
         assertEquals(LocalDate.of(2022, 12, 31),
-                testPerson.getAdressen().get(0).getGueltigBis());
-        verify(personEventPublisher).publishAdresseAktualisiert(
-                testPerson.getPersonId(), adressId,
-                LocalDate.of(2020, 1, 1), LocalDate.of(2022, 12, 31));
+                testPerson.getAddresses().get(0).getValidTo());
+        verify(outboxRepository).save(outboxCaptor.capture());
+        OutboxEvent event = outboxCaptor.getValue();
+        assertEquals("AddressUpdated", event.getEventType());
+        assertEquals("person.v1.address-updated", event.getTopic());
     }
 
-    // ── deleteAdresse ─────────────────────────────────────────────────────────
+    // ── deleteAddress ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("deleteAdresse – Adresse wird entfernt")
-    void deleteAdresse_removes() {
-        testPerson.addAdresse(AdressTyp.WOHNADRESSE, "Str", "1", "8001", "Zürich", "Schweiz",
+    @DisplayName("deleteAddress – Adresse wird entfernt, kein Outbox-Event")
+    void deleteAddress_removes() {
+        testPerson.addAddress(AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
-        String adressId = testPerson.getAdressen().get(0).getAdressId();
+        String addressId = testPerson.getAddresses().get(0).getAddressId();
 
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        service.deleteAdresse(testPerson.getPersonId(), adressId);
+        service.deleteAddress(testPerson.getPersonId(), addressId);
 
-        assertTrue(testPerson.getAdressen().isEmpty());
+        assertTrue(testPerson.getAddresses().isEmpty());
+        verify(outboxRepository, never()).save(any());
     }
 }
-

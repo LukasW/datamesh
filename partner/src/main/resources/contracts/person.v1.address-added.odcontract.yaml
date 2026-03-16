@@ -2,7 +2,7 @@ apiVersion: v1
 kind: DataContract
 metadata:
   name: person.v1.address-added
-  version: "1.0.0"
+  version: "1.1.0"
   domain: partner
   description: Event published when an address is added to a person
 
@@ -18,23 +18,24 @@ spec:
         nullable: false
       - name: eventType
         type: string
-        enum: ["AdresseHinzugefuegt"]
+        enum: ["AddressAdded"]
         nullable: false
       - name: personId
         type: string
         format: uuid
         nullable: false
-      - name: adressId
+      - name: addressId
         type: string
         format: uuid
         nullable: false
-      - name: adressTyp
+      - name: addressType
         type: string
-        enum: ["WOHNADRESSE", "KORRESPONDENZADRESSE", "ZUSTELLADRESSE"]
+        enum: ["RESIDENCE", "CORRESPONDENCE", "DELIVERY"]
         nullable: false
-      - name: gueltigVon
+      - name: validFrom
         type: string
         format: date
+        description: ISO-8601 (yyyy-MM-dd)
         nullable: false
       - name: timestamp
         type: string
@@ -46,6 +47,6 @@ spec:
       checks: |
         checks for person.v1.address-added:
           - not_null:
-              columns: [eventId, eventType, personId, adressId, adressTyp, gueltigVon, timestamp]
+              columns: [eventId, eventType, personId, addressId, addressType, validFrom, timestamp]
           - no_duplicate_rows:
               columns: [eventId]

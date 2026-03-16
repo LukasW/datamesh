@@ -2,7 +2,7 @@ apiVersion: v1
 kind: DataContract
 metadata:
   name: person.v1.created
-  version: "1.0.0"
+  version: "1.1.0"
   domain: partner
   description: Event published when a new natural person is created
 
@@ -27,14 +27,14 @@ spec:
       - name: name
         type: string
         nullable: false
-      - name: vorname
+      - name: firstName
         type: string
         nullable: false
-      - name: ahvNummer
+      - name: socialSecurityNumber
         type: string
-        description: "Formatted: 756.XXXX.XXXX.XX"
-        nullable: false
-      - name: geburtsdatum
+        description: "Formatted: 756.XXXX.XXXX.XX – null if not provided"
+        nullable: true
+      - name: dateOfBirth
         type: string
         format: date
         description: ISO-8601 (yyyy-MM-dd)
@@ -49,6 +49,6 @@ spec:
       checks: |
         checks for person.v1.created:
           - not_null:
-              columns: [eventId, eventType, personId, name, vorname, geburtsdatum, timestamp]
+              columns: [eventId, eventType, personId, name, firstName, dateOfBirth, timestamp]
           - no_duplicate_rows:
               columns: [eventId]
