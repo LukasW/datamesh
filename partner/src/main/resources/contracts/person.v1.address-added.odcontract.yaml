@@ -8,7 +8,9 @@ metadata:
 
 spec:
   topic: person.v1.address-added
-  format: JSON
+  format: AVRO
+  schemaRegistry: http://schema-registry:8081
+  schemaSubject: person.v1.address-added-value
 
   schema:
     fields:
@@ -70,3 +72,15 @@ spec:
               columns: [eventId, eventType, personId, addressId, addressType, street, houseNumber, postalCode, city, land, validFrom, timestamp]
           - no_duplicate_rows:
               columns: [eventId]
+
+dataProduct:
+  owner: team-partner@css.ch
+  domain: partner
+  outputPort: kafka
+  sla:
+    freshness: 5m
+    availability: "99.9%"
+    qualityScore: 0.98
+  tags:
+    - pii
+    - gdpr-subject

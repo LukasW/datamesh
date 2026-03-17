@@ -1,0 +1,102 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: Raw domain events ingested from Kafka by the platform consumer (Data Outside only)
+
+    tables:
+      - name: person_events
+        description: >
+          person.v1.created and person.v1.updated events — one row per event.
+          Source: Partner domain data product via Kafka.
+        columns:
+          - name: id
+            description: Surrogate key (auto-increment)
+          - name: event_id
+            description: Business event UUID from the JSON payload (UNIQUE)
+            data_tests:
+              - not_null
+              - unique
+          - name: topic
+            description: Source Kafka topic (person.v1.created or person.v1.updated)
+          - name: event_type
+            description: Event type extracted from payload (PersonCreated, PersonUpdated)
+          - name: person_id
+            description: UUID of the person
+          - name: payload
+            description: Full raw JSON payload as string
+          - name: consumed_at
+            description: Timestamp when the event was consumed from Kafka
+
+      - name: person_state
+        description: >
+          person.v1.state events — one row per person, upserted on every new state.
+          Implements Event-Carried State Transfer (ECST) pattern.
+          Source: Partner domain data product (compacted Kafka topic) via Kafka.
+        columns:
+          - name: person_id
+            description: UUID of the person (UNIQUE — compacted)
+            data_tests:
+              - not_null
+              - unique
+          - name: city
+            description: City from RESIDENCE address (extracted from nested payload)
+          - name: postal_code
+            description: Postal code from RESIDENCE address
+          - name: deleted
+            description: True when person was deleted (tombstone event)
+          - name: payload
+            description: Full raw JSON payload of the latest state message
+          - name: consumed_at
+            description: Timestamp of the last upsert
+
+      - name: product_events
+        description: >
+          product.v1.defined, product.v1.updated, product.v1.deprecated events — one row per event.
+          Source: Product domain data product via Kafka.
+        columns:
+          - name: id
+            description: Surrogate key (auto-increment)
+          - name: event_id
+            description: Business event UUID (UNIQUE)
+            data_tests:
+              - not_null
+              - unique
+          - name: topic
+            description: Source Kafka topic
+          - name: event_type
+            description: ProductDefined, ProductUpdated, or ProductDeprecated
+          - name: product_id
+            description: UUID of the product
+          - name: payload
+            description: Full raw JSON payload as string
+          - name: consumed_at
+            description: Timestamp when the event was consumed from Kafka
+
+      - name: policy_events
+        description: >
+          policy.v1.issued, policy.v1.cancelled, policy.v1.changed events — one row per event.
+          Source: Policy domain data product via Kafka.
+        columns:
+          - name: id
+            description: Surrogate key (auto-increment)
+          - name: event_id
+            description: Business event UUID (UNIQUE)
+            data_tests:
+              - not_null
+              - unique
+          - name: topic
+            description: Source Kafka topic
+          - name: event_type
+            description: PolicyIssued, PolicyCancelled, or PolicyChanged
+          - name: policy_id
+            description: UUID of the policy
+          - name: partner_id
+            description: UUID of the policyholder (links to Partner domain)
+          - name: product_id
+            description: UUID of the product (links to Product domain)
+          - name: payload
+            description: Full raw JSON payload as string
+          - name: consumed_at
+            description: Timestamp when the event was consumed from Kafka

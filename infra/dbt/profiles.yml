@@ -1,0 +1,12 @@
+platform:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('PLATFORM_DB_HOST', 'platform-db') }}"
+      port: 5432
+      user: "{{ env_var('PLATFORM_DB_USER', 'platform_user') }}"
+      password: "{{ env_var('PLATFORM_DB_PASSWORD') }}"
+      dbname: "{{ env_var('PLATFORM_DB_NAME', 'platform_db') }}"
+      schema: analytics
+      threads: 4

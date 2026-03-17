@@ -81,7 +81,7 @@ services:
                 signatures:
                   secret:
                     generator:
-                      secret: "${AKHQ_JWT_SECRET:changeme-at-least-256-bits-long-secret}"
+                      secret: "$${AKHQ_JWT_SECRET:changeme-at-least-256-bits-long-secret}"
     networks:
       - frontend
     deploy:
@@ -331,6 +331,7 @@ services:
     environment:
       QUARKUS_PROFILE: prod
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
       DATABASE_URL: jdbc:postgresql://policy-db:5432/policy_db
       DATABASE_USER: policy_user
       DATABASE_PASSWORD: ${POLICY_DB_PASSWORD}
@@ -344,10 +345,162 @@ services:
           cpus: '1.0'
           memory: 512M
 
+  # ── Platform Database (Analytics Layer) ──────────────────────────────────────
+
+  platform-db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: platform_db
+      POSTGRES_USER: platform_user
+      POSTGRES_PASSWORD: ${PLATFORM_DB_PASSWORD:-platform_pass}
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platform_user -d platform_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - platform-db-data:/var/lib/postgresql/data
+      - ./infra/platform/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  platform-consumer:
+    build:
+      context: infra/platform
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      platform-db:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CONSUMER_GROUP_ID: platform-consumer
+      PLATFORM_DB_URL: postgresql://platform_user:${PLATFORM_DB_PASSWORD:-platform_pass}@platform-db:5432/platform_db
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # ── Apache Spark Data Platform ───────────────────────────────────────────────
+
+  spark-streaming:
+    build:
+      context: infra/spark
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPARK_WAREHOUSE: /spark-warehouse
+    volumes:
+      - spark-warehouse:/spark-warehouse
+      - spark-ivy2:/root/.ivy2
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+
+  dbt:
+    build:
+      context: infra/dbt
+      dockerfile: Dockerfile
+    restart: "no"
+    depends_on:
+      platform-db:
+        condition: service_healthy
+    environment:
+      PLATFORM_DB_HOST: platform-db
+      PLATFORM_DB_USER: platform_user
+      PLATFORM_DB_PASSWORD: ${PLATFORM_DB_PASSWORD:-platform_pass}
+      PLATFORM_DB_NAME: platform_db
+    command: ["python3", "run_dbt.py"]
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  # ── Governance Layer ──────────────────────────────────────────────────────────
+
+  governance:
+    build:
+      context: infra/governance
+      dockerfile: Dockerfile
+    restart: "no"
+    depends_on:
+      schema-registry:
+        condition: service_started
+    environment:
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    volumes:
+      - ./partner/src/main/resources/contracts:/contracts/partner:ro
+      - ./policy/src/main/resources/contracts:/contracts/policy:ro
+      - ./product/src/main/resources/contracts:/contracts/product:ro
+      - ./partner/src/main/resources/contracts:/avro/partner:ro
+      - ./policy/src/main/resources/contracts:/avro/policy:ro
+      - ./product/src/main/resources/contracts:/avro/product:ro
+    command: >
+      sh -c "python lint-contracts.py && bash schema-compat-check.sh && python check-freshness.py"
+    networks:
+      - backend
+
+  # ── Data Product Portal ───────────────────────────────────────────────────────
+
+  portal:
+    build:
+      context: infra/portal
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      schema-registry:
+        condition: service_started
+      platform-db:
+        condition: service_healthy
+    ports:
+      - "8090:8090"
+    environment:
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      PLATFORM_DB_URL: postgresql://platform_user:${PLATFORM_DB_PASSWORD:-platform_pass}@platform-db:5432/platform_db
+    volumes:
+      - ./partner/src/main/resources/contracts:/contracts/partner:ro
+      - ./policy/src/main/resources/contracts:/contracts/policy:ro
+      - ./product/src/main/resources/contracts:/contracts/product:ro
+    networks:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
 volumes:
   partner-db-data:
   product-db-data:
   policy-db-data:
+  platform-db-data:
+  spark-warehouse:
+  spark-ivy2:
 
 networks:
   backend:

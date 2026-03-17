@@ -41,6 +41,7 @@ mvn clean package \
 echo "▶ Restarting Compose…"
 
 podman compose down $([[ "$DELETE_VOLUMES" == true ]] && echo "-v") 2>/dev/null || true
+podman compose build --no-cache
 podman compose up $([[ "$DAEMON_MODE" == true ]] && echo "-d")
 
 if [[ "$DAEMON_MODE" == true ]]; then

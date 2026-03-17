@@ -175,7 +175,7 @@ class PersonRestAdapterTest {
 
         given()
                 .contentType(ContentType.JSON)
-                .body(personPayload("OutboxTest", "User", "756.4444.5555.60"))
+                .body(personPayload("OutboxTest", "User", "756.4444.5555.62"))
                 .when().post("/api/personen")
                 .then().statusCode(201);
 
@@ -187,7 +187,7 @@ class PersonRestAdapterTest {
     @DisplayName("DELETE /api/personen/{id} – PersonDeleted-Eintrag wird in Outbox geschrieben")
     @Transactional
     void testDeletePerson_writesPersonDeletedToOutbox() {
-        String id = createTestPerson("OutboxDel", "Test", "756.6543.2198.73");
+        String id = createTestPerson("OutboxDel", "Test", "756.6543.2198.71");
         long countBefore = outboxCount("PersonDeleted");
 
         given().when().delete("/api/personen/" + id).then().statusCode(204);

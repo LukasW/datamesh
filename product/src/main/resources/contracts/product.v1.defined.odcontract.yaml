@@ -8,11 +8,22 @@ info:
   owner: Product Management Team
   contact:
     name: CSS Product Team
+    email: team-product@css.ch
+  domain: product
+  outputPort: kafka
+  sla:
+    freshness: 10m
+    availability: "99.9%"
+    qualityScore: 0.99
+  tags: []
 
 servers:
   - type: kafka
     host: localhost:9092
     topic: product.v1.defined
+    format: AVRO
+    schemaRegistry: http://schema-registry:8081
+    schemaSubject: product.v1.defined-value
 
 terms:
   usage: Consume to build product catalogs in downstream systems.

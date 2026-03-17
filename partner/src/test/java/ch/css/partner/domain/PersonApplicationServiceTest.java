@@ -62,9 +62,9 @@ class PersonApplicationServiceTest {
 
         assertNotNull(id);
         verify(personRepository).save(any(Person.class));
-        verify(outboxRepository).save(outboxCaptor.capture());
-        OutboxEvent event = outboxCaptor.getValue();
-        assertEquals("PersonCreated", event.getEventType());
+        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
+        OutboxEvent event = outboxCaptor.getAllValues().stream()
+                .filter(e -> "PersonCreated".equals(e.getEventType())).findFirst().orElseThrow();
         assertEquals("person.v1.created", event.getTopic());
         assertEquals("person", event.getAggregateType());
         assertEquals(id, event.getAggregateId());
@@ -94,7 +94,7 @@ class PersonApplicationServiceTest {
         assertNotNull(id);
         verify(personRepository, never()).existsBySocialSecurityNumber(any());
         verify(personRepository).save(any(Person.class));
-        verify(outboxRepository).save(any(OutboxEvent.class));
+        verify(outboxRepository, times(2)).save(any(OutboxEvent.class));
     }
 
     @Test
@@ -117,9 +117,9 @@ class PersonApplicationServiceTest {
                 Gender.FEMALE, LocalDate.of(1990, 1, 1));
 
         assertEquals("Neuer", testPerson.getName());
-        verify(outboxRepository).save(outboxCaptor.capture());
-        OutboxEvent event = outboxCaptor.getValue();
-        assertEquals("PersonUpdated", event.getEventType());
+        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
+        OutboxEvent event = outboxCaptor.getAllValues().stream()
+                .filter(e -> "PersonUpdated".equals(e.getEventType())).findFirst().orElseThrow();
         assertEquals("person.v1.updated", event.getTopic());
         assertTrue(event.getPayload().contains("\"name\":\"Neuer\""));
     }
@@ -144,9 +144,9 @@ class PersonApplicationServiceTest {
         service.deletePerson(testPerson.getPersonId());
 
         verify(personRepository).delete(testPerson.getPersonId());
-        verify(outboxRepository).save(outboxCaptor.capture());
-        OutboxEvent event = outboxCaptor.getValue();
-        assertEquals("PersonDeleted", event.getEventType());
+        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
+        OutboxEvent event = outboxCaptor.getAllValues().stream()
+                .filter(e -> "PersonDeleted".equals(e.getEventType())).findFirst().orElseThrow();
         assertEquals("person.v1.deleted", event.getTopic());
     }
 
@@ -192,9 +192,9 @@ class PersonApplicationServiceTest {
 
         assertNotNull(addressId);
         assertEquals(1, testPerson.getAddresses().size());
-        verify(outboxRepository).save(outboxCaptor.capture());
-        OutboxEvent event = outboxCaptor.getValue();
-        assertEquals("AddressAdded", event.getEventType());
+        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
+        OutboxEvent event = outboxCaptor.getAllValues().stream()
+                .filter(e -> "AddressAdded".equals(e.getEventType())).findFirst().orElseThrow();
         assertEquals("person.v1.address-added", event.getTopic());
         assertTrue(event.getPayload().contains("\"addressType\":\"RESIDENCE\""));
     }
@@ -235,9 +235,9 @@ class PersonApplicationServiceTest {
 
         assertEquals(LocalDate.of(2022, 12, 31),
                 testPerson.getAddresses().get(0).getValidTo());
-        verify(outboxRepository).save(outboxCaptor.capture());
-        OutboxEvent event = outboxCaptor.getValue();
-        assertEquals("AddressUpdated", event.getEventType());
+        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
+        OutboxEvent event = outboxCaptor.getAllValues().stream()
+                .filter(e -> "AddressUpdated".equals(e.getEventType())).findFirst().orElseThrow();
         assertEquals("person.v1.address-updated", event.getTopic());
     }
 
@@ -256,6 +256,7 @@ class PersonApplicationServiceTest {
         service.deleteAddress(testPerson.getPersonId(), addressId);
 
         assertTrue(testPerson.getAddresses().isEmpty());
-        verify(outboxRepository, never()).save(any());
+        verify(outboxRepository).save(outboxCaptor.capture());
+        assertEquals("PersonState", outboxCaptor.getValue().getEventType());
     }
 }

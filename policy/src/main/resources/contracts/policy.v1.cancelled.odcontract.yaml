@@ -8,7 +8,9 @@ metadata:
 
 spec:
   topic: policy.v1.cancelled
-  format: JSON
+  format: AVRO
+  schemaRegistry: http://schema-registry:8081
+  schemaSubject: policy.v1.cancelled-value
 
   schema:
     fields:
@@ -24,7 +26,7 @@ spec:
         type: string
         format: uuid
         nullable: false
-      - name: policyNummer
+      - name: policyNumber
         type: string
         nullable: false
       - name: timestamp
@@ -37,7 +39,17 @@ spec:
       checks: |
         checks for policy.v1.cancelled:
           - not_null:
-              columns: [eventId, eventType, policyId, policyNummer, timestamp]
+              columns: [eventId, eventType, policyId, policyNumber, timestamp]
           - no_duplicate_rows:
               columns: [eventId]
 
+dataProduct:
+  owner: team-policy@css.ch
+  domain: policy
+  outputPort: kafka
+  sla:
+    freshness: 5m
+    availability: "99.9%"
+    qualityScore: 0.98
+  tags:
+    - pii

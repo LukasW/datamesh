@@ -8,7 +8,9 @@ metadata:
 
 spec:
   topic: person.v1.deleted
-  format: JSON
+  format: AVRO
+  schemaRegistry: http://schema-registry:8081
+  schemaSubject: person.v1.deleted-value
 
   schema:
     fields:
@@ -38,3 +40,14 @@ spec:
           - no_duplicate_rows:
               columns: [eventId]
 
+dataProduct:
+  owner: team-partner@css.ch
+  domain: partner
+  outputPort: kafka
+  sla:
+    freshness: 5m
+    availability: "99.9%"
+    qualityScore: 0.98
+  tags:
+    - pii
+    - gdpr-subject

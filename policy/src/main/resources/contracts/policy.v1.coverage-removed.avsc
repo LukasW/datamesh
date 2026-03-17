@@ -1,0 +1,13 @@
+{
+  "namespace": "ch.css.policy.events",
+  "type": "record",
+  "name": "CoverageRemoved",
+  "doc": "Published when a coverage is removed from a policy.",
+  "fields": [
+    {"name": "eventId",    "type": "string", "doc": "UUID of this event instance"},
+    {"name": "eventType",  "type": "string", "doc": "Always CoverageRemoved"},
+    {"name": "policyId",   "type": "string", "doc": "UUID of the policy"},
+    {"name": "coverageId", "type": "string", "doc": "UUID of the coverage"},
+    {"name": "timestamp",  "type": "string", "doc": "ISO-8601 datetime"}
+  ]
+}

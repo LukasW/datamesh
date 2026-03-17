@@ -8,7 +8,9 @@ metadata:
 
 spec:
   topic: policy.v1.issued
-  format: JSON
+  format: AVRO
+  schemaRegistry: http://schema-registry:8081
+  schemaSubject: policy.v1.issued-value
 
   schema:
     fields:
@@ -24,25 +26,25 @@ spec:
         type: string
         format: uuid
         nullable: false
-      - name: policyNummer
+      - name: policyNumber
         type: string
         nullable: false
       - name: partnerId
         type: string
         format: uuid
         nullable: false
-      - name: produktId
+      - name: productId
         type: string
         format: uuid
         nullable: false
-      - name: versicherungsbeginn
+      - name: coverageStartDate
         type: string
         format: date
         description: ISO-8601 (yyyy-MM-dd)
         nullable: false
-      - name: praemie
-        type: number
-        format: decimal
+      - name: premium
+        type: string
+        description: Premium in CHF as decimal string
         nullable: false
       - name: timestamp
         type: string
@@ -54,10 +56,20 @@ spec:
       checks: |
         checks for policy.v1.issued:
           - not_null:
-              columns: [eventId, eventType, policyId, policyNummer, partnerId, produktId, versicherungsbeginn, praemie, timestamp]
+              columns: [eventId, eventType, policyId, policyNumber, partnerId, productId, coverageStartDate, premium, timestamp]
           - no_duplicate_rows:
               columns: [eventId]
           - valid_values:
               column: eventType
               valid_values: ["PolicyIssued"]
 
+dataProduct:
+  owner: team-policy@css.ch
+  domain: policy
+  outputPort: kafka
+  sla:
+    freshness: 5m
+    availability: "99.9%"
+    qualityScore: 0.98
+  tags:
+    - pii

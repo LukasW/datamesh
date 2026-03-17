@@ -1,0 +1,26 @@
+# DataHub Ingestion Recipe – Kafka Schema Registry
+#
+# Reads all registered Avro schemas from the Schema Registry and creates
+# Dataset entities in DataHub — one per Kafka topic.
+# Only "Data Outside" topics are visible here. Domain DBs are NOT ingested (Data Inside).
+#
+# Usage (run after datahub docker quickstart):
+#   pip install acryl-datahub[kafka]
+#   datahub ingest -c infra/datahub/recipe_kafka.yaml
+
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: "localhost:9092"
+      schema_registry_url: "http://localhost:8081"
+    topic_patterns:
+      allow:
+        - "person\\.v1\\..*"
+        - "product\\.v1\\..*"
+        - "policy\\.v1\\..*"
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

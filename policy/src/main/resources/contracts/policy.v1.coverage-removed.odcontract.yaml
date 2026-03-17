@@ -4,11 +4,13 @@ metadata:
   name: policy.v1.coverage-removed
   version: "1.0.0"
   domain: policy
-  description: Event published when a coverage (Deckung) is removed from a policy
+  description: Event published when a coverage is removed from a policy
 
 spec:
   topic: policy.v1.coverage-removed
-  format: JSON
+  format: AVRO
+  schemaRegistry: http://schema-registry:8081
+  schemaSubject: policy.v1.coverage-removed-value
 
   schema:
     fields:
@@ -24,7 +26,7 @@ spec:
         type: string
         format: uuid
         nullable: false
-      - name: deckungId
+      - name: coverageId
         type: string
         format: uuid
         nullable: false
@@ -38,7 +40,17 @@ spec:
       checks: |
         checks for policy.v1.coverage-removed:
           - not_null:
-              columns: [eventId, eventType, policyId, deckungId, timestamp]
+              columns: [eventId, eventType, policyId, coverageId, timestamp]
           - no_duplicate_rows:
               columns: [eventId]
 
+dataProduct:
+  owner: team-policy@css.ch
+  domain: policy
+  outputPort: kafka
+  sla:
+    freshness: 5m
+    availability: "99.9%"
+    qualityScore: 0.98
+  tags:
+    - pii

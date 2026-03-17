@@ -1,0 +1,129 @@
+apiVersion: v2.2.2
+kind: DataContract
+id: person.v1.state
+info:
+  title: Person State (Event-Carried State Transfer)
+  version: 1.0.0
+  description: >
+    Compacted topic carrying the full current state of a natural person, including all addresses.
+    Implements the Event-Carried State Transfer pattern: each message contains the complete
+    snapshot for a given personId, enabling downstream services to bootstrap a local
+    materialized view without querying the partner service directly.
+    A message with deleted=true is a semantic tombstone signalling that the person was removed.
+  owner: Partner Management Team
+  contact:
+    email: team-partner@css.ch
+  domain: partner
+  outputPort: kafka
+  sla:
+    freshness: 5m
+    availability: "99.9%"
+    qualityScore: 0.98
+  tags:
+    - pii
+    - gdpr-subject
+
+servers:
+  - type: kafka
+    host: localhost:9092
+    topic: person.v1.state
+    format: AVRO
+    schemaRegistry: http://schema-registry:8081
+    schemaSubject: person.v1.state-value
+
+terms:
+  usage: >
+    Consume to build and maintain a local read model of partner data.
+    Start from offset 0 to bootstrap the full current state via log compaction.
+  limitations: >
+    Do not use as audit log; use person.v1.created / person.v1.updated / person.v1.deleted for that.
+  retention: indefinite (log compaction – only the latest value per personId is retained)
+
+schema:
+  type: object
+  fields:
+    - name: eventType
+      type: string
+      required: true
+      enum: [PersonState]
+    - name: personId
+      type: string
+      format: uuid
+      required: true
+      description: Unique identifier of the person. Used as the Kafka message key for compaction.
+    - name: deleted
+      type: boolean
+      required: true
+      description: >
+        True when the person was deleted (semantic tombstone).
+        Consumers must remove this personId from their local view on receipt.
+    - name: name
+      type: string
+      required: false
+      description: Last name. Present when deleted=false.
+    - name: firstName
+      type: string
+      required: false
+      description: First name. Present when deleted=false.
+    - name: gender
+      type: string
+      required: false
+      enum: [MALE, FEMALE, OTHER]
+    - name: dateOfBirth
+      type: string
+      format: date
+      required: false
+    - name: socialSecurityNumber
+      type: string
+      required: false
+      description: Formatted Swiss AHV number (756.XXXX.XXXX.XX). Null if not recorded.
+    - name: addresses
+      type: array
+      required: false
+      description: All addresses of the person. Present when deleted=false.
+      items:
+        type: object
+        fields:
+          - name: addressId
+            type: string
+            format: uuid
+            required: true
+          - name: addressType
+            type: string
+            required: true
+            enum: [RESIDENCE, CORRESPONDENCE, DELIVERY]
+          - name: street
+            type: string
+            required: true
+          - name: houseNumber
+            type: string
+            required: true
+          - name: postalCode
+            type: string
+            required: true
+          - name: city
+            type: string
+            required: true
+          - name: land
+            type: string
+            required: true
+          - name: validFrom
+            type: string
+            format: date
+            required: true
+          - name: validTo
+            type: string
+            format: date
+            required: false
+            description: Null means open-ended validity.
+    - name: timestamp
+      type: string
+      format: date-time
+      required: true
+      description: ISO-8601 timestamp when this state snapshot was produced.
+
+quality:
+  type: SodaCL
+  specification:
+    checks for person.v1.state:
+      - not null: [eventType, personId, deleted, timestamp]

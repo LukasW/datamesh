@@ -1,0 +1,21 @@
+{
+  "namespace": "ch.css.partner.events",
+  "type": "record",
+  "name": "AddressAdded",
+  "doc": "Published when an address is added to a person. Derived from ODC person.v1.address-added v1.1.0",
+  "fields": [
+    {"name": "eventId",     "type": "string", "doc": "UUID of this event instance"},
+    {"name": "eventType",   "type": "string", "doc": "Always AddressAdded"},
+    {"name": "personId",    "type": "string", "doc": "UUID of the person"},
+    {"name": "addressId",   "type": "string", "doc": "UUID of the new address"},
+    {"name": "addressType", "type": "string", "doc": "RESIDENCE | CORRESPONDENCE | DELIVERY"},
+    {"name": "street",      "type": "string"},
+    {"name": "houseNumber", "type": "string"},
+    {"name": "postalCode",  "type": "string"},
+    {"name": "city",        "type": "string"},
+    {"name": "land",        "type": "string"},
+    {"name": "validFrom",   "type": "string", "doc": "ISO-8601 date yyyy-MM-dd"},
+    {"name": "validTo",     "type": ["null", "string"], "default": null, "doc": "ISO-8601 date yyyy-MM-dd or null for open-ended"},
+    {"name": "timestamp",   "type": "string", "doc": "ISO-8601 datetime"}
+  ]
+}

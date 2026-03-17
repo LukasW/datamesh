@@ -4,11 +4,13 @@ metadata:
   name: policy.v1.changed
   version: "1.0.0"
   domain: policy
-  description: Event published when policy details (praemie, selbstbehalt, etc.) are updated
+  description: Event published when policy financial details (premium, deductible) are updated
 
 spec:
   topic: policy.v1.changed
-  format: JSON
+  format: AVRO
+  schemaRegistry: http://schema-registry:8081
+  schemaSubject: policy.v1.changed-value
 
   schema:
     fields:
@@ -24,16 +26,16 @@ spec:
         type: string
         format: uuid
         nullable: false
-      - name: policyNummer
+      - name: policyNumber
         type: string
         nullable: false
-      - name: praemie
-        type: number
-        format: decimal
+      - name: premium
+        type: string
+        description: Premium in CHF as decimal string
         nullable: false
-      - name: selbstbehalt
-        type: number
-        format: decimal
+      - name: deductible
+        type: string
+        description: Deductible in CHF as decimal string
         nullable: false
       - name: timestamp
         type: string
@@ -45,7 +47,17 @@ spec:
       checks: |
         checks for policy.v1.changed:
           - not_null:
-              columns: [eventId, eventType, policyId, policyNummer, praemie, selbstbehalt, timestamp]
+              columns: [eventId, eventType, policyId, policyNumber, premium, deductible, timestamp]
           - no_duplicate_rows:
               columns: [eventId]
 
+dataProduct:
+  owner: team-policy@css.ch
+  domain: policy
+  outputPort: kafka
+  sla:
+    freshness: 5m
+    availability: "99.9%"
+    qualityScore: 0.98
+  tags:
+    - pii

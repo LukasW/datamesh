@@ -1,0 +1,16 @@
+{
+  "namespace": "ch.css.partner.events",
+  "type": "record",
+  "name": "PersonCreated",
+  "doc": "Published when a new natural person is created. Derived from ODC person.v1.created v1.1.0",
+  "fields": [
+    {"name": "eventId",              "type": "string",                          "doc": "UUID of this event instance"},
+    {"name": "eventType",            "type": "string",                          "doc": "Always PersonCreated"},
+    {"name": "personId",             "type": "string",                          "doc": "UUID of the created person"},
+    {"name": "name",                 "type": "string"},
+    {"name": "firstName",            "type": "string"},
+    {"name": "socialSecurityNumber", "type": ["null", "string"], "default": null, "doc": "Swiss AHV number 756.XXXX.XXXX.XX or null"},
+    {"name": "dateOfBirth",          "type": "string",                          "doc": "ISO-8601 date yyyy-MM-dd"},
+    {"name": "timestamp",            "type": "string",                          "doc": "ISO-8601 datetime"}
+  ]
+}

@@ -88,7 +88,9 @@ class PersonEventPayloadBuilderTest {
     @DisplayName("buildAddressAdded – enthält alle Pflichtfelder")
     void buildAddressAdded_containsRequiredFields() {
         String json = PersonEventPayloadBuilder.buildAddressAdded(
-                PERSON_ID, ADDRESS_ID, AddressType.RESIDENCE, LocalDate.of(2020, 1, 1));
+                PERSON_ID, ADDRESS_ID, AddressType.RESIDENCE,
+                "Musterstrasse", "1", "8000", "Zürich", "CH",
+                LocalDate.of(2020, 1, 1), null);
 
         assertTrue(json.contains("\"eventType\":\"AddressAdded\""));
         assertTrue(json.contains("\"personId\":\"" + PERSON_ID + "\""));
@@ -102,10 +104,12 @@ class PersonEventPayloadBuilderTest {
     @DisplayName("buildAddressAdded – addressType-Enum wird korrekt serialisiert")
     void buildAddressAdded_allAddressTypes() {
         assertTrue(PersonEventPayloadBuilder.buildAddressAdded(
-                PERSON_ID, ADDRESS_ID, AddressType.CORRESPONDENCE, LocalDate.now())
+                PERSON_ID, ADDRESS_ID, AddressType.CORRESPONDENCE,
+                "Musterstrasse", "1", "8000", "Zürich", "CH", LocalDate.now(), null)
                 .contains("\"addressType\":\"CORRESPONDENCE\""));
         assertTrue(PersonEventPayloadBuilder.buildAddressAdded(
-                PERSON_ID, ADDRESS_ID, AddressType.DELIVERY, LocalDate.now())
+                PERSON_ID, ADDRESS_ID, AddressType.DELIVERY,
+                "Musterstrasse", "1", "8000", "Zürich", "CH", LocalDate.now(), null)
                 .contains("\"addressType\":\"DELIVERY\""));
     }
 

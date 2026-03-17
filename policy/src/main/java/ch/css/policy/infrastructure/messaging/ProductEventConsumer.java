@@ -2,7 +2,8 @@ package ch.css.policy.infrastructure.messaging;
 
 import ch.css.policy.domain.model.ProductView;
 import ch.css.policy.domain.port.out.ProductViewRepository;
-import io.vertx.core.json.JsonObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -15,6 +16,7 @@ import java.math.BigDecimal;
  * Kafka consumer for Product domain events.
  * Materializes the local ProductView read model from product.v1.defined,
  * product.v1.updated and product.v1.deprecated events (ADR-001).
+ * Messages arrive as JSON strings published by Debezium via StringConverter.
  */
 @ApplicationScoped
 public class ProductEventConsumer {
@@ -24,55 +26,58 @@ public class ProductEventConsumer {
     @Inject
     ProductViewRepository productViewRepository;
 
+    @Inject
+    ObjectMapper objectMapper;
+
     @Incoming("product-defined-in")
     @Transactional
-    public void onProductDefined(String json) {
+    public void onProductDefined(String payload) {
         log.infof("Received Kafka event [product.v1.defined]");
-        upsertProductFromEvent(json);
+        upsertProductFromJson(payload);
     }
 
     @Incoming("product-updated-in")
     @Transactional
-    public void onProductUpdated(String json) {
+    public void onProductUpdated(String payload) {
         log.infof("Received Kafka event [product.v1.updated]");
-        upsertProductFromEvent(json);
+        upsertProductFromJson(payload);
     }
 
     @Incoming("product-deprecated-in")
     @Transactional
-    public void onProductDeprecated(String json) {
+    public void onProductDeprecated(String payload) {
         log.infof("Received Kafka event [product.v1.deprecated]");
         try {
-            JsonObject event  = new JsonObject(json);
-            String productId  = event.getString("productId");
-            if (productId == null) {
-                log.warnf("ProductDeprecated missing productId: %s", json);
+            JsonNode json = objectMapper.readTree(payload);
+            String productId = json.path("productId").asText(null);
+            if (productId == null || productId.isEmpty()) {
+                log.warnf("ProductDeprecated missing productId");
                 return;
             }
             productViewRepository.deactivate(productId);
             log.infof("ProductView deactivated: %s", productId);
         } catch (Exception e) {
-            log.errorf("Failed to process ProductDeprecated event: %s | %s", e.getMessage(), json);
+            log.errorf("Failed to process ProductDeprecated event: %s", e.getMessage());
         }
     }
 
-    private void upsertProductFromEvent(String json) {
+    private void upsertProductFromJson(String payload) {
         try {
-            JsonObject event    = new JsonObject(json);
-            String productId    = event.getString("productId");
-            String name         = event.getString("name");
-            String productLine  = event.getString("productLine", "UNKNOWN");
-            BigDecimal premium  = event.containsKey("basePremium")
-                    ? new BigDecimal(event.getValue("basePremium").toString())
+            JsonNode json = objectMapper.readTree(payload);
+            String productId   = json.path("productId").asText(null);
+            String name        = json.path("name").asText(null);
+            String productLine = json.path("productLine").asText("UNKNOWN");
+            BigDecimal premium = json.has("basePremium") && !json.path("basePremium").isNull()
+                    ? new BigDecimal(json.path("basePremium").asText())
                     : BigDecimal.ZERO;
-            if (productId == null || name == null) {
-                log.warnf("Product event missing required fields: %s", json);
+            if (productId == null || productId.isEmpty() || name == null) {
+                log.warnf("Product event missing required fields: productId=%s name=%s", productId, name);
                 return;
             }
             productViewRepository.upsert(new ProductView(productId, name, productLine, premium, true));
             log.infof("ProductView upserted: %s -> %s (%s)", productId, name, productLine);
         } catch (Exception e) {
-            log.errorf("Failed to process product event: %s | %s", e.getMessage(), json);
+            log.errorf("Failed to process product event: %s", e.getMessage());
         }
     }
 }

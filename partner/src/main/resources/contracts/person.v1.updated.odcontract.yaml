@@ -8,7 +8,9 @@ metadata:
 
 spec:
   topic: person.v1.updated
-  format: JSON
+  format: AVRO
+  schemaRegistry: http://schema-registry:8081
+  schemaSubject: person.v1.updated-value
 
   schema:
     fields:
@@ -27,7 +29,7 @@ spec:
       - name: name
         type: string
         nullable: false
-      - name: vorname
+      - name: firstName
         type: string
         nullable: false
       - name: timestamp
@@ -40,7 +42,18 @@ spec:
       checks: |
         checks for person.v1.updated:
           - not_null:
-              columns: [eventId, eventType, personId, name, vorname, timestamp]
+              columns: [eventId, eventType, personId, name, firstName, timestamp]
           - no_duplicate_rows:
               columns: [eventId]
 
+dataProduct:
+  owner: team-partner@css.ch
+  domain: partner
+  outputPort: kafka
+  sla:
+    freshness: 5m
+    availability: "99.9%"
+    qualityScore: 0.98
+  tags:
+    - pii
+    - gdpr-subject

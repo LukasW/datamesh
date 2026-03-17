@@ -4,11 +4,13 @@ metadata:
   name: policy.v1.coverage-added
   version: "1.0.0"
   domain: policy
-  description: Event published when a coverage (Deckung) is added to a policy
+  description: Event published when a coverage is added to a policy
 
 spec:
   topic: policy.v1.coverage-added
-  format: JSON
+  format: AVRO
+  schemaRegistry: http://schema-registry:8081
+  schemaSubject: policy.v1.coverage-added-value
 
   schema:
     fields:
@@ -24,17 +26,17 @@ spec:
         type: string
         format: uuid
         nullable: false
-      - name: deckungId
+      - name: coverageId
         type: string
         format: uuid
         nullable: false
-      - name: deckungstyp
+      - name: coverageType
         type: string
         enum: ["HAFTPFLICHT","KASKOSCHADEN","GLASBRUCH","ELEMENTAR","DIEBSTAHL","GEBAEUDE","HAUSRAT"]
         nullable: false
-      - name: versicherungssumme
-        type: number
-        format: decimal
+      - name: insuredAmount
+        type: string
+        description: Insured amount in CHF as decimal string
         nullable: false
       - name: timestamp
         type: string
@@ -46,7 +48,17 @@ spec:
       checks: |
         checks for policy.v1.coverage-added:
           - not_null:
-              columns: [eventId, eventType, policyId, deckungId, deckungstyp, versicherungssumme, timestamp]
+              columns: [eventId, eventType, policyId, coverageId, coverageType, insuredAmount, timestamp]
           - no_duplicate_rows:
               columns: [eventId]
 
+dataProduct:
+  owner: team-policy@css.ch
+  domain: policy
+  outputPort: kafka
+  sla:
+    freshness: 5m
+    availability: "99.9%"
+    qualityScore: 0.98
+  tags:
+    - pii

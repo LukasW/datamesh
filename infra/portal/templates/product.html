@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/">Katalog</a></li>
+    <li class="breadcrumb-item active">{{ topic }}</li>
+  </ol>
+</nav>
+
+{% if product %}
+<h2 class="mb-1">{{ product.topic }}</h2>
+<p class="text-muted mb-4">Data Product · Domain <strong>{{ product.domain }}</strong></p>
+
+<div class="row g-4">
+  <!-- Left: metadata -->
+  <div class="col-md-4">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold">Metadaten</div>
+      <div class="card-body small">
+        <table class="table table-sm mb-0">
+          <tr><th>Domain</th><td>{{ product.domain }}</td></tr>
+          <tr><th>Owner</th><td>{{ product.owner }}</td></tr>
+          <tr><th>Output Port</th><td><code>{{ product.output_port }}</code></td></tr>
+          <tr><th>Tags</th><td>
+            {% for tag in product.tags %}
+              {% if tag == 'pii' %}<span class="badge badge-pii me-1">pii</span>
+              {% elif tag == 'gdpr-subject' %}<span class="badge badge-gdpr me-1">gdpr-subject</span>
+              {% else %}<span class="badge bg-secondary me-1">{{ tag }}</span>{% endif %}
+            {% endfor %}
+            {% if not product.tags %}—{% endif %}
+          </td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold">SLA</div>
+      <div class="card-body small">
+        <table class="table table-sm mb-0">
+          <tr><th>Freshness</th><td>{{ product.sla_freshness }}</td></tr>
+          <tr><th>Availability</th><td>{{ product.sla_availability }}</td></tr>
+          <tr><th>Quality Score</th><td>
+            {% if product.quality_score is not none %}
+              {% if product.quality_score >= 0.98 %}
+                <span class="badge bg-success">{{ "%.0f" | format(product.quality_score * 100) }} %</span>
+              {% elif product.quality_score >= 0.95 %}
+                <span class="badge bg-warning text-dark">{{ "%.0f" | format(product.quality_score * 100) }} %</span>
+              {% else %}
+                <span class="badge bg-danger">{{ "%.0f" | format(product.quality_score * 100) }} %</span>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td></tr>
+          <tr><th>Schema</th><td>
+            {% if product.schema_registered %}
+              <span class="text-success">✔ Registered</span>
+            {% else %}
+              <span class="text-muted">Not in Schema Registry</span>
+            {% endif %}
+          </td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="alert alert-info small">
+      <strong>Open Data Contract</strong><br>
+      Dieses Data Product ist durch einen ODC YAML Contract versioniert und wird automatisch
+      durch die Governance Pipeline validiert.
+    </div>
+  </div>
+
+  <!-- Right: schema + quality -->
+  <div class="col-md-8">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold">Schema ({{ product.field_count }} Felder)</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 small">
+          <thead class="table-light">
+            <tr><th>Name</th><th>Type</th><th>Nullable / Required</th><th>Enum / Description</th></tr>
+          </thead>
+          <tbody>
+            {% for f in product.fields %}
+            <tr>
+              <td><code>{{ f.name }}</code></td>
+              <td>{{ f.get('type', '—') }}</td>
+              <td>
+                {% if f.get('nullable') == false %}
+                  <span class="text-danger">NOT NULL</span>
+                {% elif f.get('nullable') == true %}
+                  <span class="text-muted">nullable</span>
+                {% elif f.get('required') == true %}
+                  <span class="text-danger">required</span>
+                {% else %}
+                  <span class="text-muted">optional</span>
+                {% endif %}
+              </td>
+              <td class="text-muted">
+                {{ f.get('enum', f.get('description', '')) | truncate(60) }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if product.quality_text %}
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">Quality Checks (SodaCL)</div>
+      <div class="card-body">
+        <pre class="mb-0 small"><code>{{ product.quality_text }}</code></pre>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% else %}
+<div class="alert alert-warning">Data Product <strong>{{ topic }}</strong> nicht gefunden.</div>
+{% endif %}
+
+<a href="/" class="btn btn-outline-secondary mt-3">← Zurück zum Katalog</a>
+{% endblock %}
