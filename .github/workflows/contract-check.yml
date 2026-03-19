@@ -1,0 +1,80 @@
+name: ODC Contract Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**/contracts/*.odcontract.yaml'
+      - '**/schema/*.schema.json'
+      - 'infra/governance/**'
+
+jobs:
+  contract-lint:
+    name: Lint ODC Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r infra/governance/requirements.txt
+
+      - name: Lint all ODC contracts
+        run: python infra/governance/lint-contracts.py
+
+  schema-compat:
+    name: Schema Compatibility Check
+    runs-on: ubuntu-latest
+    needs: contract-lint
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check schema compatibility
+        run: |
+          chmod +x infra/governance/schema-compat-check.sh
+          ./infra/governance/schema-compat-check.sh
+
+  contract-version:
+    name: Verify Contract Versions
+    runs-on: ubuntu-latest
+    needs: contract-lint
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Check contract version increments
+        run: |
+          python -c "
+          import yaml, glob, sys
+          contracts = glob.glob('**/contracts/*.odcontract.yaml', recursive=True)
+          errors = []
+          for c in contracts:
+              with open(c) as f:
+                  doc = yaml.safe_load(f)
+              if not doc:
+                  errors.append(f'{c}: empty or invalid YAML')
+                  continue
+              meta = doc.get('metadata', {})
+              if not meta.get('version'):
+                  errors.append(f'{c}: missing metadata.version')
+          if errors:
+              for e in errors:
+                  print(f'ERROR: {e}', file=sys.stderr)
+              sys.exit(1)
+          print(f'All {len(contracts)} contracts have valid versions.')
+          "

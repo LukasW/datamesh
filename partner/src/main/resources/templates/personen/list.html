@@ -85,6 +85,37 @@
     {#else}
       <tr><td colspan="5" class="text-muted text-center">Bitte Suchbegriff eingeben</td></tr>
     {/if}
+    {#if totalPages?? && totalPages > 1}
+    <tr>
+      <td colspan="5">
+        <nav aria-label="Seitennavigation" class="mt-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">{totalElements} Ergebnisse</small>
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item {#if currentPage == 0}disabled{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/persons/fragments/list?name={searchName}&firstName={searchFirstName}&ahv={searchAhv}&page={currentPage - 1}&size={pageSize}"
+                   hx-target="#personen-tabelle" hx-swap="innerHTML">Zurück</a>
+              </li>
+              {#for i in totalPages}
+              <li class="page-item {#if i - 1 == currentPage}active{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/persons/fragments/list?name={searchName}&firstName={searchFirstName}&ahv={searchAhv}&page={i - 1}&size={pageSize}"
+                   hx-target="#personen-tabelle" hx-swap="innerHTML">{i}</a>
+              </li>
+              {/for}
+              <li class="page-item {#if currentPage >= totalPages - 1}disabled{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/persons/fragments/list?name={searchName}&firstName={searchFirstName}&ahv={searchAhv}&page={currentPage + 1}&size={pageSize}"
+                   hx-target="#personen-tabelle" hx-swap="innerHTML">Weiter</a>
+              </li>
+            </ul>
+            <small class="text-muted">Seite {currentPage + 1} von {totalPages}</small>
+          </div>
+        </nav>
+      </td>
+    </tr>
+    {/if}
     {/fragment}
   </tbody>
 </table>

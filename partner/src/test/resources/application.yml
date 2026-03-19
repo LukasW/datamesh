@@ -4,13 +4,23 @@ quarkus:
     version: 1.0.0
 
   http:
-    port: 8080
+    port: 0
+    test-port: 0
 
   datasource:
     db-kind: postgresql
+    devservices:
+      enabled: true
 
   flyway:
     migrate-at-start: true
+
+  oidc:
+    enabled: false
+
+  security:
+    auth:
+      enabled-in-dev-mode: false
 
   log:
     level: INFO

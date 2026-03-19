@@ -5,6 +5,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 SCRIPT_NAME="$(basename "$0")"
+IMAGE_REGISTRY="${IMAGE_REGISTRY:-css}"
+IMAGE_TAG="${IMAGE_TAG:-latest}"
 SKIP_TESTS=true
 DAEMON_MODE=false
 DELETE_VOLUMES=false
@@ -31,12 +33,13 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-echo "▶ Building  |  tests=$( [[ $SKIP_TESTS == false ]] && echo on || echo off )  |  volumes=$( [[ $DELETE_VOLUMES == true ]] && echo delete || echo keep )"
+echo "▶ Building  |  registry=${IMAGE_REGISTRY}  |  tag=${IMAGE_TAG}  |  tests=$( [[ $SKIP_TESTS == false ]] && echo on || echo off )  |  volumes=$( [[ $DELETE_VOLUMES == true ]] && echo delete || echo keep )"
 
 mvn clean package \
   -DskipTests="$SKIP_TESTS" \
   -Dquarkus.container-image.build=true \
-  -Dquarkus.container-image.additional-tags=latest
+  -Dquarkus.container-image.group="$IMAGE_REGISTRY" \
+  -Dquarkus.container-image.additional-tags="$IMAGE_TAG"
 
 echo "▶ Restarting Compose…"
 

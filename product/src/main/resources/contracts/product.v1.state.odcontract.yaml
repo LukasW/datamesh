@@ -1,0 +1,85 @@
+apiVersion: v2.2.2
+kind: DataContract
+id: product.v1.state
+info:
+  title: Product State (Event-Carried State Transfer)
+  version: 1.0.0
+  description: >
+    Compacted topic carrying the full current state of an insurance product.
+    Implements the Event-Carried State Transfer pattern: each message contains the complete
+    snapshot for a given productId, enabling downstream services to bootstrap a local
+    materialized view without querying the product service directly.
+    A message with deleted=true is a semantic tombstone signalling that the product was removed.
+  owner: Product Management Team
+  contact:
+    name: CSS Product Team
+    email: team-product@css.ch
+  domain: product
+  outputPort: kafka
+  sla:
+    freshness: 5m
+    availability: "99.9%"
+    qualityScore: 0.98
+  tags: []
+
+servers:
+  - type: kafka
+    host: localhost:9092
+    topic: product.v1.state
+    format: JSON
+
+terms:
+  usage: >
+    Consume to build and maintain a local read model of product data.
+    Start from offset 0 to bootstrap the full current state via log compaction.
+  limitations: >
+    Do not use as audit log; use product.v1.defined / product.v1.updated / product.v1.deprecated for that.
+  retention: indefinite (log compaction – only the latest value per productId is retained)
+
+schema:
+  type: object
+  fields:
+    - name: eventType
+      type: string
+      required: true
+      enum: [ProductState]
+    - name: productId
+      type: string
+      format: uuid
+      required: true
+      description: Unique identifier of the product. Used as the Kafka message key for compaction.
+    - name: deleted
+      type: boolean
+      required: true
+      description: >
+        True when the product was deleted (semantic tombstone).
+        Consumers must remove this productId from their local view on receipt.
+    - name: name
+      type: string
+      required: false
+      description: Product display name. Present when deleted=false.
+    - name: productLine
+      type: string
+      required: false
+      enum: [HOUSEHOLD_CONTENTS, LIABILITY, MOTOR_VEHICLE, TRAVEL, LEGAL_EXPENSES]
+      description: Insurance product line classification. Present when deleted=false.
+    - name: basePremium
+      type: number
+      required: false
+      description: Base annual premium in CHF. Present when deleted=false.
+    - name: status
+      type: string
+      required: false
+      enum: [ACTIVE, DEPRECATED]
+      description: Current lifecycle status. Present when deleted=false.
+    - name: timestamp
+      type: string
+      format: date-time
+      required: true
+      description: ISO-8601 timestamp when this state snapshot was produced.
+
+quality:
+  type: SodaCL
+  specification:
+    checks for product.v1.state:
+      - not null: [eventType, productId, deleted, timestamp]

@@ -15,6 +15,6 @@ SELECT
     ((payload::jsonb) ->> 'premium')::numeric                      AS premium_chf,
     ((payload::jsonb) ->> 'timestamp')::timestamptz                AS event_at,
     consumed_at
-FROM {{ source('raw', 'policy_events') }}
+FROM {{ source('policy_raw', 'policy_events') }}
 WHERE event_type IN ('PolicyIssued', 'PolicyCancelled', 'PolicyChanged')
   AND policy_id IS NOT NULL

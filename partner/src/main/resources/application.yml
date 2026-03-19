@@ -37,6 +37,18 @@ quarkus:
     table: flyway_schema_history
     locations: classpath:db/migration
 
+  virtual-threads:
+    enabled: true
+
+  oidc:
+    auth-server-url: http://localhost:8180/realms/css
+    client-id: partner-service
+    credentials:
+      secret: secret
+  security:
+    auth:
+      enabled-in-dev-mode: false
+
   log:
     level: INFO
 
@@ -46,7 +58,12 @@ quarkus:
   quarkus:
     datasource:
       db-version: "12.0"
-      username: ${DATABASE_USER:partner_user}
-      password: ${DATABASE_PASSWORD:partner_pass}
+      username: ${DATABASE_USER}
+      password: ${DATABASE_PASSWORD}
       jdbc:
-        url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/partner_db}
+        url: ${DATABASE_URL}
+    oidc:
+      auth-server-url: ${KEYCLOAK_URL}/realms/css
+      client-id: partner-service
+      credentials:
+        secret: ${OIDC_CLIENT_SECRET}

@@ -1,5 +1,7 @@
 package ch.css.product.infrastructure.persistence;
 
+import ch.css.product.domain.model.PageRequest;
+import ch.css.product.domain.model.PageResult;
 import ch.css.product.domain.model.Product;
 import ch.css.product.domain.model.ProductLine;
 import ch.css.product.domain.model.ProductStatus;
@@ -56,6 +58,41 @@ public class ProductJpaAdapter implements ProductRepository {
         if (productLine != null) query.setParameter("productLine", productLine.name());
 
         return query.getResultList().stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public PageResult<Product> search(String name, ProductLine productLine, PageRequest pageRequest) {
+        String whereClause = buildProductWhereClause(name, productLine);
+
+        StringBuilder countJpql = new StringBuilder("SELECT COUNT(p) FROM ProductEntity p WHERE 1=1");
+        countJpql.append(whereClause);
+        TypedQuery<Long> countQuery = em.createQuery(countJpql.toString(), Long.class);
+        setProductParameters(countQuery, name, productLine);
+        long totalElements = countQuery.getSingleResult();
+
+        StringBuilder jpql = new StringBuilder("SELECT p FROM ProductEntity p WHERE 1=1");
+        jpql.append(whereClause);
+        jpql.append(" ORDER BY p.name");
+        TypedQuery<ProductEntity> query = em.createQuery(jpql.toString(), ProductEntity.class);
+        setProductParameters(query, name, productLine);
+        query.setFirstResult(pageRequest.page() * pageRequest.size());
+        query.setMaxResults(pageRequest.size());
+
+        List<Product> content = query.getResultList().stream().map(this::toDomain).toList();
+        int totalPages = (int) Math.ceil((double) totalElements / pageRequest.size());
+        return new PageResult<>(content, totalElements, totalPages);
+    }
+
+    private String buildProductWhereClause(String name, ProductLine productLine) {
+        StringBuilder clause = new StringBuilder();
+        if (name != null && !name.isBlank()) clause.append(" AND LOWER(p.name) LIKE LOWER(:name)");
+        if (productLine != null) clause.append(" AND p.productLine = :productLine");
+        return clause.toString();
+    }
+
+    private <T> void setProductParameters(TypedQuery<T> query, String name, ProductLine productLine) {
+        if (name != null && !name.isBlank()) query.setParameter("name", "%" + name + "%");
+        if (productLine != null) query.setParameter("productLine", productLine.name());
     }
 
     @Override

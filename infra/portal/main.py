@@ -110,6 +110,10 @@ def _parse_odc(path: Path, domain: str, subjects: set[str]) -> dict:
         else:
             quality_text = ""
 
+    # Extract access patterns from dataProduct block (both v1 and v2 formats)
+    dp_block = doc.get("dataProduct", {}) or {}
+    access_patterns = dp_block.get("accessPatterns", []) or []
+
     subject = f"{topic}-value"
     return {
         "topic":         topic,
@@ -124,6 +128,7 @@ def _parse_odc(path: Path, domain: str, subjects: set[str]) -> dict:
         "fields":        schema_fields,
         "quality_text":  quality_text,
         "schema_registered": subject in subjects,
+        "access_patterns": access_patterns,
     }
 
 
@@ -153,19 +158,19 @@ def load_lineage() -> list[dict]:
         {"from": "policy-service",      "to": "policy.v1.issued",          "type": "direct"},
         {"from": "policy-service",      "to": "policy.v1.cancelled",       "type": "direct"},
         {"from": "policy-service",      "to": "policy.v1.changed",         "type": "direct"},
-        {"from": "person.v1.created",   "to": "raw.person_events",         "type": "kafka"},
-        {"from": "person.v1.updated",   "to": "raw.person_events",         "type": "kafka"},
-        {"from": "person.v1.state",     "to": "raw.person_state",          "type": "kafka"},
-        {"from": "product.v1.defined",  "to": "raw.product_events",        "type": "kafka"},
-        {"from": "product.v1.updated",  "to": "raw.product_events",        "type": "kafka"},
-        {"from": "product.v1.deprecated","to": "raw.product_events",       "type": "kafka"},
-        {"from": "policy.v1.issued",    "to": "raw.policy_events",         "type": "kafka"},
-        {"from": "policy.v1.cancelled", "to": "raw.policy_events",         "type": "kafka"},
-        {"from": "policy.v1.changed",   "to": "raw.policy_events",         "type": "kafka"},
-        {"from": "raw.person_events",   "to": "stg_person_events",         "type": "dbt"},
-        {"from": "raw.person_state",    "to": "dim_partner",               "type": "dbt"},
-        {"from": "raw.product_events",  "to": "stg_product_events",        "type": "dbt"},
-        {"from": "raw.policy_events",   "to": "stg_policy_events",         "type": "dbt"},
+        {"from": "person.v1.created",   "to": "partner_raw.person_events",  "type": "kafka"},
+        {"from": "person.v1.updated",   "to": "partner_raw.person_events",  "type": "kafka"},
+        {"from": "person.v1.state",     "to": "partner_raw.person_state",   "type": "kafka"},
+        {"from": "product.v1.defined",  "to": "product_raw.product_events", "type": "kafka"},
+        {"from": "product.v1.updated",  "to": "product_raw.product_events", "type": "kafka"},
+        {"from": "product.v1.deprecated","to": "product_raw.product_events","type": "kafka"},
+        {"from": "policy.v1.issued",    "to": "policy_raw.policy_events",   "type": "kafka"},
+        {"from": "policy.v1.cancelled", "to": "policy_raw.policy_events",   "type": "kafka"},
+        {"from": "policy.v1.changed",   "to": "policy_raw.policy_events",   "type": "kafka"},
+        {"from": "partner_raw.person_events",   "to": "stg_person_events",  "type": "dbt"},
+        {"from": "partner_raw.person_state",    "to": "dim_partner",        "type": "dbt"},
+        {"from": "product_raw.product_events",  "to": "stg_product_events", "type": "dbt"},
+        {"from": "policy_raw.policy_events",    "to": "stg_policy_events",  "type": "dbt"},
         {"from": "stg_person_events",   "to": "dim_partner",               "type": "dbt"},
         {"from": "stg_product_events",  "to": "dim_product",               "type": "dbt"},
         {"from": "stg_policy_events",   "to": "fact_policies",             "type": "dbt"},

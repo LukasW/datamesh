@@ -38,16 +38,18 @@ def setup_spark() -> SparkSession:
 
 
 def register_sources(spark: SparkSession) -> None:
-    spark.sql("CREATE DATABASE IF NOT EXISTS raw")
+    spark.sql("CREATE DATABASE IF NOT EXISTS partner_raw")
+    spark.sql("CREATE DATABASE IF NOT EXISTS product_raw")
+    spark.sql("CREATE DATABASE IF NOT EXISTS policy_raw")
     spark.sql("CREATE DATABASE IF NOT EXISTS analytics")
     try:
         spark.sql(f"""
-            CREATE TABLE IF NOT EXISTS raw.person_events
+            CREATE TABLE IF NOT EXISTS partner_raw.person_events
             USING DELTA LOCATION '{RAW_DELTA_PATH}'
         """)
-        log.info("Registered raw.person_events → %s", RAW_DELTA_PATH)
+        log.info("Registered partner_raw.person_events → %s", RAW_DELTA_PATH)
     except Exception as exc:
-        log.warning("Could not register raw.person_events (%s) — no data yet?", exc)
+        log.warning("Could not register partner_raw.person_events (%s) — no data yet?", exc)
 
 
 def run_dbt() -> None:

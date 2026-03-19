@@ -2,11 +2,14 @@ package ch.css.policy.infrastructure.web;
 
 import ch.css.policy.domain.model.Coverage;
 import ch.css.policy.domain.model.CoverageType;
+import ch.css.policy.domain.model.PageRequest;
+import ch.css.policy.domain.model.PageResult;
 import ch.css.policy.domain.model.PartnerView;
 import ch.css.policy.domain.model.Policy;
 import ch.css.policy.domain.service.CoverageNotFoundException;
-import ch.css.policy.domain.service.PolicyApplicationService;
+import ch.css.policy.domain.service.PolicyCommandService;
 import ch.css.policy.domain.service.PolicyNotFoundException;
+import ch.css.policy.domain.service.PolicyQueryService;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
@@ -28,7 +31,10 @@ import java.util.List;
 public class PolicyUiController {
 
     @Inject
-    PolicyApplicationService policyService;
+    PolicyCommandService policyCommandService;
+
+    @Inject
+    PolicyQueryService policyQueryService;
 
     @Inject
     @Location("policen/list")
@@ -70,20 +76,20 @@ public class PolicyUiController {
 
     @GET
     public TemplateInstance getList() {
-        return list.data("policen", policyService.listAllPolicies())
-                   .data("partnerSichten", policyService.getPartnerViewsMap())
-                   .data("produktSichten", policyService.getProductViewsMap());
+        return list.data("policen", policyQueryService.listAllPolicies())
+                   .data("partnerSichten", policyQueryService.getPartnerViewsMap())
+                   .data("produktSichten", policyQueryService.getProductViewsMap());
     }
 
     @GET
     @Path("/{id}/edit")
     public Object getEdit(@PathParam("id") String id) {
         try {
-            Policy policy = policyService.findById(id);
+            Policy policy = policyQueryService.findById(id);
             return edit.data("policy", policy)
-                       .data("activeProdukte", policyService.getActiveProducts())
-                       .data("partnerSichten", policyService.getPartnerViewsMap())
-                       .data("produktSichten", policyService.getProductViewsMap())
+                       .data("activeProdukte", policyQueryService.getActiveProducts())
+                       .data("partnerSichten", policyQueryService.getPartnerViewsMap())
+                       .data("produktSichten", policyQueryService.getProductViewsMap())
                        .data("success", false)
                        .data("errorMessage", null);
         } catch (PolicyNotFoundException e) {
@@ -93,23 +99,33 @@ public class PolicyUiController {
 
     // ── htmx Fragments ────────────────────────────────────────────────────────
 
-    /** Renders the filtered table rows (htmx live search). */
+    /** Renders the filtered table rows with pagination (htmx live search). */
     @GET
     @Path("/fragments/list")
     public TemplateInstance getPoliciesListFragment(
             @QueryParam("policyNummer") String policyNumber,
             @QueryParam("partnerId") String partnerId,
-            @QueryParam("status") String status) {
-        List<Policy> policen;
+            @QueryParam("status") String status,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
+        PageResult<Policy> pageResult;
         try {
-            policen = policyService.searchPolicies(policyNumber, partnerId, status);
+            PageRequest pageRequest = new PageRequest(page, size);
+            pageResult = policyQueryService.searchPolicies(policyNumber, partnerId, status, pageRequest);
         } catch (Exception ignored) {
-            policen = List.of();
+            pageResult = new PageResult<>(List.of(), 0, 0);
         }
         return list.getFragment("tabelle")
-                   .data("policen", policen)
-                   .data("partnerSichten", policyService.getPartnerViewsMap())
-                   .data("produktSichten", policyService.getProductViewsMap());
+                   .data("policen", pageResult.content())
+                   .data("partnerSichten", policyQueryService.getPartnerViewsMap())
+                   .data("produktSichten", policyQueryService.getProductViewsMap())
+                   .data("currentPage", page)
+                   .data("totalPages", pageResult.totalPages())
+                   .data("totalElements", pageResult.totalElements())
+                   .data("pageSize", size)
+                   .data("searchPolicyNummer", policyNumber != null ? policyNumber : "")
+                   .data("searchPartnerId", partnerId != null ? partnerId : "")
+                   .data("searchStatus", status != null ? status : "");
     }
 
     /** Returns the new-policy modal form. */
@@ -117,7 +133,7 @@ public class PolicyUiController {
     @Path("/fragments/neu")
     public TemplateInstance getPoliciesFormModal() {
         return policenFormModal
-                .data("activeProdukte", policyService.getActiveProducts())
+                .data("activeProdukte", policyQueryService.getActiveProducts())
                 .data("currentYear", LocalDate.now().getYear());
     }
 
@@ -140,11 +156,11 @@ public class PolicyUiController {
             LocalDate ende = isNotBlank(coverageEndDate) ? LocalDate.parse(coverageEndDate) : null;
             BigDecimal p = new BigDecimal(premium);
             BigDecimal sb = isNotBlank(deductible) ? new BigDecimal(deductible) : BigDecimal.ZERO;
-            String id = policyService.createPolicy(partnerId, productId, beginn, ende, p, sb);
-            Policy policy = policyService.findById(id);
+            String id = policyCommandService.createPolicy(partnerId, productId, beginn, ende, p, sb);
+            Policy policy = policyQueryService.findById(id);
             return policenRow.data("policy", policy)
-                             .data("partnerSichten", policyService.getPartnerViewsMap())
-                             .data("produktSichten", policyService.getProductViewsMap());
+                             .data("partnerSichten", policyQueryService.getPartnerViewsMap())
+                             .data("produktSichten", policyQueryService.getProductViewsMap());
         } catch (Exception e) {
             return Response.status(422)
                     .entity("<div class=\"alert alert-danger\">" + escapeHtml(e.getMessage()) + "</div>")
@@ -157,7 +173,7 @@ public class PolicyUiController {
     @Path("/fragments/{id}/details-form")
     public Object getDetailsForm(@PathParam("id") String id) {
         try {
-            Policy policy = policyService.findById(id);
+            Policy policy = policyQueryService.findById(id);
             return renderPolicyDetailsForm(policy, false, null);
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity("<p>" + escapeHtml(e.getMessage()) + "</p>").build();
@@ -182,14 +198,14 @@ public class PolicyUiController {
             LocalDate ende = isNotBlank(coverageEndDate) ? LocalDate.parse(coverageEndDate) : null;
             BigDecimal p = new BigDecimal(premium);
             BigDecimal sb = isNotBlank(deductible) ? new BigDecimal(deductible) : BigDecimal.ZERO;
-            policyService.updatePolicyDetails(policyId, productId, beginn, ende, p, sb);
-            Policy policy = policyService.findById(policyId);
+            policyCommandService.updatePolicyDetails(policyId, productId, beginn, ende, p, sb);
+            Policy policy = policyQueryService.findById(policyId);
             return renderPolicyDetailsForm(policy, true, null);
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity("<p>" + escapeHtml(e.getMessage()) + "</p>").build();
         } catch (Exception e) {
             try {
-                Policy policy = policyService.findById(policyId);
+                Policy policy = policyQueryService.findById(policyId);
                 return renderPolicyDetailsForm(policy, false,
                         "<div class=\"alert alert-danger\">" + escapeHtml(e.getMessage()) + "</div>");
             } catch (Exception ex) {
@@ -205,11 +221,11 @@ public class PolicyUiController {
     @Path("/fragments/{id}/activate")
     public Object activateFragment(@PathParam("id") String id) {
         try {
-            policyService.activatePolicy(id);
-            Policy policy = policyService.findById(id);
+            policyCommandService.activatePolicy(id);
+            Policy policy = policyQueryService.findById(id);
             return policenRow.data("policy", policy)
-                             .data("partnerSichten", policyService.getPartnerViewsMap())
-                             .data("produktSichten", policyService.getProductViewsMap());
+                             .data("partnerSichten", policyQueryService.getPartnerViewsMap())
+                             .data("produktSichten", policyQueryService.getProductViewsMap());
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity("<p>" + escapeHtml(e.getMessage()) + "</p>").build();
         } catch (IllegalStateException e) {
@@ -224,11 +240,11 @@ public class PolicyUiController {
     @Path("/fragments/{id}/cancel")
     public Object cancelFragment(@PathParam("id") String id) {
         try {
-            policyService.cancelPolicy(id);
-            Policy policy = policyService.findById(id);
+            policyCommandService.cancelPolicy(id);
+            Policy policy = policyQueryService.findById(id);
             return policenRow.data("policy", policy)
-                             .data("partnerSichten", policyService.getPartnerViewsMap())
-                             .data("produktSichten", policyService.getProductViewsMap());
+                             .data("partnerSichten", policyQueryService.getPartnerViewsMap())
+                             .data("produktSichten", policyQueryService.getProductViewsMap());
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity("<p>" + escapeHtml(e.getMessage()) + "</p>").build();
         } catch (IllegalStateException e) {
@@ -265,11 +281,11 @@ public class PolicyUiController {
             @FormParam("insuredAmount") String insuredAmount) {
         try {
             BigDecimal amount = new BigDecimal(insuredAmount);
-            String coverageId = policyService.addCoverage(policyId, CoverageType.valueOf(coverageType), amount);
-            Coverage coverage = policyService.findById(policyId).getCoverages().stream()
+            String coverageId = policyCommandService.addCoverage(policyId, CoverageType.valueOf(coverageType), amount);
+            Coverage coverage = policyQueryService.findById(policyId).getCoverages().stream()
                     .filter(c -> c.getCoverageId().equals(coverageId))
                     .findFirst().orElseThrow();
-            Policy policy = policyService.findById(policyId);
+            Policy policy = policyQueryService.findById(policyId);
             return coverageCard
                     .data("coverage", coverage)
                     .data("policyId", policyId)
@@ -288,11 +304,11 @@ public class PolicyUiController {
     @Path("/fragments/{id}/coverages/{did}/card")
     public Object getCoverageCard(@PathParam("id") String policyId, @PathParam("did") String did) {
         try {
-            Coverage coverage = policyService.findById(policyId).getCoverages().stream()
+            Coverage coverage = policyQueryService.findById(policyId).getCoverages().stream()
                     .filter(c -> c.getCoverageId().equals(did))
                     .findFirst()
                     .orElseThrow(() -> new CoverageNotFoundException(did));
-            Policy policy = policyService.findById(policyId);
+            Policy policy = policyQueryService.findById(policyId);
             return coverageCard
                     .data("coverage", coverage)
                     .data("policyId", policyId)
@@ -311,7 +327,7 @@ public class PolicyUiController {
     @GET
     @Path("/fragments/partner-search")
     public TemplateInstance getPartnerSearchWidget(@QueryParam("q") String q) {
-        List<PartnerView> partners = policyService.searchPartnerViews(q);
+        List<PartnerView> partners = policyQueryService.searchPartnerViews(q);
         return partnerSearchWidget
                 .data("partners", partners)
                 .data("q", q != null ? q : "");
@@ -324,7 +340,7 @@ public class PolicyUiController {
     @POST
     @Path("/fragments/partner-select/{partnerId}")
     public Object selectPartner(@PathParam("partnerId") String partnerId) {
-        return policyService.findPartnerView(partnerId)
+        return policyQueryService.findPartnerView(partnerId)
                 .map(p -> (Object) partnerPickerSelected
                         .data("partnerId", p.getPartnerId())
                         .data("partnerName", p.getName()))
@@ -343,8 +359,8 @@ public class PolicyUiController {
     private TemplateInstance renderPolicyDetailsForm(Policy policy, boolean success, String errorMessage) {
         return policyDetailsForm
                 .data("policy", policy)
-                .data("activeProdukte", policyService.getActiveProducts())
-                .data("partnerSichten", policyService.getPartnerViewsMap())
+                .data("activeProdukte", policyQueryService.getActiveProducts())
+                .data("partnerSichten", policyQueryService.getPartnerViewsMap())
                 .data("success", success)
                 .data("errorMessage", errorMessage);
     }

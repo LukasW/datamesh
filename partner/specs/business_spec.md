@@ -136,6 +136,24 @@ Events are delivered via the **Transactional Outbox Pattern**: `PersonApplicatio
 | `person.v1.deleted` | `PersonDeleted` | Person record removed |
 | `person.v1.address-added` | `AddressAdded` | New address added to a person |
 | `person.v1.address-updated` | `AddressUpdated` | Address validity period modified |
+| `person.v1.state` | `PersonState` | Full state snapshot on every mutation (compacted) |
+
+### 6.1 Read-Model Bootstrap Protocol (State Topic)
+
+The `person.v1.state` topic implements the **Event-Carried State Transfer** pattern using Kafka log compaction. Every mutation (`createPerson`, `updatePersonalData`, `deletePerson`, `addAddress`, `updateAddressValidity`, `deleteAddress`) writes a second outbox entry containing the full current state of the person (including all addresses) to this compacted topic, keyed by `personId`.
+
+**Bootstrap procedure for downstream consumers:**
+
+1. Start a new consumer group (or reset offsets to `earliest`) on `person.v1.state`.
+2. Consume from offset 0. Because the topic uses `cleanup.policy=compact`, Kafka retains only the latest message per `personId`. This gives the consumer the full current partner registry in a single pass.
+3. Once caught up, continue consuming in real time. Each incoming message replaces the previous state for that `personId` in the local materialized view.
+4. Messages with `"deleted": true` are semantic tombstones. Remove the corresponding `personId` from the local view.
+
+**Advantages over replaying event topics:**
+
+- No need to replay and reduce the full `person.v1.created` / `person.v1.updated` / `person.v1.deleted` event history.
+- Consumers can bootstrap in seconds regardless of how many historical events exist.
+- The state topic is idempotent: applying the same message twice produces the same result.
 
 **Outbox table schema** (`public.outbox`):
 
@@ -175,6 +193,34 @@ The Qute-based web UI is served at `/personen/` and supports:
 - Address validity editing (date picker per address)
 
 All UI labels, buttons, validation messages, and tooltips are in **German** per the project language policy.
+
+---
+
+## Consumer Bootstrap Protocol
+
+New consumers that need the full current state of all persons should follow this two-phase approach:
+
+### Phase 1: Initial Bootstrap
+
+Consume the **`person.v1.state`** topic with `auto.offset.reset=earliest`. This is a **compacted topic** where each key (person ID) retains only the latest value. It provides the full current state of every person, including all addresses. This allows a new consumer to build a complete read model without replaying the entire event history.
+
+- **Key:** Person UUID
+- **Value:** Full person state (all fields + nested address list)
+- **Tombstone events:** Records where `deleted=true` indicate the person has been removed from the system. Consumers should delete the corresponding entry from their local read model.
+
+### Phase 2: Incremental Updates
+
+After the initial bootstrap is complete (i.e., the consumer has caught up to the end of the `person.v1.state` topic), switch to the granular event topics for incremental updates:
+
+| Topic | Purpose |
+|---|---|
+| `person.v1.created` | A new person was registered |
+| `person.v1.updated` | Personal data (name, gender, date of birth, AHV number) changed |
+| `person.v1.deleted` | A person was removed |
+| `person.v1.address-added` | A new address was added to a person |
+| `person.v1.address-updated` | An address validity period was modified |
+
+This two-phase protocol ensures that consumers can be deployed at any time (even long after the system has been running) and still obtain a complete, consistent view of all persons without requiring the Partner Service to re-publish historical events.
 
 ---
 

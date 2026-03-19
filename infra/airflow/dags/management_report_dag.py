@@ -3,6 +3,10 @@ DAG: platform.management_report
 Schedule: daily at 06:00 UTC
 Owner: platform@css.ch
 
+Upstream: platform.dbt_transform -> platform.portfolio_report -> this DAG
+  (dbt models are guaranteed fresh via the transitive dependency through
+   portfolio_report, which waits for dbt_transform before running.)
+
 Pipeline:
   1. WaitForPortfolioReport  – ExternalTaskSensor on portfolio_report
   2. dbt build               – tag:mgmt-report models

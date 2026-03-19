@@ -1,9 +1,12 @@
 package ch.css.product.infrastructure.web;
 
+import ch.css.product.domain.model.PageRequest;
+import ch.css.product.domain.model.PageResult;
 import ch.css.product.domain.model.Product;
 import ch.css.product.domain.model.ProductLine;
-import ch.css.product.domain.service.ProductApplicationService;
+import ch.css.product.domain.service.ProductCommandService;
 import ch.css.product.domain.service.ProductNotFoundException;
+import ch.css.product.domain.service.ProductQueryService;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
@@ -24,7 +27,10 @@ import java.util.List;
 public class ProductUiController {
 
     @Inject
-    ProductApplicationService productService;
+    ProductCommandService productCommandService;
+
+    @Inject
+    ProductQueryService productQueryService;
 
     @Inject
     @Location("products/list")
@@ -50,7 +56,7 @@ public class ProductUiController {
 
     @GET
     public TemplateInstance getList() {
-        return list.data("products", productService.listAllProducts())
+        return list.data("products", productQueryService.listAllProducts())
                    .data("productLines", ProductLine.values());
     }
 
@@ -58,7 +64,7 @@ public class ProductUiController {
     @Path("/{id}/edit")
     public Object getEdit(@PathParam("id") String id) {
         try {
-            Product product = productService.findById(id);
+            Product product = productQueryService.findById(id);
             return edit.data("product", product)
                        .data("productLines", ProductLine.values());
         } catch (ProductNotFoundException e) {
@@ -68,21 +74,31 @@ public class ProductUiController {
 
     // ── htmx Fragments ────────────────────────────────────────────────────────
 
-    /** Renders the filtered table rows (htmx live search). */
+    /** Renders the filtered table rows with pagination (htmx live search). */
     @GET
     @Path("/fragments/list")
     public TemplateInstance getProductListFragment(
             @QueryParam("name") String name,
-            @QueryParam("productLine") String productLine) {
+            @QueryParam("productLine") String productLine,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
         ProductLine line = (productLine != null && !productLine.isBlank() && !"ALL".equals(productLine))
                 ? ProductLine.valueOf(productLine) : null;
-        List<Product> products;
+        PageResult<Product> pageResult;
         try {
-            products = productService.searchProducts(name, line);
+            PageRequest pageRequest = new PageRequest(page, size);
+            pageResult = productQueryService.searchProducts(name, line, pageRequest);
         } catch (Exception ignored) {
-            products = List.of();
+            pageResult = new PageResult<>(List.of(), 0, 0);
         }
-        return list.getFragment("tabelle").data("products", products);
+        return list.getFragment("tabelle")
+                .data("products", pageResult.content())
+                .data("currentPage", page)
+                .data("totalPages", pageResult.totalPages())
+                .data("totalElements", pageResult.totalElements())
+                .data("pageSize", size)
+                .data("searchName", name != null ? name : "")
+                .data("searchProductLine", productLine != null ? productLine : "ALL");
     }
 
     /** Returns the new-product modal form. */
@@ -106,11 +122,11 @@ public class ProductUiController {
             @FormParam("basePremium") String basePremium) {
         try {
             BigDecimal premium = new BigDecimal(basePremium.replace(",", "."));
-            String id = productService.defineProduct(
+            String id = productCommandService.defineProduct(
                     name, description,
                     ProductLine.valueOf(productLine),
                     premium);
-            Product product = productService.findById(id);
+            Product product = productQueryService.findById(id);
             return productRow.data("product", product);
         } catch (Exception e) {
             return Response.status(422)
@@ -134,7 +150,7 @@ public class ProductUiController {
             @FormParam("basePremium") String basePremium) {
         try {
             BigDecimal premium = new BigDecimal(basePremium.replace(",", "."));
-            Product product = productService.updateProduct(productId, name, description,
+            Product product = productCommandService.updateProduct(productId, name, description,
                     ProductLine.valueOf(productLine), premium);
             return productDetailsForm.data("product", product)
                                      .data("productLines", ProductLine.values())
@@ -156,7 +172,7 @@ public class ProductUiController {
     @Path("/fragments/{id}/deprecate")
     public Object deprecateProductFragment(@PathParam("id") String productId) {
         try {
-            Product product = productService.deprecateProduct(productId);
+            Product product = productCommandService.deprecateProduct(productId);
             return productDetailsForm.data("product", product)
                                      .data("productLines", ProductLine.values())
                                      .data("success", true);

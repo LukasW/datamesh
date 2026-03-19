@@ -74,6 +74,18 @@ serviceLevel:
   retention: "7 years"
   latency: "< 500ms p99"
 
+dataProduct:
+  accessPatterns:
+    - type: kafka-consumer
+      description: "Subscribe to the topic for real-time event processing"
+      protocol: kafka
+      config:
+        bootstrap.servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+        group.id: "${CONSUMER_GROUP_ID}"
+        auto.offset.reset: earliest
+        key.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
 changelog:
   - version: "1.0.0"
     date: "2026-03-12"

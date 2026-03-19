@@ -37,6 +37,18 @@ quarkus:
     table: flyway_schema_history
     locations: classpath:db/migration
 
+  virtual-threads:
+    enabled: true
+
+  oidc:
+    auth-server-url: http://localhost:8180/realms/css
+    client-id: policy-service
+    credentials:
+      secret: secret
+  security:
+    auth:
+      enabled-in-dev-mode: false
+
   log:
     level: INFO
 
@@ -45,10 +57,15 @@ quarkus:
   quarkus:
     datasource:
       db-version: "12.0"
-      username: ${DATABASE_USER:policy_user}
-      password: ${DATABASE_PASSWORD:policy_pass}
+      username: ${DATABASE_USER}
+      password: ${DATABASE_PASSWORD}
       jdbc:
-        url: ${DATABASE_URL:jdbc:postgresql://localhost:5434/policy_db}
+        url: ${DATABASE_URL}
+    oidc:
+      auth-server-url: ${KEYCLOAK_URL}/realms/css
+      client-id: policy-service
+      credentials:
+        secret: ${OIDC_CLIENT_SECRET}
   # Kafka bootstrap.servers is in application.properties
 
 # Kafka channel config is in application.properties (dotted keys work better there)

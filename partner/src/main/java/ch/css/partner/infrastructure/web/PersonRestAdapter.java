@@ -3,11 +3,14 @@ package ch.css.partner.infrastructure.web;
 import ch.css.partner.domain.model.Address;
 import ch.css.partner.domain.model.AddressType;
 import ch.css.partner.domain.model.Gender;
+import ch.css.partner.domain.model.PageRequest;
+import ch.css.partner.domain.model.PageResult;
 import ch.css.partner.domain.model.Person;
 import ch.css.partner.domain.service.AddressOverlapException;
 import ch.css.partner.domain.service.AddressNotFoundException;
-import ch.css.partner.domain.service.PersonApplicationService;
+import ch.css.partner.domain.service.PersonCommandService;
 import ch.css.partner.domain.service.PersonNotFoundException;
+import ch.css.partner.domain.service.PersonQueryService;
 import ch.css.partner.infrastructure.persistence.PersonAuditAdapter;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -20,7 +23,7 @@ import java.util.Map;
 
 /**
  * REST adapter for Person CRUD and Address sub-resource.
- * Maps HTTP requests to PersonApplicationService use cases.
+ * Maps HTTP requests to PersonCommandService and PersonQueryService use cases.
  */
 @Path("/api/persons")
 @Produces(MediaType.APPLICATION_JSON)
@@ -28,7 +31,10 @@ import java.util.Map;
 public class PersonRestAdapter {
 
     @Inject
-    PersonApplicationService personService;
+    PersonCommandService personCommandService;
+
+    @Inject
+    PersonQueryService personQueryService;
 
     @Inject
     PersonAuditAdapter auditAdapter;
@@ -38,7 +44,7 @@ public class PersonRestAdapter {
     @POST
     public Response createPerson(CreatePersonRequest req) {
         try {
-            String id = personService.createPerson(
+            String id = personCommandService.createPerson(
                     req.name(), req.firstName(),
                     Gender.valueOf(req.gender()),
                     req.dateOfBirth(), req.socialSecurityNumber());
@@ -53,17 +59,24 @@ public class PersonRestAdapter {
             @QueryParam("name") String name,
             @QueryParam("firstName") String firstName,
             @QueryParam("ahv") String ahv,
-            @QueryParam("dateOfBirth") String dateOfBirth) {
+            @QueryParam("dateOfBirth") String dateOfBirth,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
         boolean hasFilter = isNotBlank(name) || isNotBlank(firstName)
                 || isNotBlank(ahv) || isNotBlank(dateOfBirth);
         if (!hasFilter) {
-            return Response.ok(List.of()).build();
+            return Response.ok(new PagedResponse<PersonDto>(List.of(), 0, 0, page, size)).build();
         }
         try {
             LocalDate dob = isNotBlank(dateOfBirth) ? LocalDate.parse(dateOfBirth) : null;
-            List<PersonDto> result = personService.searchPersons(name, firstName, ahv, dob)
-                    .stream().map(PersonDto::from).toList();
-            return Response.ok(result).build();
+            PageRequest pageRequest = new PageRequest(page, size);
+            PageResult<Person> pageResult = personQueryService.searchPersons(name, firstName, ahv, dob, pageRequest);
+            PagedResponse<PersonDto> response = new PagedResponse<>(
+                    pageResult.content().stream().map(PersonDto::from).toList(),
+                    pageResult.totalElements(),
+                    pageResult.totalPages(),
+                    page, size);
+            return Response.ok(response).build();
         } catch (IllegalArgumentException e) {
             return Response.status(400).entity(Map.of("message", e.getMessage())).build();
         }
@@ -73,7 +86,7 @@ public class PersonRestAdapter {
     @Path("/{id}")
     public Response getPerson(@PathParam("id") String id) {
         try {
-            return Response.ok(PersonDto.from(personService.findById(id))).build();
+            return Response.ok(PersonDto.from(personQueryService.findById(id))).build();
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         }
@@ -83,9 +96,9 @@ public class PersonRestAdapter {
     @Path("/{id}")
     public Response updatePerson(@PathParam("id") String id, UpdatePersonRequest req) {
         try {
-            personService.updatePersonalData(id, req.name(), req.firstName(),
+            personCommandService.updatePersonalData(id, req.name(), req.firstName(),
                     Gender.valueOf(req.gender()), req.dateOfBirth());
-            return Response.ok(PersonDto.from(personService.findById(id))).build();
+            return Response.ok(PersonDto.from(personQueryService.findById(id))).build();
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalArgumentException e) {
@@ -97,7 +110,7 @@ public class PersonRestAdapter {
     @Path("/{id}")
     public Response deletePerson(@PathParam("id") String id) {
         try {
-            personService.deletePerson(id);
+            personCommandService.deletePerson(id);
             return Response.noContent().build();
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -112,7 +125,7 @@ public class PersonRestAdapter {
                                   @QueryParam("typ") String typ,
                                   @QueryParam("current") Boolean current) {
         try {
-            List<Address> addresses = personService.getAddresses(id);
+            List<Address> addresses = personQueryService.getAddresses(id);
             if (isNotBlank(typ)) {
                 AddressType addressType = AddressType.valueOf(typ);
                 addresses = addresses.stream().filter(a -> a.getAddressType() == addressType).toList();
@@ -132,13 +145,13 @@ public class PersonRestAdapter {
     @Path("/{id}/addresses")
     public Response addAddress(@PathParam("id") String id, AddAddressRequest req) {
         try {
-            String addressId = personService.addAddress(
+            String addressId = personCommandService.addAddress(
                     id,
                     AddressType.valueOf(req.addressType()),
                     req.street(), req.houseNumber(), req.postalCode(), req.city(),
                     req.land() != null ? req.land() : "Schweiz",
                     req.validFrom(), req.validTo());
-            Address address = personService.findById(id).getAddresses().stream()
+            Address address = personQueryService.findById(id).getAddresses().stream()
                     .filter(a -> a.getAddressId().equals(addressId))
                     .findFirst().orElseThrow();
             return Response.status(201).entity(AddressDto.from(address)).build();
@@ -157,8 +170,8 @@ public class PersonRestAdapter {
                                           @PathParam("aid") String aid,
                                           UpdateAddressRequest req) {
         try {
-            personService.updateAddressValidity(id, aid, req.validFrom(), req.validTo());
-            Address address = personService.findById(id).getAddresses().stream()
+            personCommandService.updateAddressValidity(id, aid, req.validFrom(), req.validTo());
+            Address address = personQueryService.findById(id).getAddresses().stream()
                     .filter(a -> a.getAddressId().equals(aid))
                     .findFirst().orElseThrow();
             return Response.ok(AddressDto.from(address)).build();
@@ -175,7 +188,7 @@ public class PersonRestAdapter {
     @Path("/{id}/addresses/{aid}")
     public Response deleteAddress(@PathParam("id") String id, @PathParam("aid") String aid) {
         try {
-            personService.deleteAddress(id, aid);
+            personCommandService.deleteAddress(id, aid);
             return Response.noContent().build();
         } catch (PersonNotFoundException | AddressNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -237,6 +250,9 @@ public class PersonRestAdapter {
                     a.getValidFrom(), a.getValidTo(), a.isCurrent());
         }
     }
+
+    public record PagedResponse<T>(
+            List<T> content, long totalElements, int totalPages, int page, int size) {}
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 

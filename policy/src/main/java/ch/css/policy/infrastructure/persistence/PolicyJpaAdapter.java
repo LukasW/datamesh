@@ -2,6 +2,8 @@ package ch.css.policy.infrastructure.persistence;
 
 import ch.css.policy.domain.model.Coverage;
 import ch.css.policy.domain.model.CoverageType;
+import ch.css.policy.domain.model.PageRequest;
+import ch.css.policy.domain.model.PageResult;
 import ch.css.policy.domain.model.Policy;
 import ch.css.policy.domain.model.PolicyStatus;
 import ch.css.policy.domain.port.out.PolicyRepository;
@@ -69,6 +71,49 @@ public class PolicyJpaAdapter implements PolicyRepository {
             query.setParameter("status", status.name());
 
         return query.getResultList().stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public PageResult<Policy> search(String policyNumber, String partnerId, PolicyStatus status, PageRequest pageRequest) {
+        String whereClause = buildPolicyWhereClause(policyNumber, partnerId, status);
+
+        StringBuilder countJpql = new StringBuilder("SELECT COUNT(p) FROM PolicyEntity p WHERE 1=1");
+        countJpql.append(whereClause);
+        TypedQuery<Long> countQuery = em.createQuery(countJpql.toString(), Long.class);
+        setPolicyParameters(countQuery, policyNumber, partnerId, status);
+        long totalElements = countQuery.getSingleResult();
+
+        StringBuilder jpql = new StringBuilder("SELECT p FROM PolicyEntity p WHERE 1=1");
+        jpql.append(whereClause);
+        jpql.append(" ORDER BY p.createdAt DESC");
+        TypedQuery<PolicyEntity> query = em.createQuery(jpql.toString(), PolicyEntity.class);
+        setPolicyParameters(query, policyNumber, partnerId, status);
+        query.setFirstResult(pageRequest.page() * pageRequest.size());
+        query.setMaxResults(pageRequest.size());
+
+        List<Policy> content = query.getResultList().stream().map(this::toDomain).toList();
+        int totalPages = (int) Math.ceil((double) totalElements / pageRequest.size());
+        return new PageResult<>(content, totalElements, totalPages);
+    }
+
+    private String buildPolicyWhereClause(String policyNumber, String partnerId, PolicyStatus status) {
+        StringBuilder clause = new StringBuilder();
+        if (policyNumber != null && !policyNumber.isBlank())
+            clause.append(" AND LOWER(p.policyNumber) LIKE LOWER(:policyNumber)");
+        if (partnerId != null && !partnerId.isBlank())
+            clause.append(" AND p.partnerId = :partnerId");
+        if (status != null)
+            clause.append(" AND p.status = :status");
+        return clause.toString();
+    }
+
+    private <T> void setPolicyParameters(TypedQuery<T> query, String policyNumber, String partnerId, PolicyStatus status) {
+        if (policyNumber != null && !policyNumber.isBlank())
+            query.setParameter("policyNumber", "%" + policyNumber + "%");
+        if (partnerId != null && !partnerId.isBlank())
+            query.setParameter("partnerId", partnerId);
+        if (status != null)
+            query.setParameter("status", status.name());
     }
 
     @Override

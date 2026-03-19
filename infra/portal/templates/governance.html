@@ -107,4 +107,35 @@
     </table>
   </div>
 </div>
+<!-- Access Patterns panel -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header fw-semibold">Access Patterns</div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover mb-0 small align-middle">
+      <thead class="table-light">
+        <tr><th>Topic</th><th>Domain</th><th>Type</th><th>Protocol</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        {% for p in data_products %}
+          {% for ap in p.access_patterns %}
+        <tr>
+          <td><a href="/products/{{ p.topic }}" class="text-decoration-none"><code>{{ p.topic }}</code></a></td>
+          <td><span class="badge bg-secondary">{{ p.domain }}</span></td>
+          <td><code>{{ ap.type }}</code></td>
+          <td>{{ ap.protocol | default('—') }}</td>
+          <td class="text-muted">{{ ap.description | default('—') }}</td>
+        </tr>
+          {% endfor %}
+          {% if not p.access_patterns %}
+        <tr>
+          <td><code>{{ p.topic }}</code></td>
+          <td><span class="badge bg-secondary">{{ p.domain }}</span></td>
+          <td colspan="3" class="text-muted fst-italic">Keine Access Patterns definiert</td>
+        </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

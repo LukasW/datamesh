@@ -245,6 +245,46 @@ Full ADR details: [specs/arc42.md](specs/arc42.md#9-architekturentscheidungen-ad
 
 ---
 
+## Production Setup
+
+### Kafka Cluster Requirements
+
+A production deployment requires a minimum of **3 Kafka brokers** for fault tolerance. Key broker-level settings:
+
+| Setting | Value | Rationale |
+| --- | --- | --- |
+| `default.replication.factor` | 3 | Every partition has 3 replicas across brokers |
+| `min.insync.replicas` | 2 | Writes succeed only when 2 of 3 replicas acknowledge, preventing data loss |
+| Number of brokers | >= 3 | Tolerates 1 broker failure without data loss or unavailability |
+
+Refer to `docker-compose.prod.yaml` for a 3-broker KRaft configuration suitable for production-like environments.
+
+### Required Environment Variables
+
+Each service requires the following environment variables to be set:
+
+| Variable | Scope | Description |
+| --- | --- | --- |
+| `KAFKA_BOOTSTRAP_SERVERS` | All services | Comma-separated list of Kafka broker addresses (e.g. `broker1:9092,broker2:9092,broker3:9092`) |
+| `SCHEMA_REGISTRY_URL` | All services | URL of the Confluent Schema Registry (e.g. `http://schema-registry:8081`) |
+| `KEYCLOAK_URL` | All services | Base URL of the Keycloak instance (e.g. `https://keycloak.example.com`) |
+| `OIDC_CLIENT_SECRET` | All services | OIDC client secret for Keycloak authentication |
+| `DATABASE_URL` | Per service | JDBC connection URL (e.g. `jdbc:postgresql://db-host:5432/partner_db`) |
+| `DATABASE_USER` | Per service | Database username |
+| `DATABASE_PASSWORD` | Per service | Database password |
+
+Each domain service (partner, product, policy) requires its own `DATABASE_URL`, `DATABASE_USER`, and `DATABASE_PASSWORD` pointing to its dedicated PostgreSQL instance.
+
+### Topic Configuration
+
+| Topic Type | Partitions | Replication Factor | Additional Settings |
+| --- | --- | --- | --- |
+| Event topics (e.g. `policy.v1.issued`) | 3 | 3 | Default retention |
+| State topics / compacted (e.g. `person.v1.state`) | 3 | 3 | `cleanup.policy=compact` |
+| DLQ topics (dead-letter queues) | 1 | 3 | Default retention |
+
+---
+
 ## Tech Stack
 
 | Layer | Technology |

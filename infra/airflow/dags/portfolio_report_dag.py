@@ -3,14 +3,17 @@ DAG: platform.portfolio_report
 Schedule: hourly
 Owner: platform@css.ch
 
+Upstream: platform.dbt_transform (ensures dbt models are fresh before reporting)
+
 Pipeline:
-  1. KafkaLagSensor     – Skip when no new events since last run
-  2. dbt build          – Staging + Marts (tag:report models only)
-  3. QualityGate        – Fails if dbt tests return errors
-  4. GovernanceCheck    – ODC Lint + Schema Registry Freshness
-  5. ReportMaterialize  – Writes dated report snapshot to analytics schema
-  6. DataHubLineage     – Pushes lineage to DataHub (when reachable)
-  7. PortalRefresh      – Sets flag in platform_db → Portal shows "fresh"
+  1. WaitForDbtTransform – ExternalTaskSensor on platform.dbt_transform
+  2. KafkaLagSensor      – Skip when no new events since last run
+  3. dbt build           – Staging + Marts (tag:report models only)
+  4. QualityGate         – Fails if dbt tests return errors
+  5. GovernanceCheck     – ODC Lint + Schema Registry Freshness
+  6. ReportMaterialize   – Writes dated report snapshot to analytics schema
+  7. DataHubLineage      – Pushes lineage to DataHub (when reachable)
+  8. PortalRefresh       – Sets flag in platform_db -> Portal shows "fresh"
 """
 import logging
 import os
@@ -20,6 +23,7 @@ from datetime import datetime, timedelta
 import psycopg2
 from airflow import DAG
 from airflow.operators.python import PythonOperator, ShortCircuitOperator
+from airflow.sensors.external_task import ExternalTaskSensor
 
 PLATFORM_DB_URL = os.getenv("PLATFORM_DB_URL")
 KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
@@ -179,6 +183,16 @@ with DAG(
     tags=["platform", "report", "cross-domain"],
 ) as dag:
 
+    # Task 0: Wait for dbt_transform to finish (same schedule, same execution_date)
+    wait_for_dbt = ExternalTaskSensor(
+        task_id="wait_for_dbt_transform",
+        external_dag_id="platform.dbt_transform",
+        external_task_id="dbt_test",
+        timeout=3600,
+        poke_interval=60,
+        mode="reschedule",
+    )
+
     # Task 1: ShortCircuit – skip entire pipeline when no new events
     kafka_lag_check = ShortCircuitOperator(
         task_id="check_kafka_lag",
@@ -222,6 +236,6 @@ with DAG(
     )
 
     # Dependencies
-    kafka_lag_check >> dbt_build >> quality_gate >> governance_check
+    wait_for_dbt >> kafka_lag_check >> dbt_build >> quality_gate >> governance_check
     governance_check >> [materialize_report, datahub_push]
     materialize_report >> portal_refresh

@@ -2,7 +2,7 @@ package ch.css.policy.infrastructure.messaging;
 
 import ch.css.policy.domain.model.ProductView;
 import ch.css.policy.domain.port.out.ProductViewRepository;
-import com.fasterxml.jackson.databind.JsonNode;
+import ch.css.policy.infrastructure.messaging.acl.ProductEventTranslator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -10,13 +10,16 @@ import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.jboss.logging.Logger;
 
-import java.math.BigDecimal;
-
 /**
  * Kafka consumer for Product domain events.
  * Materializes the local ProductView read model from product.v1.defined,
  * product.v1.updated and product.v1.deprecated events (ADR-001).
  * Messages arrive as JSON strings published by Debezium via StringConverter.
+ *
+ * Translation from external Product schema to local ProductView is delegated
+ * to the Anti-Corruption Layer ({@link ProductEventTranslator}).
+ *
+ * Failed messages are routed to a dead-letter-queue topic for later inspection.
  */
 @ApplicationScoped
 public class ProductEventConsumer {
@@ -29,18 +32,41 @@ public class ProductEventConsumer {
     @Inject
     ObjectMapper objectMapper;
 
+    private ProductEventTranslator translator;
+
+    ProductEventTranslator getTranslator() {
+        if (translator == null) {
+            translator = new ProductEventTranslator(objectMapper);
+        }
+        return translator;
+    }
+
     @Incoming("product-defined-in")
     @Transactional
     public void onProductDefined(String payload) {
         log.infof("Received Kafka event [product.v1.defined]");
-        upsertProductFromJson(payload);
+        try {
+            ProductView view = getTranslator().translate(payload);
+            productViewRepository.upsert(view);
+            log.infof("ProductView upserted: %s -> %s (%s)", view.getProductId(), view.getName(), view.getProductLine());
+        } catch (Exception e) {
+            log.errorf(e, "Failed to process product.v1.defined event, routing to DLQ. Payload: %s", payload);
+            throw new RuntimeException("Failed to process product.v1.defined event: " + e.getMessage(), e);
+        }
     }
 
     @Incoming("product-updated-in")
     @Transactional
     public void onProductUpdated(String payload) {
         log.infof("Received Kafka event [product.v1.updated]");
-        upsertProductFromJson(payload);
+        try {
+            ProductView view = getTranslator().translate(payload);
+            productViewRepository.upsert(view);
+            log.infof("ProductView upserted: %s -> %s (%s)", view.getProductId(), view.getName(), view.getProductLine());
+        } catch (Exception e) {
+            log.errorf(e, "Failed to process product.v1.updated event, routing to DLQ. Payload: %s", payload);
+            throw new RuntimeException("Failed to process product.v1.updated event: " + e.getMessage(), e);
+        }
     }
 
     @Incoming("product-deprecated-in")
@@ -48,36 +74,12 @@ public class ProductEventConsumer {
     public void onProductDeprecated(String payload) {
         log.infof("Received Kafka event [product.v1.deprecated]");
         try {
-            JsonNode json = objectMapper.readTree(payload);
-            String productId = json.path("productId").asText(null);
-            if (productId == null || productId.isEmpty()) {
-                log.warnf("ProductDeprecated missing productId");
-                return;
-            }
+            String productId = getTranslator().extractProductId(payload);
             productViewRepository.deactivate(productId);
             log.infof("ProductView deactivated: %s", productId);
         } catch (Exception e) {
-            log.errorf("Failed to process ProductDeprecated event: %s", e.getMessage());
-        }
-    }
-
-    private void upsertProductFromJson(String payload) {
-        try {
-            JsonNode json = objectMapper.readTree(payload);
-            String productId   = json.path("productId").asText(null);
-            String name        = json.path("name").asText(null);
-            String productLine = json.path("productLine").asText("UNKNOWN");
-            BigDecimal premium = json.has("basePremium") && !json.path("basePremium").isNull()
-                    ? new BigDecimal(json.path("basePremium").asText())
-                    : BigDecimal.ZERO;
-            if (productId == null || productId.isEmpty() || name == null) {
-                log.warnf("Product event missing required fields: productId=%s name=%s", productId, name);
-                return;
-            }
-            productViewRepository.upsert(new ProductView(productId, name, productLine, premium, true));
-            log.infof("ProductView upserted: %s -> %s (%s)", productId, name, productLine);
-        } catch (Exception e) {
-            log.errorf("Failed to process product event: %s", e.getMessage());
+            log.errorf(e, "Failed to process product.v1.deprecated event, routing to DLQ. Payload: %s", payload);
+            throw new RuntimeException("Failed to process product.v1.deprecated event: " + e.getMessage(), e);
         }
     }
 }

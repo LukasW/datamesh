@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'partner-service'
+    metrics_path: '/q/metrics'
+    static_configs:
+      - targets: ['partner-service:9080']
+  - job_name: 'product-service'
+    metrics_path: '/q/metrics'
+    static_configs:
+      - targets: ['product-service:9081']
+  - job_name: 'policy-service'
+    metrics_path: '/q/metrics'
+    static_configs:
+      - targets: ['policy-service:9082']
