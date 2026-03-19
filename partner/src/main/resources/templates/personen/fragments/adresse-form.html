@@ -1,7 +1,7 @@
 <div class="card mb-2 border-primary" id="adresse-neu-form">
   <div class="card-body p-2">
     <div id="adresse-form-errors">{#if errorMessage}{errorMessage.raw}{/if}</div>
-    <form hx-post="/personen/fragments/{personId}/adressen"
+    <form hx-post="/persons/fragments/{personId}/addresses"
           hx-target="#adresse-neu-form"
           hx-swap="outerHTML">
       <div class="row g-2 mb-2">
@@ -54,7 +54,7 @@
       <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
       <button type="button" class="btn btn-sm btn-secondary"
               hx-target="#adresse-neu-form" hx-swap="outerHTML"
-              hx-get="/personen/fragments/{personId}/adresse-form-cancel">
+              hx-get="/persons/fragments/{personId}/address-form-cancel">
         Abbrechen
       </button>
     </form>

@@ -8,7 +8,7 @@
       </div>
       {#if policyStatus != "CANCELLED" && policyStatus != "EXPIRED"}
       <button class="btn btn-sm btn-outline-danger"
-              hx-delete="/api/policen/{policyId}/deckungen/{coverage.coverageId}"
+              hx-delete="/api/policies/{policyId}/coverages/{coverage.coverageId}"
               hx-confirm="Deckung '{coverage.coverageType}' wirklich entfernen?"
               hx-target="#deckung-{coverage.coverageId}"
               hx-swap="outerHTML">

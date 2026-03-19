@@ -137,14 +137,14 @@ public class PersonUiController {
         }
     }
 
-    /** Returns an empty adresse-form for adding a new address. */
+    /** Returns an empty address-form for adding a new address. */
     @GET
     @Path("/fragments/{id}/address-form")
     public TemplateInstance getAddressForm(@PathParam("id") String id) {
         return adresseForm.data("personId", id).data("errorMessage", null);
     }
 
-    /** Returns empty string to remove the adresse-form from the DOM (cancel). */
+    /** Returns empty string to remove the address-form from the DOM (cancel). */
     @GET
     @Path("/fragments/{id}/address-form-cancel")
     public String cancelAddressForm() {
@@ -262,7 +262,7 @@ public class PersonUiController {
      * Updates personalien from form data and re-renders the personalien-form with success flag.
      */
     @PUT
-    @Path("/fragments/{id}/personalien")
+    @Path("/fragments/{id}/personal-data")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Object updatePersonalienFragment(
             @PathParam("id") String personId,

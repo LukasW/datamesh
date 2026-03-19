@@ -18,10 +18,10 @@
   <td>{policy.coverageStartDate}</td>
   <td>CHF {policy.premium}</td>
   <td>
-    <a href="/policen/{policy.policyId}/edit" class="btn btn-sm btn-outline-secondary">Details</a>
+    <a href="/policies/{policy.policyId}/edit" class="btn btn-sm btn-outline-secondary">Details</a>
     {#if policy.status.name() == "DRAFT"}
     <button class="btn btn-sm btn-outline-success"
-            hx-post="/policen/fragments/{policy.policyId}/aktivieren"
+            hx-post="/policies/fragments/{policy.policyId}/activate"
             hx-target="#policy-{policy.policyId}"
             hx-swap="outerHTML"
             hx-confirm="Police '{policy.policyNumber}' aktivieren?">
@@ -30,7 +30,7 @@
     {/if}
     {#if policy.status.name() == "ACTIVE"}
     <button class="btn btn-sm btn-outline-danger"
-            hx-post="/policen/fragments/{policy.policyId}/kuendigen"
+            hx-post="/policies/fragments/{policy.policyId}/cancel"
             hx-target="#policy-{policy.policyId}"
             hx-swap="outerHTML"
             hx-confirm="Police '{policy.policyNumber}' kündigen?">

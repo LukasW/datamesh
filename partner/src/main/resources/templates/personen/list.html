@@ -4,7 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Personenverwaltung</h2>
   <button class="btn btn-primary"
-          hx-get="/personen/fragments/neu"
+          hx-get="/persons/fragments/neu"
           hx-target="#modal-container"
           hx-swap="innerHTML">
     + Neue Person
@@ -16,14 +16,14 @@
     <div class="row g-2">
       <div class="col-md-3">
         <input type="text" id="s-name" name="name" class="form-control" placeholder="Name"
-               hx-get="/personen/fragments/list"
+               hx-get="/persons/fragments/list"
                hx-include="#s-name,#s-vorname,#s-ahv"
                hx-target="#personen-tabelle" hx-swap="innerHTML"
                hx-trigger="keyup changed delay:300ms">
       </div>
       <div class="col-md-3">
         <input type="text" id="s-vorname" name="firstName" class="form-control" placeholder="Vorname"
-               hx-get="/personen/fragments/list"
+               hx-get="/persons/fragments/list"
                hx-include="#s-name,#s-vorname,#s-ahv"
                hx-target="#personen-tabelle" hx-swap="innerHTML"
                hx-trigger="keyup changed delay:300ms">
@@ -31,14 +31,14 @@
       <div class="col-md-4">
         <input type="text" id="s-ahv" name="ahv" class="form-control"
                placeholder="AHV-Nr. (756.XXXX.XXXX.XX)"
-               hx-get="/personen/fragments/list"
+               hx-get="/persons/fragments/list"
                hx-include="#s-name,#s-vorname,#s-ahv"
                hx-target="#personen-tabelle" hx-swap="innerHTML"
                hx-trigger="keyup changed delay:300ms">
       </div>
       <div class="col-md-2">
         <button class="btn btn-outline-secondary w-100"
-                hx-get="/personen/fragments/list"
+                hx-get="/persons/fragments/list"
                 hx-include="#s-name,#s-vorname,#s-ahv"
                 hx-target="#personen-tabelle" hx-swap="innerHTML">
           Suchen
@@ -68,9 +68,9 @@
         <td>{person.dateOfBirth}</td>
         <td>{#if person.socialSecurityNumber}{person.socialSecurityNumber.formatted()}{#else}–{/if}</td>
         <td>
-          <a href="/personen/{person.personId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+          <a href="/persons/{person.personId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
           <button class="btn btn-sm btn-outline-danger"
-                  hx-delete="/api/personen/{person.personId}"
+                  hx-delete="/api/persons/{person.personId}"
                   hx-confirm="Person '{person.firstName} {person.name}' wirklich löschen?"
                   hx-target="#person-{person.personId}"
                   hx-swap="outerHTML swap:0.3s">

@@ -8,7 +8,7 @@
   {#if errorMessage}
   <div class="alert alert-danger">{errorMessage.raw}</div>
   {/if}
-  <form hx-put="/policen/fragments/{policy.policyId}/details"
+  <form hx-put="/policies/fragments/{policy.policyId}/details"
         hx-target="#policy-details-form"
         hx-swap="outerHTML"
         hx-encoding="application/x-www-form-urlencoded">

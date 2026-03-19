@@ -14,13 +14,13 @@
       </div>
       <div class="btn-group btn-group-sm">
         <button class="btn btn-outline-secondary"
-                hx-get="/personen/fragments/{personId}/adressen/{adresse.addressId}/gueltigkeit"
+                hx-get="/persons/fragments/{personId}/addresses/{adresse.addressId}/validity"
                 hx-target="#adresse-{adresse.addressId} .card-body"
                 hx-swap="innerHTML">
           Gültigkeit
         </button>
         <button class="btn btn-outline-danger"
-                hx-delete="/api/personen/{personId}/adressen/{adresse.addressId}"
+                hx-delete="/api/persons/{personId}/addresses/{adresse.addressId}"
                 hx-confirm="Adresse löschen?"
                 hx-target="#adresse-{adresse.addressId}"
                 hx-swap="outerHTML">

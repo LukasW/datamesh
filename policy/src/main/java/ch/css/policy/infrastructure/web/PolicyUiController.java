@@ -202,7 +202,7 @@ public class PolicyUiController {
 
     /** Activates a policy and returns the refreshed table row. */
     @POST
-    @Path("/fragments/{id}/aktivieren")
+    @Path("/fragments/{id}/activate")
     public Object activateFragment(@PathParam("id") String id) {
         try {
             policyService.activatePolicy(id);
@@ -221,7 +221,7 @@ public class PolicyUiController {
 
     /** Cancels a policy and returns the refreshed table row. */
     @POST
-    @Path("/fragments/{id}/kuendigen")
+    @Path("/fragments/{id}/cancel")
     public Object cancelFragment(@PathParam("id") String id) {
         try {
             policyService.cancelPolicy(id);
@@ -240,14 +240,14 @@ public class PolicyUiController {
 
     /** Returns an empty coverage-form for adding a new coverage. */
     @GET
-    @Path("/fragments/{id}/deckung-form")
+    @Path("/fragments/{id}/coverage-form")
     public TemplateInstance getCoverageForm(@PathParam("id") String id) {
         return coverageForm.data("policyId", id).data("errorMessage", null);
     }
 
     /** Returns empty string to remove the coverage-form from the DOM (cancel). */
     @GET
-    @Path("/fragments/{id}/deckung-form-cancel")
+    @Path("/fragments/{id}/coverage-form-cancel")
     public String cancelCoverageForm() {
         return "";
     }
@@ -257,7 +257,7 @@ public class PolicyUiController {
      * On error re-renders the form with an error message.
      */
     @POST
-    @Path("/fragments/{id}/deckungen")
+    @Path("/fragments/{id}/coverages")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Object addCoverageFragment(
             @PathParam("id") String policyId,
@@ -285,7 +285,7 @@ public class PolicyUiController {
 
     /** Returns the coverage-card fragment (used for cancel of inline edit). */
     @GET
-    @Path("/fragments/{id}/deckungen/{did}/karte")
+    @Path("/fragments/{id}/coverages/{did}/card")
     public Object getCoverageCard(@PathParam("id") String policyId, @PathParam("did") String did) {
         try {
             Coverage coverage = policyService.findById(policyId).getCoverages().stream()
@@ -309,7 +309,7 @@ public class PolicyUiController {
      * Called via htmx to load the search panel and on every keyup in the search input.
      */
     @GET
-    @Path("/fragments/partner-suche")
+    @Path("/fragments/partner-search")
     public TemplateInstance getPartnerSearchWidget(@QueryParam("q") String q) {
         List<PartnerView> partners = policyService.searchPartnerViews(q);
         return partnerSearchWidget
@@ -322,7 +322,7 @@ public class PolicyUiController {
      * Targeted with hx-swap="outerHTML" on #partner-picker.
      */
     @POST
-    @Path("/fragments/partner-auswaehlen/{partnerId}")
+    @Path("/fragments/partner-select/{partnerId}")
     public Object selectPartner(@PathParam("partnerId") String partnerId) {
         return policyService.findPartnerView(partnerId)
                 .map(p -> (Object) partnerPickerSelected
