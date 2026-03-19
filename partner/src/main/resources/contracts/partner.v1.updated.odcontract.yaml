@@ -2,12 +2,19 @@ apiVersion: v2.3.0
 kind: DataContract
 id: partner-updated-v1
 version: 1.0.0
-name: Partner Updated Event
-description: Wird publiziert wenn ein Partner/Kunde aktualisiert wurde
 
-owner:
-  team: partner-management
-  email: partner-team@insurance.example.com
+info:
+  title: Partner Updated Event
+  description: Published when a partner/customer record is updated
+  owner: partner-team@insurance.example.com
+  domain: partner
+  tags: ["partner", "update", "core"]
+  contact:
+    email: partner-team@insurance.example.com
+  sla:
+    freshness: "< 5 minutes"
+    availability: "99.9%"
+    qualityScore: 0.95
 
 servers:
   production:

@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -r \"mp.messaging.incoming\\\\|mp.messaging.outgoing\" /Users/lukasweibel/src/css/datamesh --include=*.yml --include=*.yaml)"
+      "Bash(grep -r \"mp.messaging.incoming\\\\|mp.messaging.outgoing\" /Users/lukasweibel/src/css/datamesh --include=*.yml --include=*.yaml)",
+      "Bash(podman compose:*)"
     ]
   }
 }

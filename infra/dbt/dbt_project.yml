@@ -14,3 +14,23 @@ models:
       +materialized: view
     marts:
       +materialized: table
+      mart_portfolio_summary:
+        +tags: [report]
+      mart_policy_detail:
+        +tags: [report]
+      fact_policies:
+        +tags: [report]
+      dim_partner:
+        +tags: [report]
+      dim_product:
+        +tags: [report]
+      mart_management_kpi:
+        +tags: [mgmt-report]
+      mart_partner_growth:
+        +tags: [mgmt-report]
+      mart_product_performance:
+        +tags: [mgmt-report]
+      mart_policy_trend:
+        +tags: [mgmt-report]
+      mart_exposure_by_product:
+        +tags: [mgmt-report]

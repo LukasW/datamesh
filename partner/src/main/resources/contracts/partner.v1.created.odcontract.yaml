@@ -2,12 +2,19 @@ apiVersion: v2.3.0
 kind: DataContract
 id: partner-created-v1
 version: 1.0.0
-name: Partner Created Event
-description: Wird publiziert wenn ein neuer Partner/Kunde erstellt wurde
 
-owner:
-  team: partner-management
-  email: partner-team@insurance.example.com
+info:
+  title: Partner Created Event
+  description: Published when a new partner/customer is created
+  owner: partner-team@insurance.example.com
+  domain: partner
+  tags: ["partner", "create", "core"]
+  contact:
+    email: partner-team@insurance.example.com
+  sla:
+    freshness: "< 5 minutes"
+    availability: "99.9%"
+    qualityScore: 0.95
 
 servers:
   production:

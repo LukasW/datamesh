@@ -12,8 +12,8 @@ source:
   type: kafka
   config:
     connection:
-      bootstrap: "localhost:9092"
-      schema_registry_url: "http://localhost:8081"
+      bootstrap: "${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}"
+      schema_registry_url: "${SCHEMA_REGISTRY_URL:-http://localhost:8081}"
     topic_patterns:
       allow:
         - "person\\.v1\\..*"
@@ -23,4 +23,4 @@ source:
 sink:
   type: datahub-rest
   config:
-    server: "http://localhost:8080"
+    server: "${DATAHUB_GMS_URL:-http://localhost:8080}"

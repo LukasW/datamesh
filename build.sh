@@ -41,7 +41,7 @@ mvn clean package \
 echo "▶ Restarting Compose…"
 
 podman compose down $([[ "$DELETE_VOLUMES" == true ]] && echo "-v") 2>/dev/null || true
-podman compose build --no-cache
+podman compose build
 podman compose up $([[ "$DAEMON_MODE" == true ]] && echo "-d")
 
 if [[ "$DAEMON_MODE" == true ]]; then
@@ -54,11 +54,23 @@ if [[ "$DAEMON_MODE" == true ]]; then
   done
 
   echo "▶ Registering Debezium connectors…"
-  curl -sf -X POST http://localhost:8083/connectors \
-    -H "Content-Type: application/json" \
-    -d @infra/debezium/partner-outbox-connector.json \
-    && echo "  ✓ partner-outbox-connector registered" \
-    || echo "  ⚠ partner-outbox-connector already exists or registration failed"
+  register_connector() {
+    local file="$1"
+    local name
+    name=$(python3 -c "import sys,json; print(json.load(open('$file'))['name'])")
+    local config
+    config=$(python3 -c "import sys,json; print(json.dumps(json.load(open('$file'))['config']))")
+    if curl -sf -X PUT "http://localhost:8083/connectors/${name}/config" \
+        -H "Content-Type: application/json" \
+        -d "$config" > /dev/null; then
+      echo "  ✓ ${name} registered"
+    else
+      echo "  ✗ ${name} registration failed"
+    fi
+  }
+
+  register_connector infra/debezium/partner-outbox-connector.json
+  register_connector infra/debezium/product-outbox-connector.json
 fi
 
 echo "✓ Done  |  Partner→:9080  Product→:9081  Policy→:9082  Debezium→:8083"

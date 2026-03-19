@@ -19,6 +19,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
     healthcheck:
       test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
       interval: 10s
@@ -32,7 +33,7 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 1G
+          memory: 1500M
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.5.0
@@ -46,6 +47,12 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka:29092'
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8081/subjects || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
     networks:
       - backend
       - frontend
@@ -57,7 +64,6 @@ services:
 
   akhq:
     image: tchiotludo/akhq:0.25.1
-    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
@@ -81,18 +87,17 @@ services:
                 signatures:
                   secret:
                     generator:
-                      secret: "$${AKHQ_JWT_SECRET:changeme-at-least-256-bits-long-secret}"
+                      secret: "${AKHQ_JWT_SECRET:-changeme-at-least-256-bits-long-secret}"
     networks:
       - frontend
     deploy:
       resources:
         limits:
           cpus: '0.5'
-          memory: 256M
+          memory: 512M
 
   partner-db:
     image: postgres:16
-    restart: unless-stopped
     command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
     environment:
       POSTGRES_DB: partner_db
@@ -141,6 +146,12 @@ services:
       context: infra/debezium
       dockerfile: Dockerfile
     restart: unless-stopped
+    # Skip Confluent's cub kafka-ready preflight (fails under Podman DNS even when
+    # Kafka is healthy). depends_on: service_healthy already guarantees Kafka is up.
+    # configure: transforms CONNECT_* env vars → properties file
+    # launch:    starts the Connect worker (skips the ensure/preflight step)
+    # Wait for TCP reachability to guard against Podman DNS race on fresh networks.
+    command: ["/bin/bash", "-c", "until nc -z kafka 29092 2>/dev/null; do echo 'Waiting for Kafka TCP…'; sleep 2; done && /etc/confluent/docker/configure && exec /etc/confluent/docker/launch"]
     depends_on:
       kafka:
         condition: service_healthy
@@ -158,6 +169,7 @@ services:
       CONNECT_STATUS_STORAGE_TOPIC: debezium.statuses
       CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
       CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_REST_PORT: 8083
       CONNECT_REST_ADVERTISED_HOST_NAME: debezium-connect
       CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
@@ -180,7 +192,7 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 1G
+          memory: 1500M
 
   debezium-init:
     image: curlimages/curl:latest
@@ -213,7 +225,6 @@ services:
 
   product-db:
     image: postgres:16
-    restart: unless-stopped
     command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
     environment:
       POSTGRES_DB: product_db
@@ -238,7 +249,6 @@ services:
 
   policy-db:
     image: postgres:16
-    restart: unless-stopped
     environment:
       POSTGRES_DB: policy_db
       POSTGRES_USER: policy_user
@@ -263,7 +273,6 @@ services:
   partner-service:
     image: lukasweibel/person-service:latest
     pull_policy: never
-    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
@@ -291,7 +300,6 @@ services:
   product-service:
     image: lukasweibel/product-service:latest
     pull_policy: never
-    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
@@ -322,6 +330,8 @@ services:
     restart: unless-stopped
     depends_on:
       kafka:
+        condition: service_healthy
+      schema-registry:
         condition: service_healthy
       policy-db:
         condition: service_healthy
@@ -449,7 +459,7 @@ services:
     restart: "no"
     depends_on:
       schema-registry:
-        condition: service_started
+        condition: service_healthy
     environment:
       SCHEMA_REGISTRY_URL: http://schema-registry:8081
     volumes:
@@ -494,6 +504,334 @@ services:
           cpus: '0.5'
           memory: 256M
 
+  # ── Apache Airflow ───────────────────────────────────────────────────────────
+
+  airflow-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:-airflow_pass}
+    volumes:
+      - airflow-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  airflow-init:
+    build:
+      context: infra/airflow
+      dockerfile: Dockerfile
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow_pass}@airflow-db:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    command: ["airflow", "db", "migrate"]
+    networks:
+      - backend
+
+  airflow-scheduler:
+    build:
+      context: infra/airflow
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      platform-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow_pass}@airflow-db:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      PLATFORM_DB_URL: postgresql://platform_user:${PLATFORM_DB_PASSWORD:-platform_pass}@platform-db:5432/platform_db
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    volumes:
+      - ./infra/airflow/dags:/opt/airflow/dags
+      - ./infra/dbt:/opt/dbt
+      - ./partner/src/main/resources/contracts:/contracts/partner:ro
+      - ./policy/src/main/resources/contracts:/contracts/policy:ro
+      - ./product/src/main/resources/contracts:/contracts/product:ro
+    command: ["airflow", "scheduler"]
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  airflow-webserver:
+    build:
+      context: infra/airflow
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow_pass}@airflow-db:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+      AIRFLOW__WEBSERVER__WORKERS: "2"
+    volumes:
+      - ./infra/airflow/dags:/opt/airflow/dags
+    command: ["airflow", "webserver", "--port", "8091"]
+    ports:
+      - "8091:8091"
+    networks:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  # ── DataHub Metadata Platform ─────────────────────────────────────────────
+  # Reuses the existing kafka:29092 and schema-registry:8081 — no extra Kafka/ZooKeeper needed.
+
+  datahub-mysql:
+    image: mysql:8.2
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: datahub
+      MYSQL_USER: datahub
+      MYSQL_PASSWORD: datahub
+      MYSQL_ROOT_PASSWORD: datahub
+      MYSQL_ROOT_HOST: '%'
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u datahub --password=datahub"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    volumes:
+      - datahub-mysql-data:/var/lib/mysql
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  datahub-elasticsearch:
+    image: elasticsearch:7.10.1
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx1g -Dlog4j2.formatMsgNoLookups=true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    ports:
+      - "9200:9200"
+    volumes:
+      - datahub-esdata:/usr/share/elasticsearch/data
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+
+  datahub-kafka-setup:
+    image: acryldata/datahub-kafka-setup:head
+    restart: "no"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVER: kafka:29092
+      KAFKA_SCHEMAREGISTRY_URL: http://schema-registry:8081
+      DATAHUB_PRECREATE_TOPICS: "true"
+    networks:
+      - backend
+
+  datahub-upgrade:
+    image: acryldata/datahub-upgrade:head
+    command: ["-u", "SystemUpdate"]
+    restart: "no"
+    depends_on:
+      datahub-elasticsearch:
+        condition: service_healthy
+      datahub-kafka-setup:
+        condition: service_completed_successfully
+      datahub-mysql:
+        condition: service_healthy
+    environment:
+      DATAHUB_SQL_SETUP_ENABLED: "true"
+      EBEAN_DATASOURCE_USERNAME: datahub
+      EBEAN_DATASOURCE_PASSWORD: datahub
+      EBEAN_DATASOURCE_HOST: datahub-mysql:3306
+      EBEAN_DATASOURCE_URL: "jdbc:mysql://datahub-mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8"
+      EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
+      KAFKA_BOOTSTRAP_SERVER: kafka:29092
+      KAFKA_SCHEMAREGISTRY_URL: http://schema-registry:8081
+      ELASTICSEARCH_HOST: datahub-elasticsearch
+      ELASTICSEARCH_PORT: "9200"
+      ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: "true"
+      ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: "true"
+      ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES: "false"
+      GRAPH_SERVICE_IMPL: elasticsearch
+      DATAHUB_GMS_HOST: datahub-gms
+      DATAHUB_GMS_PORT: "8080"
+      ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
+      BACKFILL_BROWSE_PATHS_V2: "true"
+      REPROCESS_DEFAULT_BROWSE_PATHS_V2: "false"
+      AUTHENTICATION_TOKEN_SERVICE_SIGNING_KEY: or/VSQweIyaf4TzKiUvv9ya3i27SHn4U0abFJEn/Btg=
+      AUTHENTICATION_TOKEN_SERVICE_SALT: G9DoHS3OefFgdwqyLm82QevjXlJ0jW+gTgmOW6ZHvOc=
+    networks:
+      - backend
+
+  datahub-gms:
+    image: acryldata/datahub-gms:head
+    restart: unless-stopped
+    depends_on:
+      datahub-upgrade:
+        condition: service_completed_successfully
+    environment:
+      DATAHUB_SERVER_TYPE: quickstart
+      DATAHUB_TELEMETRY_ENABLED: "false"
+      DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID: generic-duhe-consumer-job-client-gms
+      EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
+      EBEAN_DATASOURCE_HOST: datahub-mysql:3306
+      EBEAN_DATASOURCE_PASSWORD: datahub
+      EBEAN_DATASOURCE_URL: "jdbc:mysql://datahub-mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8"
+      EBEAN_DATASOURCE_USERNAME: datahub
+      ELASTICSEARCH_HOST: datahub-elasticsearch
+      ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: "true"
+      ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: "true"
+      ELASTICSEARCH_PORT: "9200"
+      ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
+      ENTITY_SERVICE_ENABLE_RETENTION: "true"
+      ES_BULK_REFRESH_POLICY: WAIT_UNTIL
+      GRAPH_SERVICE_DIFF_MODE_ENABLED: "true"
+      GRAPH_SERVICE_IMPL: elasticsearch
+      JAVA_OPTS: "-Xms512m -Xmx1g"
+      KAFKA_BOOTSTRAP_SERVER: kafka:29092
+      KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR: "true"
+      KAFKA_SCHEMAREGISTRY_URL: http://schema-registry:8081
+      MAE_CONSUMER_ENABLED: "true"
+      MCE_CONSUMER_ENABLED: "true"
+      METADATA_SERVICE_AUTH_ENABLED: "false"
+      PE_CONSUMER_ENABLED: "true"
+      THEME_V2_DEFAULT: "true"
+      UI_INGESTION_ENABLED: "true"
+      AUTHENTICATION_TOKEN_SERVICE_SIGNING_KEY: or/VSQweIyaf4TzKiUvv9ya3i27SHn4U0abFJEn/Btg=
+      AUTHENTICATION_TOKEN_SERVICE_SALT: G9DoHS3OefFgdwqyLm82QevjXlJ0jW+gTgmOW6ZHvOc=
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 120s
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 1280M
+
+  datahub-frontend:
+    image: acryldata/datahub-frontend-react:head
+    restart: unless-stopped
+    depends_on:
+      datahub-gms:
+        condition: service_healthy
+    environment:
+      DATAHUB_GMS_HOST: datahub-gms
+      DATAHUB_GMS_PORT: "8080"
+      DATAHUB_SECRET: YouKnowNothing
+      DATAHUB_APP_VERSION: "1.0"
+      DATAHUB_PLAY_MEM_BUFFER_SIZE: 10MB
+      JAVA_OPTS: "-Xms256m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null"
+      KAFKA_BOOTSTRAP_SERVER: kafka:29092
+      DATAHUB_TRACKING_TOPIC: DataHubUsageEvent_v1
+      ELASTIC_CLIENT_HOST: datahub-elasticsearch
+      ELASTIC_CLIENT_PORT: "9200"
+    ports:
+      - "9002:9002"
+    networks:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  datahub-actions:
+    image: acryldata/datahub-actions:head-slim
+    restart: unless-stopped
+    depends_on:
+      datahub-gms:
+        condition: service_healthy
+    environment:
+      DATAHUB_GMS_HOST: datahub-gms
+      DATAHUB_GMS_PORT: "8080"
+      DATAHUB_GMS_PROTOCOL: http
+      DATAHUB_SYSTEM_CLIENT_ID: __datahub_system
+      DATAHUB_SYSTEM_CLIENT_SECRET: JohnSnowKnowsNothing
+      KAFKA_BOOTSTRAP_SERVER: kafka:29092
+      KAFKA_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
+      METADATA_AUDIT_EVENT_NAME: MetadataAuditEvent_v4
+      METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME: MetadataChangeLog_Versioned_v1
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  datahub-ingest:
+    build:
+      context: infra/datahub
+      dockerfile: Dockerfile
+    restart: "no"
+    depends_on:
+      datahub-gms:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    environment:
+      DATAHUB_GMS_URL: http://datahub-gms:8080
+      KAFKA_BOOTSTRAP_SERVER: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONTRACTS_ROOT: /contracts
+    volumes:
+      - ./partner/src/main/resources/contracts:/contracts/partner:ro
+      - ./policy/src/main/resources/contracts:/contracts/policy:ro
+      - ./product/src/main/resources/contracts:/contracts/product:ro
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
 volumes:
   partner-db-data:
   product-db-data:
@@ -501,6 +839,9 @@ volumes:
   platform-db-data:
   spark-warehouse:
   spark-ivy2:
+  airflow-db-data:
+  datahub-mysql-data:
+  datahub-esdata:
 
 networks:
   backend:

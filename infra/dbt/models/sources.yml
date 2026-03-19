@@ -100,3 +100,36 @@ sources:
             description: Full raw JSON payload as string
           - name: consumed_at
             description: Timestamp when the event was consumed from Kafka
+
+exposures:
+  - name: portfolio_report
+    type: dashboard
+    maturity: high
+    owner:
+      name: Data Platform Team
+      email: platform@css.ch
+    depends_on:
+      - ref('mart_portfolio_summary')
+      - ref('mart_policy_detail')
+      - ref('fact_policies')
+    description: >
+      Hourly report combining Partner, Product, and Policy data products.
+      Orchestrated by Airflow DAG: platform.portfolio_report.
+      No data warehouse. No ETL ticket. Data arrives via Kafka data products only.
+
+  - name: management_report
+    type: dashboard
+    maturity: high
+    owner:
+      name: Data Platform Team
+      email: platform@css.ch
+    depends_on:
+      - ref('mart_management_kpi')
+      - ref('mart_partner_growth')
+      - ref('mart_product_performance')
+      - ref('mart_policy_trend')
+      - ref('mart_exposure_by_product')
+    description: >
+      Daily management report with KPIs, trend analysis, and quality status.
+      Orchestrated by Airflow DAG: platform.management_report.
+      Targets: Underwriting Lead, CISO, Product Management.

@@ -295,3 +295,155 @@ def demo(request: Request):
         "rows": rows,
         "error": error,
     })
+
+
+@app.get("/report", response_class=HTMLResponse)
+def report(request: Request):
+    try:
+        conn = psycopg2.connect(PLATFORM_DB_URL, connect_timeout=3)
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT product_line, product_name, active_policies,
+                   total_premium_chf, avg_premium_chf
+            FROM analytics.mart_portfolio_summary
+            ORDER BY total_premium_chf DESC NULLS LAST
+        """)
+        cols = [d[0] for d in cur.description]
+        summary = [dict(zip(cols, row)) for row in cur.fetchall()]
+
+        cur.execute(
+            "SELECT value FROM analytics.platform_meta WHERE key = 'last_report_at'"
+        )
+        row = cur.fetchone()
+        last_at = row[0] if row else None
+
+        cur.execute("""
+            SELECT report_ts, SUM(active_policies), SUM(total_premium)
+            FROM analytics.portfolio_report_history
+            WHERE report_ts >= NOW() - INTERVAL '24 hours'
+            GROUP BY report_ts ORDER BY report_ts
+        """)
+        history = cur.fetchall()
+
+        conn.close()
+        error = None
+    except Exception as exc:
+        summary, history, last_at, error = [], [], None, str(exc)
+
+    total_policies = sum(r.get("active_policies") or 0 for r in summary)
+    total_premium = sum(r.get("total_premium_chf") or 0 for r in summary)
+    avg_premium = (total_premium / total_policies) if total_policies else 0
+    product_lines = len({r.get("product_line") for r in summary if r.get("product_line")})
+
+    return templates.TemplateResponse("report.html", {
+        "request": request,
+        "summary": summary,
+        "history": history,
+        "last_at": last_at,
+        "error": error,
+        "kpis": {
+            "total_policies": total_policies,
+            "total_premium": total_premium,
+            "avg_premium": avg_premium,
+            "product_lines": product_lines,
+        },
+    })
+
+
+@app.get("/management-report", response_class=HTMLResponse)
+def management_report(request: Request):
+    try:
+        conn = psycopg2.connect(PLATFORM_DB_URL, connect_timeout=3)
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT report_date, total_partners, active_policies,
+                   total_portfolio_premium_chf, avg_premium_chf,
+                   active_products, new_policies_last_30d, cancelled_last_30d
+            FROM analytics.management_report_history
+            ORDER BY report_date DESC
+            LIMIT 1
+        """)
+        latest_kpi = cur.fetchone()
+
+        cur.execute("""
+            SELECT report_date, active_policies, total_portfolio_premium_chf,
+                   new_policies_last_30d, cancelled_last_30d
+            FROM analytics.management_report_history
+            WHERE report_date >= CURRENT_DATE - 30
+            ORDER BY report_date
+        """)
+        trend = cur.fetchall()
+
+        cur.execute("""
+            SELECT dp.product_line, dp.product_name,
+                   COUNT(*) AS active_policies,
+                   SUM(fp.annual_premium_chf) AS total_premium,
+                   AVG(fp.annual_premium_chf) AS avg_premium
+            FROM analytics.fact_policies fp
+            JOIN analytics.dim_product dp ON fp.product_id = dp.product_id
+            WHERE fp.status = 'ACTIVE'
+            GROUP BY dp.product_line, dp.product_name
+            ORDER BY total_premium DESC NULLS LAST
+        """)
+        product_performance = cur.fetchall()
+
+        cur.execute("""
+            SELECT report_date FROM analytics.report_files
+            WHERE report_type = 'management'
+            ORDER BY report_date DESC LIMIT 1
+        """)
+        latest_pdf = cur.fetchone()
+
+        cur.execute(
+            "SELECT value FROM analytics.platform_meta WHERE key = 'management_report_at'"
+        )
+        row = cur.fetchone()
+        last_at = row[0] if row else None
+
+        conn.close()
+        error = None
+    except Exception as exc:
+        latest_kpi, trend, product_performance = None, [], []
+        latest_pdf, last_at, error = None, None, str(exc)
+
+    return templates.TemplateResponse("management_report.html", {
+        "request": request,
+        "latest_kpi": latest_kpi,
+        "trend": trend,
+        "product_performance": product_performance,
+        "latest_pdf_date": latest_pdf[0] if latest_pdf else None,
+        "last_at": last_at,
+        "error": error,
+    })
+
+
+from fastapi import HTTPException
+from fastapi.responses import Response
+
+
+@app.get("/management-report/download/{report_date}")
+def download_management_report(report_date: str):
+    """PDF download for the management report of a specific date."""
+    try:
+        conn = psycopg2.connect(PLATFORM_DB_URL, connect_timeout=3)
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT file_name, content FROM analytics.report_files "
+            "WHERE report_type = 'management' AND report_date = %s",
+            (report_date,),
+        )
+        row = cur.fetchone()
+        conn.close()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    return Response(
+        content=bytes(row[1]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={row[0]}"},
+    )

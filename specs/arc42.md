@@ -284,15 +284,15 @@ title Bausteinsicht Ebene 1 – Domänen-Übersicht
 package "Sachversicherungs-Plattform" {
 
   package "Core" #LightBlue {
-    [Product Management SCS] as PM
-    [Policy Management SCS] as POL
-    [Claims Management SCS] as CLM
+    [Product Management SCS\n:9081] as PM
+    [Policy Management SCS\n:9082] as POL
+    [Claims Management SCS\n(nicht implementiert)] as CLM
   }
 
   package "Supporting" #LightGreen {
-    [Partner/Customer SCS] as PCM
-    [Billing & Collection SCS] as BIL
-    [Sales & Distribution SCS] as SAL
+    [Partner/Customer SCS\n:9080] as PCM
+    [Billing & Collection SCS\n(nicht implementiert)] as BIL
+    [Sales & Distribution SCS\n(nicht implementiert)] as SAL
   }
 
   package "Generic" #LightYellow {
@@ -300,22 +300,46 @@ package "Sachversicherungs-Plattform" {
     [IAM (Keycloak)] as IAM
   }
 
-  database "Apache Kafka" as KAFKA
-  database "Schema Registry\n(Avro/Protobuf)" as SR
-  database "ODC Catalog" as ODC
+  database "Apache Kafka\n(KRaft, :9092)" as KAFKA
+  database "Schema Registry\n(Avro, :8081)" as SR
+  database "AKHQ Kafka UI\n(:8085)" as AKHQ
+
+  package "Analytics & Governance Platform" #LightGrey {
+    [Platform Consumer\n(Kafka → platform_db)] as PC
+    [dbt\n(Staging + Marts)] as DBT
+    [Spark Streaming\n(Delta Lake)] as SPARK
+    [Governance\n(lint + compat + freshness)] as GOV
+    [Data Product Portal\n(FastAPI, :8090)] as PORTAL
+    database "platform_db\n(PostgreSQL, :5435)" as PLTDB
+  }
+
+  package "Metadata Platform" #LightCyan {
+    [DataHub GMS\n(:8080)] as DHGMS
+    [DataHub Frontend\n(:9002)] as DH
+    [DataHub Ingest\n(ODC + Kafka)] as DHINGEST
+    database "datahub-mysql" as DHMYSQL
+    database "Elasticsearch\n(:9200)" as DHES
+  }
 }
 
 PM --> KAFKA
 POL --> KAFKA
-CLM --> KAFKA
 PCM --> KAFKA
-BIL --> KAFKA
-SAL --> KAFKA
 
 KAFKA --> SR : Schema\nvalidation
-PM ..> ODC : registriert\nData Contracts
-POL ..> ODC
-CLM ..> ODC
+KAFKA --> PC : konsumiert\nperson/product/policy
+KAFKA --> SPARK : Structured\nStreaming
+
+PC --> PLTDB
+DBT --> PLTDB
+PORTAL ..> KAFKA : Metadaten lesen
+PORTAL ..> PLTDB : Demo-Abfragen
+GOV ..> SR : Schema-Compat\nPrüfung
+DHGMS --> DHMYSQL
+DHGMS --> DHES
+DH --> DHGMS
+DHINGEST ..> SR : Avro-Ingestion
+DHINGEST ..> KAFKA : Schema-Ingestion
 
 @enduml
 ```
@@ -690,6 +714,108 @@ CLM_SVC ..> DMS : REST (Dokumente)
 @enduml
 ```
 
+### 7.2 Lokale Entwicklungsumgebung (Podman Compose)
+
+Alle Services laufen lokal via `podman compose up`. Ports und Abhängigkeiten:
+
+```plantuml
+@startuml deployment-local
+!theme plain
+skinparam defaultFontSize 10
+
+title Lokale Deployment-Sicht – Podman Compose
+
+node "Localhost" {
+
+  node "Messaging" {
+    artifact "kafka\n(KRaft :9092/:29092)" as KAFKA
+    artifact "schema-registry\n(:8081)" as SR
+    artifact "akhq\n(:8085)" as AKHQ
+    KAFKA --> SR
+    AKHQ --> KAFKA
+  }
+
+  node "Domain Services" {
+    artifact "partner\n(Quarkus :9080)" as PARTNER
+    artifact "product\n(Quarkus :9081)" as PRODUCT
+    artifact "policy\n(Quarkus :9082)" as POLICY
+    database "partner_db\n(PostgreSQL :5432)" as PARTNERDB
+    database "product_db\n(PostgreSQL :5433)" as PRODUCTDB
+    database "policy_db\n(PostgreSQL :5434)" as POLICYDB
+    PARTNER --> PARTNERDB
+    PRODUCT --> PRODUCTDB
+    POLICY --> POLICYDB
+  }
+
+  node "CDC" {
+    artifact "debezium-connect\n(:8083)" as DEBEZIUM
+    DEBEZIUM --> PARTNERDB : WAL (logical)
+    DEBEZIUM --> PRODUCTDB : WAL (logical)
+    DEBEZIUM --> KAFKA
+  }
+
+  node "Analytics Platform" {
+    artifact "platform-consumer\n(Python)" as PC
+    artifact "dbt\n(models + tests)" as DBT
+    artifact "spark\n(Structured Streaming)" as SPARK
+    database "platform_db\n(PostgreSQL :5435)" as PLTDB
+    PC --> PLTDB
+    DBT --> PLTDB
+    artifact "airflow-scheduler" as AIRFLOW_SCH
+    artifact "airflow-webserver\n(:8091)" as AIRFLOW_WEB
+    database "airflow_db\n(PostgreSQL internal)" as AIRFLOWDB
+    AIRFLOW_SCH --> AIRFLOWDB
+    AIRFLOW_WEB --> AIRFLOWDB
+  }
+
+  node "Governance & Portal" {
+    artifact "governance\n(lint + compat + freshness)" as GOV
+    artifact "portal\n(FastAPI :8090)" as PORTAL
+  }
+
+  node "Metadata Platform" {
+    database "datahub-mysql\n(DataHub Store)" as DHMYSQL
+    artifact "datahub-elasticsearch\n(:9200)" as DHES
+    artifact "datahub-gms\n(:8080)" as DHGMS
+    artifact "datahub-frontend\n(:9002)" as DHFE
+    artifact "datahub-actions" as DHACT
+    artifact "datahub-ingest\n(einmalig)" as DHINGEST
+    DHGMS --> DHMYSQL
+    DHGMS --> DHES
+    DHFE --> DHGMS
+    DHACT --> DHGMS
+    DHINGEST --> DHGMS
+  }
+}
+
+PARTNER --> DEBEZIUM : outbox table
+PRODUCT --> DEBEZIUM : outbox table
+POLICY --> KAFKA : Outbox\n(in-proc)
+
+PC --> KAFKA : konsumiert\nperson/product/policy.*
+SPARK --> KAFKA : Structured Streaming
+
+AIRFLOW_SCH --> PLTDB
+
+PORTAL --> PLTDB
+PORTAL --> SR
+
+DHGMS --> KAFKA : interne Topics\n(MetadataChange*)
+DHINGEST --> SR : Avro-Schema\nIngestion
+
+@enduml
+```
+
+**Startup-Reihenfolge (docker-compose depends_on):**
+
+1. `kafka` → `schema-registry`, `akhq`, `kafka-init`
+2. `partner-db`, `product-db`, `policy-db` → je Domain-Service
+3. `debezium-connect` (depends: kafka, partner-db, product-db) → `debezium-init`
+4. `platform-db` → `platform-consumer`, `dbt`
+5. `airflow-db` → `airflow-init` → `airflow-scheduler`, `airflow-webserver`
+6. `portal`, `governance` (depends: schema-registry healthy, platform-db)
+7. `datahub-mysql`, `datahub-elasticsearch` → `datahub-kafka-setup` → `datahub-upgrade` → `datahub-gms` → `datahub-frontend`, `datahub-actions`, `datahub-ingest`
+
 ---
 
 ## 8. Querschnittliche Konzepte
@@ -702,66 +828,81 @@ Jedes Kafka-Topic wird durch einen **Open Data Contract (ODC)** beschrieben und 
 
 ```yaml
 # policy.v1.issued.odcontract.yaml
-apiVersion: v2.3.0
+apiVersion: v1
 kind: DataContract
-id: policy-issued-v1
-version: 1.2.0
-name: Policy Issued Event
-description: Wird publiziert wenn eine Police erfolgreich ausgestellt wurde
-owner:
-  team: policy-management
-  email: policy-team@insurance.example.com
+metadata:
+  name: policy.v1.issued
+  version: "1.2.0"
+  domain: policy
+  description: Event published when a policy is successfully activated (DRAFT → ACTIVE)
 
-servers:
-  production:
-    type: kafka
-    host: kafka.insurance.internal:9092
-    topic: policy.v1.issued
+spec:
+  topic: policy.v1.issued
+  format: AVRO
+  schemaRegistry: http://schema-registry:8081
+  schemaSubject: policy.v1.issued-value
 
-schema:
-  type: avro
-  fields:
-    - name: policyId
-      type: string
-      required: true
-      description: Eindeutige Police-Nummer (UUID)
-    - name: partnerId
-      type: string
-      required: true
-      description: Referenz auf Partner/Customer-Domäne
-    - name: productId
-      type: string
-      required: true
-      description: Referenz auf Product-Domäne
-    - name: premium
-      type: decimal
-      required: true
-      description: Jahresprämie in CHF
-    - name: startDate
-      type: date
-      required: true
-    - name: endDate
-      type: date
-      required: true
-    - name: coverageScope
-      type: string
-      enum: [BASIC, EXTENDED, COMPREHENSIVE]
-    - name: issuedAt
-      type: timestamp
-      required: true
+  schema:
+    fields:
+      - name: eventId
+        type: string
+        format: uuid
+        nullable: false
+      - name: eventType
+        type: string
+        enum: ["PolicyIssued"]
+        nullable: false
+      - name: policyId
+        type: string
+        format: uuid
+        nullable: false
+        description: Unique policy identifier
+      - name: policyNumber
+        type: string
+        nullable: false
+        description: Human-readable policy number (e.g. POL-00042)
+      - name: partnerId
+        type: string
+        format: uuid
+        nullable: false
+        description: Reference to Partner domain (person)
+      - name: productId
+        type: string
+        format: uuid
+        nullable: false
+        description: Reference to Product domain
+      - name: coverageStartDate
+        type: string
+        format: date
+        nullable: false
+      - name: premium
+        type: string
+        description: Annual premium in CHF
+        nullable: false
+      - name: timestamp
+        type: string
+        format: datetime
+        nullable: false
 
-quality:
-  type: SodaCL
-  specification:
-    checks for policy.v1.issued:
-      - missing_count(policyId) = 0
-      - missing_count(partnerId) = 0
-      - duplicate_count(policyId) = 0
+  quality:
+    - type: SodaCL
+      checks: |
+        checks for policy.v1.issued:
+          - not_null:
+              columns: [eventId, eventType, policyId, policyNumber, partnerId, productId, coverageStartDate, premium, timestamp]
+          - no_duplicate_rows:
+              columns: [eventId]
 
-serviceLevel:
-  availability: "99.9%"
-  retention: "7 years"
-  latency: "< 500ms p99"
+dataProduct:
+  owner: team-policy@css.ch
+  domain: policy
+  outputPort: kafka
+  sla:
+    freshness: 5m
+    availability: "99.9%"
+    qualityScore: 0.98
+  tags:
+    - pii
 ```
 
 ### 8.2 Kafka Topic-Konvention
@@ -783,8 +924,8 @@ Beispiele:
 ### 8.3 Hexagonal Architecture – Schichtenstruktur (Quarkus)
 
 ```
-{domain}-service/
-├── src/main/java/com/insurance/{domain}/
+{domain}/
+├── src/main/java/ch/css/{domain}/
 │   ├── domain/                    ← Reine Domänenlogik (kein Framework)
 │   │   ├── model/                 ← Aggregate, Entities, Value Objects
 │   │   ├── service/               ← Application Services
@@ -792,16 +933,16 @@ Beispiele:
 │   │       ├── in/                ← UseCasePorts (Commands/Queries)
 │   │       └── out/               ← RepositoryPort, EventPublisherPort
 │   └── infrastructure/            ← Adapter-Implementierungen
-│       ├── persistence/           ← JPA/Panache Adapter
+│       ├── persistence/           ← JPA/Hibernate Adapter
 │       ├── messaging/             ← Kafka Producer/Consumer (SmallRye)
 │       ├── api/                   ← REST Server/Client
 │       └── web/                   ← Qute Templates + REST Controllers
 ├── src/main/resources/
-│   ├── templates/                 ← Qute HTML-Templates
+│   ├── templates/                 ← Qute HTML-Templates (UI-Text auf Deutsch)
 │   └── contracts/                 ← ODC YAML-Dateien
 └── src/test/
-    ├── domain/                    ← Unit Tests (reine Domäne)
-    └── integration/               ← @QuarkusIntegrationTest
+    ├── domain/                    ← Unit Tests (reine Domäne, kein Framework)
+    └── integration/               ← @QuarkusIntegrationTest (Testcontainers)
 ```
 
 ### 8.4 Event-Sourcing Light (Outbox Pattern)
@@ -834,6 +975,153 @@ DB -> DB : mark as published
 - **Token-Propagation:** Bearer Tokens in allen HTTP-Requests (Quarkus OIDC)
 - **RBAC:** Quarkus `@RolesAllowed` auf Application-Service-Ebene
 - **Rollen:** `UNDERWRITER`, `CLAIMS_AGENT`, `BROKER`, `ADMIN`
+
+### 8.6 Data Mesh Analytics- und Governance-Plattform
+
+Die Plattformschicht konsumiert alle Domain-Events und stellt sie als analysierbares Data Warehouse bereit. Sie greift **nie direkt auf die operativen Domain-Datenbanken zu** (ADR-004: Data Inside vs. Data Outside).
+
+```plantuml
+@startuml analytics-platform
+!theme plain
+skinparam defaultFontSize 10
+
+title Analytics & Governance – Datenpfad
+
+queue "Kafka\nperson.v1.*\nproduct.v1.*\npolicy.v1.*" as KAFKA
+
+package "infra/platform" {
+  component "Platform Consumer\n(Python/kafka-python-ng)" as PC
+  database "raw.person_events\nraw.person_state\nraw.product_events\nraw.policy_events\n(platform_db)" as RAW
+  PC --> RAW : UPSERT / INSERT
+}
+
+package "infra/dbt" {
+  component "Staging Models\n(stg_person_events\nstg_product_events\nstg_policy_events)" as STG
+  component "Mart Models\n(dim_partner, dim_product\nfact_policies\nmart_portfolio_summary)" as MART
+  component "dbt Tests\n(assert_no_orphan_policies\nassert_premium_positive)" as TESTS
+  STG --> MART
+  MART --> TESTS
+}
+
+package "infra/spark" {
+  component "Spark Structured Streaming\n(Delta Lake)" as SPARK
+}
+
+package "infra/governance" {
+  component "lint-contracts.py\n(ODC-Pflichtfelder)" as LINT
+  component "schema-compat-check.sh\n(Avro Backward Compat)" as COMPAT
+  component "check-freshness.py\n(Topic-Latenz vs. SLA)" as FRESH
+}
+
+package "infra/portal" {
+  component "Data Product Portal\n(FastAPI :8090)" as PORTAL
+  note right of PORTAL
+    /           Produktkatalog
+    /products/{topic}  Detail + Schema
+    /lineage    Cross-Domain Lineage (D3.js)
+    /governance Governance Dashboard
+    /demo       mart_portfolio_summary Live
+  end note
+}
+
+package "infra/datahub" {
+  component "DataHub\n(integriert, :9002)" as DH
+  note right of DH
+    Startet automatisch mit podman compose up.
+    Eigene Kafka/ZooKeeper-Instanz entfällt –
+    nutzt bestehenden Broker :29092.
+    datahub-ingest läuft einmalig beim Start:
+      recipe_kafka.yaml  → Topics + Avro-Schemas
+      ingest_odc.py      → ODC Custom Properties,
+                            Tags, Ownership
+  end note
+}
+
+KAFKA --> PC
+KAFKA --> SPARK
+
+RAW --> STG
+STG --> MART
+
+LINT ..> KAFKA : liest ODC-Files
+COMPAT ..> KAFKA : Schema Registry
+FRESH ..> KAFKA : Lag-Messung
+
+PORTAL --> RAW
+PORTAL --> MART
+
+DH ..> KAFKA : Schema Registry Ingestion
+DH ..> MART  : dbt Manifest Ingestion
+
+@enduml
+```
+
+**dbt-Modellhierarchie:**
+
+| Layer | Model | Quelle | Beschreibung |
+| --- | --- | --- | --- |
+| Staging | `stg_person_events` | `raw.person_events` | JSON-Parsing, typisierte Spalten |
+| Staging | `stg_product_events` | `raw.product_events` | JSON-Parsing, typisierte Spalten |
+| Staging | `stg_policy_events` | `raw.policy_events` | JSON-Parsing, typisierte Spalten |
+| Mart | `dim_partner` | `stg_person_events` | Aktuellster Stand pro Person |
+| Mart | `dim_product` | `stg_product_events` | Aktuellster Stand pro Produkt |
+| Mart | `fact_policies` | `stg_policy_events` | Eine Zeile pro Police (aktiver Status) |
+| Mart | `mart_portfolio_summary` | `fact_policies` + `dim_partner` + `dim_product` | Cross-Domain-Aggregation: aktive Policen pro Stadt und Produktlinie |
+
+**Governance-Prüfungen (laufen beim Compose-Start):**
+
+| Skript | Prüfung | Fehlverhalten |
+| --- | --- | --- |
+| `lint-contracts.py` | Alle ODC-Felder mandatory: owner, domain, outputPort, freshness, availability, qualityScore, tags | Exit 1 → Build fehlschlägt |
+| `schema-compat-check.sh` | Avro-Schemas backward-kompatibel gegen Schema Registry | Exit 1 → Deployment blockiert |
+| `check-freshness.py` | Topic-Lag ≤ SLA-Freshness (5m default) | Exit 1 → Alert im Portal |
+
+### 8.7 Event-Carried State Transfer (ECST) – `person.v1.state`
+
+Neben den Delta-Events (`person.v1.created`, `person.v1.updated`, …) publiziert der Partner-Service das Topic **`person.v1.state`** als **compacted Kafka Topic** (cleanup.policy=compact).
+
+**Zweck:** Consumer können ihren lokalen Read-Model ohne vollständiges Event-Replay aufbauen – sie lesen nur den aktuellen State-Snapshot.
+
+```plantuml
+@startuml ecst
+!theme plain
+skinparam defaultFontSize 11
+
+title Event-Carried State Transfer – person.v1.state
+
+participant "PersonApplicationService" as APP
+database "partner_db\noutbox" as OUTBOX
+participant "Debezium CDC" as CDC
+queue "person.v1.created/updated/deleted\n(Delta-Events, unbegrenzte Retention)" as DELTA
+queue "person.v1.state\n(compacted, ein Eintrag pro PersonId)" as STATE
+participant "Policy Service\n(PartnerView Read Model)" as POL
+participant "Platform Consumer\n(raw.person_state)" as PC
+
+APP -> OUTBOX : INSERT outbox (delta-event + state-event)
+CDC -> OUTBOX : WAL polling
+CDC -> DELTA : publish PersonCreated/Updated
+CDC -> STATE : publish PersonState (key=personId)
+
+STATE -> POL : Consumer liest aktuellen State\nbeim Start (kein Replay nötig)
+STATE -> PC : UPSERT in raw.person_state
+
+note right of STATE
+  Tombstone-Event (deleted=true):
+  Unterstützt DSGVO Right-to-Erasure –
+  compaction löscht den Eintrag.
+end note
+
+@enduml
+```
+
+**ECST vs. Delta-Events – Vergleich:**
+
+| Aspekt | Delta-Events (`person.v1.created`) | State-Topic (`person.v1.state`) |
+| --- | --- | --- |
+| Inhalt | Einzelne Mutation | Vollständiger aktueller Zustand |
+| Retention | Unbegrenzt (7 Jahre) | Compacted (nur neuester Wert pro Key) |
+| Verwendung | Audit Trail, Event Sourcing | Read-Model Bootstrap, Query |
+| GDPR Erasure | Tombstone + Nachfolge-Events | Tombstone löscht Eintrag via Compaction |
 
 ---
 
@@ -909,6 +1197,46 @@ PersonApplicationService
 - Debezium Connect ist eine neue Infrastrukturkomponente (eigener Container, Port 8083)
 - PostgreSQL benötigt `wal_level=logical` (bereits in `docker-compose.yaml` konfiguriert)
 - Der Partner Service hat keine `quarkus-messaging-kafka`-Abhängigkeit mehr
+
+---
+
+### ADR-005: Sprachpolitik – Code Englisch, UI Deutsch
+
+**Status:** Accepted
+
+**Kontext:** Das Projekt richtet sich an eine deutschsprachige Organisation (CSS), die Code jedoch international wartbar halten muss. Ohne klare Regel entstehen Mischsprachen im Codebase.
+
+**Entscheidung:** Strikte Trennung nach Schicht:
+
+| Schicht | Sprache | Beispiele |
+| --- | --- | --- |
+| Code (Klassen, Methoden, Felder, Logs, Exceptions) | Englisch | `PolicyRepository`, `coverageStartDate`, `PersonCreated` |
+| UI (Qute-Templates, Labels, Buttons, Fehlermeldungen) | Deutsch | «Police ausstellen», «Bitte Vorname eingeben» |
+| Dokumentation (`specs/`, `CLAUDE.md`) | Englisch | Dieses Dokument (Ausnahme: arc42 auf Deutsch) |
+| Kafka Event Types | Englisch, PascalCase | `PolicyIssued`, nicht `PolicyAusgestellt` |
+
+**Konsequenzen:**
+
+- Domänenmodell vollständig in Englisch (`Person`, `Policy`, `Coverage`, `CoverageType.GLASS_BREAKAGE`)
+- Qute-Templates vollständig in Deutsch (Benutzerinterface)
+- Technische Schuld: Partner- und Policy-Service haben teilweise noch deutsche Feldnamen (R-6, R-7)
+
+---
+
+### ADR-007: Event-Carried State Transfer (ECST) via `person.v1.state`
+
+**Status:** Accepted
+
+**Kontext:** Consumer des Partner-Service müssen bei einem Neustart alle vergangenen Person-Events replay'en, um ihr lokales Read-Model zu befüllen. Bei hohem Eventvolumen ist das zeitintensiv und fehleranfällig.
+
+**Entscheidung:** Der Partner-Service publiziert zusätzlich das compacted Topic `person.v1.state` (cleanup.policy=compact, 6 Partitionen). Bei jeder Personenmutation wird ein vollständiger State-Snapshot mit Key=personId publiziert. Kafka behält nur den neuesten Wert pro Key.
+
+**Konsequenzen:**
+
+- Consumer (z.B. Policy-Service) lesen beim Start nur den letzten State – kein vollständiges Replay
+- Platform-Consumer maintained `raw.person_state` als UPSERT-Tabelle
+- GDPR Right-to-Erasure: Tombstone-Event (deleted=true) → Compaction entfernt den Eintrag dauerhaft
+- Zusätzliche Outbox-Einträge pro Mutation (ein Delta-Event + ein State-Event)
 
 ---
 

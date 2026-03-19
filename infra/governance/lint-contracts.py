@@ -62,7 +62,13 @@ def extract_v2(doc: dict) -> dict:
     sla = info.get("sla", {}) or {}
 
     # outputPort: present when at least one server entry exists
-    output_port = servers[0].get("type") if servers else None
+    # servers can be a dict {"production": {"type": ...}} or a list [{"type": ...}]
+    if isinstance(servers, dict):
+        output_port = next(iter(servers.values()), {}).get("type")
+    elif servers:
+        output_port = servers[0].get("type")
+    else:
+        output_port = None
 
     return {
         "owner":        info.get("owner") or info.get("contact", {}).get("email"),
