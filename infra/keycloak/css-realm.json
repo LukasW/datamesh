@@ -1,0 +1,180 @@
+{
+  "id": "css",
+  "realm": "css",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "UNDERWRITER",
+        "description": "Policy issuer role",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "CLAIMS_AGENT",
+        "description": "Claims processor role",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "BROKER",
+        "description": "Insurance broker role",
+        "composite": false,
+        "clientRole": false
+      },
+      {
+        "name": "ADMIN",
+        "description": "Administrator role with full access",
+        "composite": false,
+        "clientRole": false
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "partner-service",
+      "name": "Partner Service",
+      "description": "Partner/Customer Management SCS",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "secret",
+      "redirectUris": ["http://localhost:9080/*"],
+      "webOrigins": ["http://localhost:9080"],
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ]
+    },
+    {
+      "clientId": "product-service",
+      "name": "Product Service",
+      "description": "Product Management SCS",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "secret",
+      "redirectUris": ["http://localhost:9081/*"],
+      "webOrigins": ["http://localhost:9081"],
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ]
+    },
+    {
+      "clientId": "policy-service",
+      "name": "Policy Service",
+      "description": "Policy Management SCS",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "secret",
+      "redirectUris": ["http://localhost:9082/*"],
+      "webOrigins": ["http://localhost:9082"],
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "underwriter",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Max",
+      "lastName": "Underwriter",
+      "email": "underwriter@css.ch",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["UNDERWRITER"]
+    },
+    {
+      "username": "claims-agent",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Anna",
+      "lastName": "Claims",
+      "email": "claims-agent@css.ch",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["CLAIMS_AGENT"]
+    },
+    {
+      "username": "broker",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Peter",
+      "lastName": "Broker",
+      "email": "broker@css.ch",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["BROKER"]
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Super",
+      "lastName": "Admin",
+      "email": "admin@css.ch",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ADMIN", "UNDERWRITER", "CLAIMS_AGENT", "BROKER"]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+quarkus:
+  application:
+    name: claims-service
+    version: 1.0.0
+
+  http:
+    port: 9083
+
+  smallrye-openapi:
+    info-title: Claims Service API
+    info-version: 1.0.0
+    info-description: REST API for Claims Management (Hexagonal Architecture - Stub)
+    info-contact-name: CSS Team
+    path: /openapi
+
+  swagger-ui:
+    always-include: true
+    path: /swagger-ui
+
+  virtual-threads:
+    enabled: true
+
+  log:
+    level: INFO
+
+  # REST client configuration for the Policy service (coverage check)
+  rest-client:
+    policy-service:
+      url: http://localhost:9082
+      scope: jakarta.inject.Singleton
+
+# Prod: Policy service URL via env var
+"%prod":
+  quarkus:
+    rest-client:
+      policy-service:
+        url: http://policy-service:9082

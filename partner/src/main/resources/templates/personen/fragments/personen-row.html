@@ -4,9 +4,9 @@
   <td>{person.dateOfBirth}</td>
   <td>{#if person.socialSecurityNumber}{person.socialSecurityNumber.formatted()}{#else}–{/if}</td>
   <td>
-    <a href="/personen/{person.personId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+    <a href="/persons/{person.personId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
     <button class="btn btn-sm btn-outline-danger"
-            hx-delete="/api/personen/{person.personId}"
+            hx-delete="/api/persons/{person.personId}"
             hx-confirm="Person '{person.firstName} {person.name}' wirklich löschen?"
             hx-target="#person-{person.personId}"
             hx-swap="outerHTML swap:0.3s">

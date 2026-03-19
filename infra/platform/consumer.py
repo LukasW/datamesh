@@ -4,10 +4,10 @@ Platform Consumer: ingests domain events from Kafka into the platform database.
 Acts as the raw ingestion layer (simulating a Delta Live Table ingestion job).
 
 Topics consumed:
-  Partner domain  → raw.person_events    (person.v1.created, person.v1.updated)
-  Partner domain  → raw.person_state     (person.v1.state – ECST compacted topic)
-  Product domain  → raw.product_events   (product.v1.defined, product.v1.updated, product.v1.deprecated)
-  Policy domain   → raw.policy_events    (policy.v1.issued, policy.v1.cancelled, policy.v1.changed)
+  Partner domain  → partner_raw.person_events    (person.v1.created, person.v1.updated)
+  Partner domain  → partner_raw.person_state     (person.v1.state – ECST compacted topic)
+  Product domain  → product_raw.product_events   (product.v1.defined, product.v1.updated, product.v1.deprecated)
+  Policy domain   → policy_raw.policy_events     (policy.v1.issued, policy.v1.cancelled, policy.v1.changed)
 
 Architecture note: ONLY Kafka topics (Data Outside) are consumed. The domain databases
 (partner_db, product_db, policy_db) are Data Inside and are never accessed from here.
@@ -39,13 +39,13 @@ PLATFORM_DB_URL = os.getenv(
 )
 
 INSERT_PERSON_SQL = """
-INSERT INTO raw.person_events (event_id, topic, event_type, person_id, payload)
+INSERT INTO partner_raw.person_events (event_id, topic, event_type, person_id, payload)
 VALUES (%s, %s, %s, %s, %s)
 ON CONFLICT (event_id) DO NOTHING
 """
 
 UPSERT_PERSON_STATE_SQL = """
-INSERT INTO raw.person_state (person_id, city, postal_code, deleted, payload)
+INSERT INTO partner_raw.person_state (person_id, city, postal_code, deleted, payload)
 VALUES (%s, %s, %s, %s, %s)
 ON CONFLICT (person_id) DO UPDATE SET
     city        = EXCLUDED.city,
@@ -56,13 +56,13 @@ ON CONFLICT (person_id) DO UPDATE SET
 """
 
 INSERT_PRODUCT_SQL = """
-INSERT INTO raw.product_events (event_id, topic, event_type, product_id, payload)
+INSERT INTO product_raw.product_events (event_id, topic, event_type, product_id, payload)
 VALUES (%s, %s, %s, %s, %s)
 ON CONFLICT (event_id) DO NOTHING
 """
 
 INSERT_POLICY_SQL = """
-INSERT INTO raw.policy_events (event_id, topic, event_type, policy_id, partner_id, product_id, payload)
+INSERT INTO policy_raw.policy_events (event_id, topic, event_type, policy_id, partner_id, product_id, payload)
 VALUES (%s, %s, %s, %s, %s, %s, %s)
 ON CONFLICT (event_id) DO NOTHING
 """

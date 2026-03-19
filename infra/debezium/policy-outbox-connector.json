@@ -1,0 +1,26 @@
+{
+  "name": "policy-outbox-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "policy-db",
+    "database.port": "5432",
+    "database.user": "policy_user",
+    "database.password": "${env:POLICY_DB_PASSWORD}",
+    "database.dbname": "policy_db",
+    "topic.prefix": "policy",
+    "plugin.name": "pgoutput",
+    "table.include.list": "public.outbox",
+    "tombstones.on.delete": "false",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "transforms.outbox.table.field.event.id": "id",
+    "transforms.outbox.table.field.event.key": "aggregate_id",
+    "transforms.outbox.table.field.event.type": "event_type",
+    "transforms.outbox.table.field.event.payload": "payload",
+    "transforms.outbox.route.by.field": "topic",
+    "transforms.outbox.route.topic.replacement": "${routedByValue}",
+    "transforms.outbox.table.fields.additional.placement": "event_type:header:eventType",
+    "value.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter"
+  }
+}

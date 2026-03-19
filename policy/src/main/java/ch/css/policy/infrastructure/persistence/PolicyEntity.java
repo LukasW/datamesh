@@ -18,28 +18,28 @@ public class PolicyEntity {
     @Column(name = "policy_id", length = 36)
     private String policyId;
 
-    @Column(name = "policy_nummer", nullable = false, unique = true, length = 50)
+    @Column(name = "policy_number", nullable = false, unique = true, length = 50)
     private String policyNumber;
 
     @Column(name = "partner_id", nullable = false, length = 36)
     private String partnerId;
 
-    @Column(name = "produkt_id", nullable = false, length = 36)
+    @Column(name = "product_id", nullable = false, length = 36)
     private String productId;
 
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
-    @Column(name = "versicherungsbeginn", nullable = false)
+    @Column(name = "coverage_start_date", nullable = false)
     private LocalDate coverageStartDate;
 
-    @Column(name = "versicherungsende")
+    @Column(name = "coverage_end_date")
     private LocalDate coverageEndDate;
 
-    @Column(name = "praemie", nullable = false, precision = 12, scale = 2)
+    @Column(name = "premium", nullable = false, precision = 12, scale = 2)
     private BigDecimal premium;
 
-    @Column(name = "selbstbehalt", nullable = false, precision = 12, scale = 2)
+    @Column(name = "deductible", nullable = false, precision = 12, scale = 2)
     private BigDecimal deductible;
 
     @Column(name = "created_at", nullable = false)

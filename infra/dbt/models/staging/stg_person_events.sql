@@ -14,6 +14,6 @@ SELECT
     ((payload::jsonb) ->> 'dateOfBirth')::date                 AS date_of_birth,
     ((payload::jsonb) ->> 'timestamp')::timestamptz            AS event_at,
     consumed_at
-FROM {{ source('raw', 'person_events') }}
+FROM {{ source('partner_raw', 'person_events') }}
 WHERE event_type IN ('PersonCreated', 'PersonUpdated')
   AND person_id IS NOT NULL

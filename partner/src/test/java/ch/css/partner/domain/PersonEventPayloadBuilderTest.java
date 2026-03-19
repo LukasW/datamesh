@@ -2,7 +2,7 @@ package ch.css.partner.domain;
 
 import ch.css.partner.domain.model.AddressType;
 import ch.css.partner.domain.model.SocialSecurityNumber;
-import ch.css.partner.domain.service.PersonEventPayloadBuilder;
+import ch.css.partner.infrastructure.messaging.PersonEventPayloadBuilder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

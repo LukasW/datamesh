@@ -5,7 +5,8 @@ import ch.css.policy.domain.model.PartnerView;
 import ch.css.policy.domain.model.ProductView;
 import ch.css.policy.domain.port.out.PartnerViewRepository;
 import ch.css.policy.domain.port.out.ProductViewRepository;
-import ch.css.policy.domain.service.PolicyApplicationService;
+import ch.css.policy.domain.service.PolicyCommandService;
+import ch.css.policy.domain.service.PolicyQueryService;
 import io.quarkus.arc.profile.IfBuildProfile;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -36,7 +37,10 @@ public class DevDataInitializer {
     private static final String PRODUCT_LIABILITY_ID          = "aaaaaaa3-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
     @Inject
-    PolicyApplicationService policyService;
+    PolicyCommandService policyCommandService;
+
+    @Inject
+    PolicyQueryService policyQueryService;
 
     @Inject
     PartnerViewRepository partnerViewRepository;
@@ -45,7 +49,7 @@ public class DevDataInitializer {
     ProductViewRepository productViewRepository;
 
     void onStart(@Observes StartupEvent event) {
-        if (!policyService.listAllPolicies().isEmpty()) {
+        if (!policyQueryService.listAllPolicies().isEmpty()) {
             log.info("Dev data already present, skipping seed.");
             return;
         }
@@ -76,44 +80,44 @@ public class DevDataInitializer {
 
     /** Household contents policy – ACTIVE, with coverages */
     private void seedHouseholdContentsSample() {
-        String id = policyService.createPolicy(
+        String id = policyCommandService.createPolicy(
                 PARTNER_MUSTER, PRODUCT_HOUSEHOLD_CONTENTS_ID,
                 LocalDate.of(2024, 1, 1), null,
                 new BigDecimal("320.00"), new BigDecimal("200.00"));
-        policyService.addCoverage(id, CoverageType.HOUSEHOLD_CONTENTS, new BigDecimal("80000.00"));
-        policyService.addCoverage(id, CoverageType.GLASS_BREAKAGE, new BigDecimal("5000.00"));
-        policyService.addCoverage(id, CoverageType.THEFT, new BigDecimal("10000.00"));
-        policyService.activatePolicy(id);
+        policyCommandService.addCoverage(id, CoverageType.HOUSEHOLD_CONTENTS, new BigDecimal("80000.00"));
+        policyCommandService.addCoverage(id, CoverageType.GLASS_BREAKAGE, new BigDecimal("5000.00"));
+        policyCommandService.addCoverage(id, CoverageType.THEFT, new BigDecimal("10000.00"));
+        policyCommandService.activatePolicy(id);
     }
 
     /** Building policy – ACTIVE, open-ended */
     private void seedBuildingActive() {
-        String id = policyService.createPolicy(
+        String id = policyCommandService.createPolicy(
                 PARTNER_MUELLER, PRODUCT_BUILDING_ID,
                 LocalDate.of(2023, 3, 1), null,
                 new BigDecimal("1250.00"), new BigDecimal("500.00"));
-        policyService.addCoverage(id, CoverageType.BUILDING, new BigDecimal("750000.00"));
-        policyService.addCoverage(id, CoverageType.NATURAL_HAZARD, new BigDecimal("250000.00"));
-        policyService.activatePolicy(id);
+        policyCommandService.addCoverage(id, CoverageType.BUILDING, new BigDecimal("750000.00"));
+        policyCommandService.addCoverage(id, CoverageType.NATURAL_HAZARD, new BigDecimal("250000.00"));
+        policyCommandService.activatePolicy(id);
     }
 
     /** Liability – DRAFT, not yet activated */
     private void seedLiabilityDraft() {
-        String id = policyService.createPolicy(
+        String id = policyCommandService.createPolicy(
                 PARTNER_MEIER, PRODUCT_LIABILITY_ID,
                 LocalDate.of(2026, 4, 1), null,
                 new BigDecimal("180.00"), new BigDecimal("0.00"));
-        policyService.addCoverage(id, CoverageType.LIABILITY, new BigDecimal("5000000.00"));
+        policyCommandService.addCoverage(id, CoverageType.LIABILITY, new BigDecimal("5000000.00"));
     }
 
     /** Cancelled policy */
     private void seedCancelled() {
-        String id = policyService.createPolicy(
+        String id = policyCommandService.createPolicy(
                 PARTNER_MUSTER, PRODUCT_HOUSEHOLD_CONTENTS_ID,
                 LocalDate.of(2022, 1, 1), LocalDate.of(2024, 12, 31),
                 new BigDecimal("280.00"), new BigDecimal("150.00"));
-        policyService.addCoverage(id, CoverageType.HOUSEHOLD_CONTENTS, new BigDecimal("60000.00"));
-        policyService.activatePolicy(id);
-        policyService.cancelPolicy(id);
+        policyCommandService.addCoverage(id, CoverageType.HOUSEHOLD_CONTENTS, new BigDecimal("60000.00"));
+        policyCommandService.activatePolicy(id);
+        policyCommandService.cancelPolicy(id);
     }
 }

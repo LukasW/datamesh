@@ -2,11 +2,14 @@ package ch.css.policy.infrastructure.web;
 
 import ch.css.policy.domain.model.Coverage;
 import ch.css.policy.domain.model.CoverageType;
+import ch.css.policy.domain.model.PageRequest;
+import ch.css.policy.domain.model.PageResult;
 import ch.css.policy.domain.model.Policy;
 import ch.css.policy.domain.model.PolicyStatus;
 import ch.css.policy.domain.service.CoverageNotFoundException;
-import ch.css.policy.domain.service.PolicyApplicationService;
+import ch.css.policy.domain.service.PolicyCommandService;
 import ch.css.policy.domain.service.PolicyNotFoundException;
+import ch.css.policy.domain.service.PolicyQueryService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -20,20 +23,23 @@ import java.util.Map;
 /**
  * REST adapter for Policy CRUD and Coverage sub-resource.
  */
-@Path("/api/policen")
+@Path("/api/policies")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class PolicyRestAdapter {
 
     @Inject
-    PolicyApplicationService policyService;
+    PolicyCommandService policyCommandService;
+
+    @Inject
+    PolicyQueryService policyQueryService;
 
     // ── Policy CRUD ───────────────────────────────────────────────────────────
 
     @POST
     public Response createPolicy(CreatePolicyRequest req) {
         try {
-            String id = policyService.createPolicy(
+            String id = policyCommandService.createPolicy(
                     req.partnerId(), req.productId(),
                     req.coverageStartDate(), req.coverageEndDate(),
                     req.premium(), req.deductible() != null ? req.deductible() : BigDecimal.ZERO);
@@ -47,11 +53,18 @@ public class PolicyRestAdapter {
     public Response searchPolicies(
             @QueryParam("policyNumber") String policyNumber,
             @QueryParam("partnerId") String partnerId,
-            @QueryParam("status") String status) {
+            @QueryParam("status") String status,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
         try {
-            List<PolicyDto> result = policyService.searchPolicies(policyNumber, partnerId, status)
-                    .stream().map(PolicyDto::from).toList();
-            return Response.ok(result).build();
+            PageRequest pageRequest = new PageRequest(page, size);
+            PageResult<Policy> pageResult = policyQueryService.searchPolicies(policyNumber, partnerId, status, pageRequest);
+            PagedResponse<PolicyDto> response = new PagedResponse<>(
+                    pageResult.content().stream().map(PolicyDto::from).toList(),
+                    pageResult.totalElements(),
+                    pageResult.totalPages(),
+                    page, size);
+            return Response.ok(response).build();
         } catch (IllegalArgumentException e) {
             return Response.status(400).entity(Map.of("message", e.getMessage())).build();
         }
@@ -61,7 +74,7 @@ public class PolicyRestAdapter {
     @Path("/{id}")
     public Response getPolicy(@PathParam("id") String id) {
         try {
-            return Response.ok(PolicyDto.from(policyService.findById(id))).build();
+            return Response.ok(PolicyDto.from(policyQueryService.findById(id))).build();
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         }
@@ -71,10 +84,10 @@ public class PolicyRestAdapter {
     @Path("/{id}")
     public Response updatePolicy(@PathParam("id") String id, UpdatePolicyRequest req) {
         try {
-            policyService.updatePolicyDetails(id, req.productId(),
+            policyCommandService.updatePolicyDetails(id, req.productId(),
                     req.coverageStartDate(), req.coverageEndDate(),
                     req.premium(), req.deductible() != null ? req.deductible() : BigDecimal.ZERO);
-            return Response.ok(PolicyDto.from(policyService.findById(id))).build();
+            return Response.ok(PolicyDto.from(policyQueryService.findById(id))).build();
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -83,11 +96,11 @@ public class PolicyRestAdapter {
     }
 
     @POST
-    @Path("/{id}/aktivieren")
+    @Path("/{id}/activate")
     public Response activatePolicy(@PathParam("id") String id) {
         try {
-            policyService.activatePolicy(id);
-            return Response.ok(PolicyDto.from(policyService.findById(id))).build();
+            policyCommandService.activatePolicy(id);
+            return Response.ok(PolicyDto.from(policyQueryService.findById(id))).build();
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalStateException e) {
@@ -96,11 +109,11 @@ public class PolicyRestAdapter {
     }
 
     @POST
-    @Path("/{id}/kuendigen")
+    @Path("/{id}/cancel")
     public Response cancelPolicy(@PathParam("id") String id) {
         try {
-            policyService.cancelPolicy(id);
-            return Response.ok(PolicyDto.from(policyService.findById(id))).build();
+            policyCommandService.cancelPolicy(id);
+            return Response.ok(PolicyDto.from(policyQueryService.findById(id))).build();
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalStateException e) {
@@ -112,9 +125,9 @@ public class PolicyRestAdapter {
     @Path("/{id}")
     public Response deletePolicy(@PathParam("id") String id) {
         try {
-            policyService.findById(id); // throws if not found
+            policyQueryService.findById(id); // throws if not found
             // deletion only allowed for DRAFT policies - check status
-            Policy policy = policyService.findById(id);
+            Policy policy = policyQueryService.findById(id);
             if (policy.getStatus() != PolicyStatus.DRAFT) {
                 return Response.status(409).entity(Map.of("message", "Only DRAFT policies can be deleted")).build();
             }
@@ -129,10 +142,10 @@ public class PolicyRestAdapter {
     // ── Coverages ─────────────────────────────────────────────────────────────
 
     @GET
-    @Path("/{id}/deckungen")
+    @Path("/{id}/coverages")
     public Response getCoverages(@PathParam("id") String id) {
         try {
-            List<CoverageDto> result = policyService.findById(id)
+            List<CoverageDto> result = policyQueryService.findById(id)
                     .getCoverages().stream().map(CoverageDto::from).toList();
             return Response.ok(result).build();
         } catch (PolicyNotFoundException e) {
@@ -141,12 +154,12 @@ public class PolicyRestAdapter {
     }
 
     @POST
-    @Path("/{id}/deckungen")
+    @Path("/{id}/coverages")
     public Response addCoverage(@PathParam("id") String id, AddCoverageRequest req) {
         try {
-            String coverageId = policyService.addCoverage(
+            String coverageId = policyCommandService.addCoverage(
                     id, CoverageType.valueOf(req.coverageType()), req.insuredAmount());
-            Coverage coverage = policyService.findById(id).getCoverages().stream()
+            Coverage coverage = policyQueryService.findById(id).getCoverages().stream()
                     .filter(c -> c.getCoverageId().equals(coverageId))
                     .findFirst().orElseThrow();
             return Response.status(201).entity(CoverageDto.from(coverage)).build();
@@ -158,10 +171,10 @@ public class PolicyRestAdapter {
     }
 
     @DELETE
-    @Path("/{id}/deckungen/{did}")
+    @Path("/{id}/coverages/{did}")
     public Response removeCoverage(@PathParam("id") String id, @PathParam("did") String did) {
         try {
-            policyService.removeCoverage(id, did);
+            policyCommandService.removeCoverage(id, did);
             return Response.noContent().build();
         } catch (PolicyNotFoundException | CoverageNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -207,6 +220,9 @@ public class PolicyRestAdapter {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    public record PagedResponse<T>(
+            List<T> content, long totalElements, int totalPages, int page, int size) {}
 
     private static boolean isNotBlank(String s) {
         return s != null && !s.isBlank();

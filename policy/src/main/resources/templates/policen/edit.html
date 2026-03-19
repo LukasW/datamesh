@@ -1,7 +1,7 @@
 {#include layout/base.html}
     {#title}Police bearbeiten{/title}
     {#content}
-        <a href="/policen" class="btn btn-outline-secondary btn-sm mb-3">← Zurück zur Liste</a>
+        <a href="/policies" class="btn btn-outline-secondary btn-sm mb-3">← Zurück zur Liste</a>
         <h2>Police: {policy.policyNumber}
             <span class="badge badge-{policy.status} fs-6 ms-2">{policy.status}</span>
         </h2>
@@ -15,18 +15,18 @@
                         <div>
                             {#if policy.status.name() == "DRAFT"}
                                 <button class="btn btn-sm btn-success"
-                                        hx-post="/policen/fragments/{policy.policyId}/aktivieren"
+                                        hx-post="/policies/fragments/{policy.policyId}/activate"
                                         hx-target="body"
-                                        hx-push-url="/policen/{policy.policyId}/edit"
+                                        hx-push-url="/policies/{policy.policyId}/edit"
                                         hx-confirm="Police aktivieren?">
                                     Aktivieren
                                 </button>
                             {/if}
                             {#if policy.status.name() == "ACTIVE"}
                                 <button class="btn btn-sm btn-danger"
-                                        hx-post="/policen/fragments/{policy.policyId}/kuendigen"
+                                        hx-post="/policies/fragments/{policy.policyId}/cancel"
                                         hx-target="body"
-                                        hx-push-url="/policen/{policy.policyId}/edit"
+                                        hx-push-url="/policies/{policy.policyId}/edit"
                                         hx-confirm="Police kündigen?">
                                     Kündigen
                                 </button>
@@ -46,7 +46,7 @@
                         <span class="fw-bold">Deckungen</span>
                         {#if policy.status.name() != "CANCELLED" && policy.status.name() != "EXPIRED"}
                             <button class="btn btn-sm btn-outline-success"
-                                    hx-get="/policen/fragments/{policy.policyId}/deckung-form"
+                                    hx-get="/policies/fragments/{policy.policyId}/coverage-form"
                                     hx-target="#deckung-liste"
                                     hx-swap="afterbegin">
                                 + Deckung hinzufügen

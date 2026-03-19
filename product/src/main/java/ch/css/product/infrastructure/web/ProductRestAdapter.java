@@ -1,9 +1,12 @@
 package ch.css.product.infrastructure.web;
 
+import ch.css.product.domain.model.PageRequest;
+import ch.css.product.domain.model.PageResult;
 import ch.css.product.domain.model.Product;
 import ch.css.product.domain.model.ProductLine;
-import ch.css.product.domain.service.ProductApplicationService;
+import ch.css.product.domain.service.ProductCommandService;
 import ch.css.product.domain.service.ProductNotFoundException;
+import ch.css.product.domain.service.ProductQueryService;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -15,7 +18,7 @@ import java.util.Map;
 
 /**
  * REST adapter for Product CRUD.
- * Maps HTTP requests to ProductApplicationService use cases.
+ * Maps HTTP requests to ProductCommandService and ProductQueryService use cases.
  */
 @Path("/api/products")
 @Produces(MediaType.APPLICATION_JSON)
@@ -23,14 +26,17 @@ import java.util.Map;
 public class ProductRestAdapter {
 
     @Inject
-    ProductApplicationService productService;
+    ProductCommandService productCommandService;
+
+    @Inject
+    ProductQueryService productQueryService;
 
     // ── Product CRUD ───────────────────────────────────────────────────────────
 
     @POST
     public Response defineProduct(CreateProductRequest req) {
         try {
-            String id = productService.defineProduct(
+            String id = productCommandService.defineProduct(
                     req.name(), req.description(),
                     ProductLine.valueOf(req.productLine()),
                     req.basePremium());
@@ -43,13 +49,20 @@ public class ProductRestAdapter {
     @GET
     public Response listProducts(
             @QueryParam("name") String name,
-            @QueryParam("productLine") String productLine) {
+            @QueryParam("productLine") String productLine,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
         try {
             ProductLine line = (productLine != null && !productLine.isBlank())
                     ? ProductLine.valueOf(productLine) : null;
-            List<ProductDto> result = productService.searchProducts(name, line)
-                    .stream().map(ProductDto::from).toList();
-            return Response.ok(result).build();
+            PageRequest pageRequest = new PageRequest(page, size);
+            PageResult<Product> pageResult = productQueryService.searchProducts(name, line, pageRequest);
+            PagedResponse<ProductDto> response = new PagedResponse<>(
+                    pageResult.content().stream().map(ProductDto::from).toList(),
+                    pageResult.totalElements(),
+                    pageResult.totalPages(),
+                    page, size);
+            return Response.ok(response).build();
         } catch (IllegalArgumentException e) {
             return Response.status(400).entity(Map.of("message", e.getMessage())).build();
         }
@@ -59,7 +72,7 @@ public class ProductRestAdapter {
     @Path("/{id}")
     public Response getProduct(@PathParam("id") String id) {
         try {
-            return Response.ok(ProductDto.from(productService.findById(id))).build();
+            return Response.ok(ProductDto.from(productQueryService.findById(id))).build();
         } catch (ProductNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         }
@@ -69,7 +82,7 @@ public class ProductRestAdapter {
     @Path("/{id}")
     public Response updateProduct(@PathParam("id") String id, UpdateProductRequest req) {
         try {
-            return Response.ok(ProductDto.from(productService.updateProduct(
+            return Response.ok(ProductDto.from(productCommandService.updateProduct(
                     id, req.name(), req.description(),
                     ProductLine.valueOf(req.productLine()), req.basePremium()))).build();
         } catch (ProductNotFoundException e) {
@@ -83,7 +96,7 @@ public class ProductRestAdapter {
     @Path("/{id}/deprecate")
     public Response deprecateProduct(@PathParam("id") String id) {
         try {
-            return Response.ok(ProductDto.from(productService.deprecateProduct(id))).build();
+            return Response.ok(ProductDto.from(productCommandService.deprecateProduct(id))).build();
         } catch (ProductNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalStateException e) {
@@ -95,7 +108,7 @@ public class ProductRestAdapter {
     @Path("/{id}")
     public Response deleteProduct(@PathParam("id") String id) {
         try {
-            productService.deleteProduct(id);
+            productCommandService.deleteProduct(id);
             return Response.noContent().build();
         } catch (ProductNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -120,4 +133,7 @@ public class ProductRestAdapter {
                     p.getProductLine().name(), p.getBasePremium(), p.getStatus().name());
         }
     }
+
+    public record PagedResponse<T>(
+            List<T> content, long totalElements, int totalPages, int page, int size) {}
 }

@@ -2,6 +2,8 @@ package ch.css.partner.infrastructure.persistence;
 
 import ch.css.partner.domain.model.Address;
 import ch.css.partner.domain.model.AddressType;
+import ch.css.partner.domain.model.PageRequest;
+import ch.css.partner.domain.model.PageResult;
 import ch.css.partner.domain.model.SocialSecurityNumber;
 import ch.css.partner.domain.model.Gender;
 import ch.css.partner.domain.model.Person;
@@ -70,6 +72,44 @@ public class PersonJpaAdapter implements PersonRepository {
         if (dateOfBirth != null) query.setParameter("dateOfBirth", dateOfBirth);
 
         return query.getResultList().stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public PageResult<Person> search(String name, String firstName, SocialSecurityNumber socialSecurityNumber, LocalDate dateOfBirth, PageRequest pageRequest) {
+        StringBuilder jpql = new StringBuilder("SELECT p FROM PersonEntity p WHERE 1=1");
+        StringBuilder countJpql = new StringBuilder("SELECT COUNT(p) FROM PersonEntity p WHERE 1=1");
+        String whereClause = buildPersonWhereClause(name, firstName, socialSecurityNumber, dateOfBirth);
+        jpql.append(whereClause);
+        countJpql.append(whereClause);
+
+        TypedQuery<Long> countQuery = em.createQuery(countJpql.toString(), Long.class);
+        setPersonParameters(countQuery, name, firstName, socialSecurityNumber, dateOfBirth);
+        long totalElements = countQuery.getSingleResult();
+
+        TypedQuery<PersonEntity> query = em.createQuery(jpql.toString(), PersonEntity.class);
+        setPersonParameters(query, name, firstName, socialSecurityNumber, dateOfBirth);
+        query.setFirstResult(pageRequest.page() * pageRequest.size());
+        query.setMaxResults(pageRequest.size());
+
+        List<Person> content = query.getResultList().stream().map(this::toDomain).toList();
+        int totalPages = (int) Math.ceil((double) totalElements / pageRequest.size());
+        return new PageResult<>(content, totalElements, totalPages);
+    }
+
+    private String buildPersonWhereClause(String name, String firstName, SocialSecurityNumber socialSecurityNumber, LocalDate dateOfBirth) {
+        StringBuilder clause = new StringBuilder();
+        if (name != null && !name.isBlank()) clause.append(" AND LOWER(p.name) LIKE LOWER(:name)");
+        if (firstName != null && !firstName.isBlank()) clause.append(" AND LOWER(p.firstName) LIKE LOWER(:firstName)");
+        if (socialSecurityNumber != null) clause.append(" AND p.socialSecurityNumber = :ssn");
+        if (dateOfBirth != null) clause.append(" AND p.dateOfBirth = :dateOfBirth");
+        return clause.toString();
+    }
+
+    private <T> void setPersonParameters(TypedQuery<T> query, String name, String firstName, SocialSecurityNumber socialSecurityNumber, LocalDate dateOfBirth) {
+        if (name != null && !name.isBlank()) query.setParameter("name", "%" + name + "%");
+        if (firstName != null && !firstName.isBlank()) query.setParameter("firstName", "%" + firstName + "%");
+        if (socialSecurityNumber != null) query.setParameter("ssn", socialSecurityNumber.getValue());
+        if (dateOfBirth != null) query.setParameter("dateOfBirth", dateOfBirth);
     }
 
     @Override

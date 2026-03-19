@@ -3,11 +3,14 @@ package ch.css.partner.infrastructure.web;
 import ch.css.partner.domain.model.Address;
 import ch.css.partner.domain.model.AddressType;
 import ch.css.partner.domain.model.Gender;
+import ch.css.partner.domain.model.PageRequest;
+import ch.css.partner.domain.model.PageResult;
 import ch.css.partner.domain.model.Person;
 import ch.css.partner.domain.service.AddressOverlapException;
 import ch.css.partner.domain.service.AddressNotFoundException;
-import ch.css.partner.domain.service.PersonApplicationService;
+import ch.css.partner.domain.service.PersonCommandService;
 import ch.css.partner.domain.service.PersonNotFoundException;
+import ch.css.partner.domain.service.PersonQueryService;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
@@ -23,12 +26,15 @@ import java.util.List;
  * Qute UI Controller for the Personenverwaltung screens.
  * Handles full-page renders and htmx fragment endpoints.
  */
-@Path("/personen")
+@Path("/persons")
 @Produces(MediaType.TEXT_HTML)
 public class PersonUiController {
 
     @Inject
-    PersonApplicationService personService;
+    PersonCommandService personCommandService;
+
+    @Inject
+    PersonQueryService personQueryService;
 
     @Inject
     @Location("personen/list")
@@ -66,14 +72,14 @@ public class PersonUiController {
 
     @GET
     public TemplateInstance getList() {
-        return list.data("personen", personService.listAllPersons());
+        return list.data("personen", personQueryService.listAllPersons());
     }
 
     @GET
     @Path("/{id}/edit")
     public Object getEdit(@PathParam("id") String id) {
         try {
-            Person person = personService.findById(id);
+            Person person = personQueryService.findById(id);
             return edit.data("person", person);
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity("<p>Person not found: " + id + "</p>").build();
@@ -82,24 +88,32 @@ public class PersonUiController {
 
     // ── htmx Fragments ────────────────────────────────────────────────────────
 
-    /** Renders the filtered table rows (htmx live search). */
+    /** Renders the filtered table rows with pagination (htmx live search). */
     @GET
     @Path("/fragments/list")
     public TemplateInstance getPersonenListFragment(
             @QueryParam("name") String name,
             @QueryParam("firstName") String firstName,
-            @QueryParam("ahv") String ahv) {
+            @QueryParam("ahv") String ahv,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
 
-        boolean hasFilter = isNotBlank(name) || isNotBlank(firstName) || isNotBlank(ahv);
-        List<Person> personen;
+        PageResult<Person> pageResult;
         try {
-            personen = hasFilter
-                    ? personService.searchPersons(name, firstName, ahv, null)
-                    : personService.listAllPersons();
+            PageRequest pageRequest = new PageRequest(page, size);
+            pageResult = personQueryService.searchPersons(name, firstName, ahv, null, pageRequest);
         } catch (Exception ignored) {
-            personen = List.of();
+            pageResult = new PageResult<>(List.of(), 0, 0);
         }
-        return list.getFragment("tabelle").data("personen", personen);
+        return list.getFragment("tabelle")
+                .data("personen", pageResult.content())
+                .data("currentPage", page)
+                .data("totalPages", pageResult.totalPages())
+                .data("totalElements", pageResult.totalElements())
+                .data("pageSize", size)
+                .data("searchName", name != null ? name : "")
+                .data("searchFirstName", firstName != null ? firstName : "")
+                .data("searchAhv", ahv != null ? ahv : "");
     }
 
     /** Returns the new-person modal form. */
@@ -123,12 +137,12 @@ public class PersonUiController {
             @FormParam("dateOfBirth") String dateOfBirth,
             @FormParam("socialSecurityNumber") String socialSecurityNumber) {
         try {
-            String id = personService.createPerson(
+            String id = personCommandService.createPerson(
                     name, firstName,
                     Gender.valueOf(gender),
                     LocalDate.parse(dateOfBirth),
                     socialSecurityNumber);
-            Person person = personService.findById(id);
+            Person person = personQueryService.findById(id);
             return personenRow.data("person", person);
         } catch (Exception e) {
             return Response.status(422)
@@ -137,16 +151,16 @@ public class PersonUiController {
         }
     }
 
-    /** Returns an empty adresse-form for adding a new address. */
+    /** Returns an empty address-form for adding a new address. */
     @GET
-    @Path("/fragments/{id}/adresse-form")
+    @Path("/fragments/{id}/address-form")
     public TemplateInstance getAddressForm(@PathParam("id") String id) {
         return adresseForm.data("personId", id).data("errorMessage", null);
     }
 
-    /** Returns empty string to remove the adresse-form from the DOM (cancel). */
+    /** Returns empty string to remove the address-form from the DOM (cancel). */
     @GET
-    @Path("/fragments/{id}/adresse-form-cancel")
+    @Path("/fragments/{id}/address-form-cancel")
     public String cancelAddressForm() {
         return "";
     }
@@ -156,7 +170,7 @@ public class PersonUiController {
      * On conflict (409) re-renders the form with an error message.
      */
     @POST
-    @Path("/fragments/{id}/adressen")
+    @Path("/fragments/{id}/addresses")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Object addAddressFragment(
             @PathParam("id") String personId,
@@ -171,12 +185,12 @@ public class PersonUiController {
         try {
             LocalDate from = LocalDate.parse(validFrom);
             LocalDate to = isNotBlank(validTo) ? LocalDate.parse(validTo) : null;
-            String addressId = personService.addAddress(
+            String addressId = personCommandService.addAddress(
                     personId, AddressType.valueOf(addressType),
                     street, houseNumber, postalCode, city,
                     isNotBlank(land) ? land : "Schweiz",
                     from, to);
-            Address address = personService.findById(personId).getAddresses().stream()
+            Address address = personQueryService.findById(personId).getAddresses().stream()
                     .filter(a -> a.getAddressId().equals(addressId))
                     .findFirst().orElseThrow();
             return adresseKarte.data("adresse", address).data("personId", personId);
@@ -194,10 +208,10 @@ public class PersonUiController {
 
     /** Returns the adresse-karte fragment (used for cancel of gueltigkeit edit). */
     @GET
-    @Path("/fragments/{id}/adressen/{aid}/karte")
+    @Path("/fragments/{id}/addresses/{aid}/card")
     public Object getAddressCard(@PathParam("id") String personId, @PathParam("aid") String aid) {
         try {
-            Address address = personService.findById(personId).getAddresses().stream()
+            Address address = personQueryService.findById(personId).getAddresses().stream()
                     .filter(a -> a.getAddressId().equals(aid))
                     .findFirst()
                     .orElseThrow(() -> new AddressNotFoundException(aid));
@@ -209,11 +223,11 @@ public class PersonUiController {
 
     /** Returns the inline gueltigkeit edit form for an address card. */
     @GET
-    @Path("/fragments/{id}/adressen/{aid}/gueltigkeit")
+    @Path("/fragments/{id}/addresses/{aid}/validity")
     public Object getAddressValidityForm(@PathParam("id") String personId,
                                              @PathParam("aid") String aid) {
         try {
-            Address address = personService.findById(personId).getAddresses().stream()
+            Address address = personQueryService.findById(personId).getAddresses().stream()
                     .filter(a -> a.getAddressId().equals(aid))
                     .findFirst()
                     .orElseThrow(() -> new AddressNotFoundException(aid));
@@ -228,7 +242,7 @@ public class PersonUiController {
      * On conflict re-renders the gueltigkeit form with an error.
      */
     @PUT
-    @Path("/fragments/{id}/adressen/{aid}")
+    @Path("/fragments/{id}/addresses/{aid}")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Object updateAddressValidityFragment(
             @PathParam("id") String personId,
@@ -238,13 +252,13 @@ public class PersonUiController {
         try {
             LocalDate from = LocalDate.parse(validFrom);
             LocalDate to = isNotBlank(validTo) ? LocalDate.parse(validTo) : null;
-            personService.updateAddressValidity(personId, aid, from, to);
-            Address address = personService.findById(personId).getAddresses().stream()
+            personCommandService.updateAddressValidity(personId, aid, from, to);
+            Address address = personQueryService.findById(personId).getAddresses().stream()
                     .filter(a -> a.getAddressId().equals(aid))
                     .findFirst().orElseThrow();
             return adresseKarte.data("adresse", address).data("personId", personId);
         } catch (AddressOverlapException e) {
-            Address address = personService.findById(personId).getAddresses().stream()
+            Address address = personQueryService.findById(personId).getAddresses().stream()
                     .filter(a -> a.getAddressId().equals(aid))
                     .findFirst().orElseThrow();
             return adresseGueltigkeitForm
@@ -262,7 +276,7 @@ public class PersonUiController {
      * Updates personalien from form data and re-renders the personalien-form with success flag.
      */
     @PUT
-    @Path("/fragments/{id}/personalien")
+    @Path("/fragments/{id}/personal-data")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Object updatePersonalienFragment(
             @PathParam("id") String personId,
@@ -271,10 +285,10 @@ public class PersonUiController {
             @FormParam("gender") String gender,
             @FormParam("dateOfBirth") String dateOfBirth) {
         try {
-            personService.updatePersonalData(personId, name, firstName,
+            personCommandService.updatePersonalData(personId, name, firstName,
                     Gender.valueOf(gender),
                     LocalDate.parse(dateOfBirth));
-            Person person = personService.findById(personId);
+            Person person = personQueryService.findById(personId);
             return personalienForm.data("person", person).data("success", true);
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity("<p>" + escapeHtml(e.getMessage()) + "</p>").build();

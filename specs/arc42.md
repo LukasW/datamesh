@@ -65,6 +65,10 @@ Aufbau einer modernen Versicherungsplattform für eine Sachversicherung auf Basi
 > - Partner/Customer Service → [`partner/specs/business_spec.md`](../partner/specs/business_spec.md)
 > - Product Management Service → [`product/specs/business_spec.md`](../product/specs/business_spec.md)
 > - Policy Management Service → [`policy/specs/business_spec.md`](../policy/specs/business_spec.md)
+>
+> **Geplante Services (Documented Stubs):**
+> - Billing & Collection Service → [`billing/specs/business_spec.md`](../billing/specs/business_spec.md) *(Planned, not yet implemented)*
+> - Sales & Distribution Service → [`sales/specs/business_spec.md`](../sales/specs/business_spec.md) *(Planned, not yet implemented)*
 
 ### 3.1 Fachlicher Kontext (Context Map)
 
@@ -265,11 +269,13 @@ rectangle "4. Federated Governance" as D4 {
 
 > **Implementierte Services und ihre fachlichen Spezifikationen:**
 >
-> | Service | Fachspezifikation | Port |
-> |---|---|---|
-> | Partner/Customer Management | [`partner/specs/business_spec.md`](../partner/specs/business_spec.md) | 9080 |
-> | Product Management | [`product/specs/business_spec.md`](../product/specs/business_spec.md) | 9081 |
-> | Policy Management | [`policy/specs/business_spec.md`](../policy/specs/business_spec.md) | 9082 |
+> | Service | Fachspezifikation | Port | Status |
+> |---|---|---|---|
+> | Partner/Customer Management | [`partner/specs/business_spec.md`](../partner/specs/business_spec.md) | 9080 | Implementiert |
+> | Product Management | [`product/specs/business_spec.md`](../product/specs/business_spec.md) | 9081 | Implementiert |
+> | Policy Management | [`policy/specs/business_spec.md`](../policy/specs/business_spec.md) | 9082 | Implementiert |
+> | Billing & Collection | [`billing/specs/business_spec.md`](../billing/specs/business_spec.md) | TBD | Planned, not yet implemented |
+> | Sales & Distribution | [`sales/specs/business_spec.md`](../sales/specs/business_spec.md) | TBD | Planned, not yet implemented |
 
 ### 5.1 Ebene 1 – Systemübersicht
 
@@ -917,6 +923,16 @@ Beispiele:
   claims.v1.settled
   partner.v1.created
   product.v1.defined
+
+Reserviert (geplant, noch nicht implementiert):
+  billing.v1.invoice-created
+  billing.v1.payment-received
+  billing.v1.dunning-initiated
+  billing.v1.payout-triggered
+  sales.v1.offer-created
+  sales.v1.offer-accepted
+  sales.v1.offer-rejected
+  sales.v1.offer-expired
 ```
 
 **Breaking Changes** erfordern eine neue Major-Version (z.B. `policy.v2.issued`). Der alte Topic wird für eine Übergangsperiode parallel betrieben (Consumer-Driven Contract Testing).

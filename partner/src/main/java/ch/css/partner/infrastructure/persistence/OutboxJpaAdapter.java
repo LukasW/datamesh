@@ -1,6 +1,6 @@
 package ch.css.partner.infrastructure.persistence;
 
-import ch.css.partner.domain.model.OutboxEvent;
+import ch.css.partner.infrastructure.messaging.outbox.OutboxEvent;
 import ch.css.partner.domain.port.out.OutboxRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

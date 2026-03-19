@@ -4,7 +4,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Policenverwaltung</h2>
   <button class="btn btn-success"
-          hx-get="/policen/fragments/neu"
+          hx-get="/policies/fragments/neu"
           hx-target="#modal-container"
           hx-swap="innerHTML">
     + Neue Police
@@ -17,7 +17,7 @@
       <div class="col-md-3">
         <input type="text" id="s-nummer" name="policyNummer" class="form-control"
                placeholder="Policen-Nummer"
-               hx-get="/policen/fragments/list"
+               hx-get="/policies/fragments/list"
                hx-include="#s-nummer,#s-partner,#s-status"
                hx-target="#policen-tabelle" hx-swap="innerHTML"
                hx-trigger="keyup changed delay:300ms">
@@ -25,14 +25,14 @@
       <div class="col-md-3">
         <input type="text" id="s-partner" name="partnerId" class="form-control"
                placeholder="Partner-ID"
-               hx-get="/policen/fragments/list"
+               hx-get="/policies/fragments/list"
                hx-include="#s-nummer,#s-partner,#s-status"
                hx-target="#policen-tabelle" hx-swap="innerHTML"
                hx-trigger="keyup changed delay:300ms">
       </div>
       <div class="col-md-3">
         <select id="s-status" name="status" class="form-select"
-                hx-get="/policen/fragments/list"
+                hx-get="/policies/fragments/list"
                 hx-include="#s-nummer,#s-partner,#s-status"
                 hx-target="#policen-tabelle" hx-swap="innerHTML"
                 hx-trigger="change">
@@ -45,7 +45,7 @@
       </div>
       <div class="col-md-3">
         <button class="btn btn-outline-secondary w-100"
-                hx-get="/policen/fragments/list"
+                hx-get="/policies/fragments/list"
                 hx-include="#s-nummer,#s-partner,#s-status"
                 hx-target="#policen-tabelle" hx-swap="innerHTML">
           Suchen
@@ -94,10 +94,10 @@
       <td>{policy.coverageStartDate}</td>
       <td>CHF {policy.premium}</td>
       <td>
-        <a href="/policen/{policy.policyId}/edit" class="btn btn-sm btn-outline-secondary">Details</a>
+        <a href="/policies/{policy.policyId}/edit" class="btn btn-sm btn-outline-secondary">Details</a>
         {#if policy.status.name() == "DRAFT"}
         <button class="btn btn-sm btn-outline-success"
-                hx-post="/policen/fragments/{policy.policyId}/aktivieren"
+                hx-post="/policies/fragments/{policy.policyId}/activate"
                 hx-target="#policy-{policy.policyId}"
                 hx-swap="outerHTML"
                 hx-confirm="Police '{policy.policyNumber}' aktivieren?">
@@ -106,7 +106,7 @@
         {/if}
         {#if policy.status.name() == "ACTIVE"}
         <button class="btn btn-sm btn-outline-danger"
-                hx-post="/policen/fragments/{policy.policyId}/kuendigen"
+                hx-post="/policies/fragments/{policy.policyId}/cancel"
                 hx-target="#policy-{policy.policyId}"
                 hx-swap="outerHTML"
                 hx-confirm="Police '{policy.policyNumber}' kündigen?">
@@ -118,6 +118,37 @@
     {/for}
     {#if policen.isEmpty()}
     <tr><td colspan="7" class="text-muted text-center">Keine Policen gefunden</td></tr>
+    {/if}
+    {#if totalPages?? && totalPages > 1}
+    <tr>
+      <td colspan="7">
+        <nav aria-label="Seitennavigation" class="mt-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">{totalElements} Ergebnisse</small>
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item {#if currentPage == 0}disabled{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/policies/fragments/list?policyNummer={searchPolicyNummer}&partnerId={searchPartnerId}&status={searchStatus}&page={currentPage - 1}&size={pageSize}"
+                   hx-target="#policen-tabelle" hx-swap="innerHTML">Zurück</a>
+              </li>
+              {#for i in totalPages}
+              <li class="page-item {#if i - 1 == currentPage}active{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/policies/fragments/list?policyNummer={searchPolicyNummer}&partnerId={searchPartnerId}&status={searchStatus}&page={i - 1}&size={pageSize}"
+                   hx-target="#policen-tabelle" hx-swap="innerHTML">{i}</a>
+              </li>
+              {/for}
+              <li class="page-item {#if currentPage >= totalPages - 1}disabled{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/policies/fragments/list?policyNummer={searchPolicyNummer}&partnerId={searchPartnerId}&status={searchStatus}&page={currentPage + 1}&size={pageSize}"
+                   hx-target="#policen-tabelle" hx-swap="innerHTML">Weiter</a>
+              </li>
+            </ul>
+            <small class="text-muted">Seite {currentPage + 1} von {totalPages}</small>
+          </div>
+        </nav>
+      </td>
+    </tr>
     {/if}
     {/fragment}
   </tbody>

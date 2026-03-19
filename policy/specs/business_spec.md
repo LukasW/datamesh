@@ -205,6 +205,33 @@ All UI labels, buttons, validation messages, and tooltips are in **German** per 
 
 ---
 
+## Read-Model Bootstrapping
+
+The Policy Service materializes two local read models from upstream domains: **PartnerView** (from the Partner Service) and **ProductView** (from the Product Service). On a fresh deployment with an empty database, these read models must be populated before the policy UI can offer partner and product selection.
+
+### Bootstrap Procedure
+
+1. **Configure state topic consumers** with `auto.offset.reset=earliest`:
+   - `person.v1.state` (compacted) — provides the full current state of every person, including all addresses. Each record is keyed by person UUID. Tombstone events (`deleted=true`) indicate removed persons.
+   - `product.v1.state` (compacted) — provides the full current state of every product, including its status. Each record is keyed by product UUID. Null-value tombstones indicate hard-deleted products.
+
+2. **Consume both state topics to completion.** Once the consumer has caught up to the end of each topic, the local PartnerView and ProductView tables contain a complete snapshot of the upstream domains.
+
+3. **Switch to incremental event topics** for ongoing updates:
+
+   | Read Model | Event Topics |
+   |---|---|
+   | PartnerView | `person.v1.created`, `person.v1.updated`, `person.v1.deleted` |
+   | ProductView | `product.v1.defined`, `product.v1.updated`, `product.v1.deprecated` |
+
+### Operational Notes
+
+- On a **fresh deployment**, the Policy Service UI will show empty partner/product pickers until the state topics have been fully consumed. The bootstrap typically completes within seconds for catalogues of moderate size.
+- On **redeployment with existing data**, the state topic consumers detect that the read model tables are already populated. Upsert semantics ensure that re-consuming state records is idempotent and does not cause duplicates.
+- The state topics are the authoritative source for bootstrapping. The Policy Service never queries the Partner or Product REST APIs to populate its read models (ADR-001 compliance).
+
+---
+
 ## 10. Technical Debt – Language Inconsistency
 
 > ⚠️ The Policy Service domain model uses a mix of English and German identifiers. This is tracked as technical debt.

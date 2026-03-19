@@ -8,9 +8,7 @@ metadata:
 
 spec:
   topic: person.v1.created
-  format: AVRO
-  schemaRegistry: http://schema-registry:8081
-  schemaSubject: person.v1.created-value
+  format: JSON
 
   schema:
     fields:
@@ -66,3 +64,13 @@ dataProduct:
   tags:
     - pii
     - gdpr-subject
+  accessPatterns:
+    - type: kafka-consumer
+      description: "Subscribe to the topic for real-time event processing"
+      protocol: kafka
+      config:
+        bootstrap.servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+        group.id: "${CONSUMER_GROUP_ID}"
+        auto.offset.reset: earliest
+        key.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        value.deserializer: org.apache.kafka.common.serialization.StringDeserializer

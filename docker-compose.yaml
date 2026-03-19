@@ -96,6 +96,31 @@ services:
           cpus: '0.5'
           memory: 512M
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./infra/keycloak/css-realm.json:/opt/keycloak/data/import/css-realm.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 768M
+
   partner-db:
     image: postgres:16
     command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
@@ -137,7 +162,55 @@ services:
           --config cleanup.policy=compact \
           --config min.cleanable.dirty.ratio=0.01 \
           --config segment.ms=10000 \
-          && echo 'person.v1.state topic created.'
+          && echo 'person.v1.state topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic partner-person-created-dlq \
+          --partitions 1 \
+          --replication-factor 1 \
+          && echo 'partner-person-created-dlq topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic partner-person-updated-dlq \
+          --partitions 1 \
+          --replication-factor 1 \
+          && echo 'partner-person-updated-dlq topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic product-defined-dlq \
+          --partitions 1 \
+          --replication-factor 1 \
+          && echo 'product-defined-dlq topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic product-updated-dlq \
+          --partitions 1 \
+          --replication-factor 1 \
+          && echo 'product-updated-dlq topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic product-deprecated-dlq \
+          --partitions 1 \
+          --replication-factor 1 \
+          && echo 'product-deprecated-dlq topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic product.v1.state \
+          --partitions 6 \
+          --replication-factor 1 \
+          --config cleanup.policy=compact \
+          --config min.cleanable.dirty.ratio=0.01 \
+          --config segment.ms=10000 \
+          && echo 'product.v1.state topic created.'
+        # ── Reserved topic namespaces (planned, not yet implemented) ──────────
+        # billing.v1.invoice-created    – Invoice generated for a policy premium
+        # billing.v1.payment-received   – Payment successfully allocated to an invoice
+        # billing.v1.dunning-initiated  – Dunning process started for overdue invoice
+        # billing.v1.payout-triggered   – Payout initiated for a settled claim
+        # sales.v1.offer-created        – New offer created for a prospective policyholder
+        # sales.v1.offer-accepted       – Offer accepted, triggers policy creation
+        # sales.v1.offer-rejected       – Offer explicitly rejected by customer
+        # sales.v1.offer-expired        – Offer validity period elapsed
     networks:
       - backend
 
@@ -158,6 +231,8 @@ services:
       partner-db:
         condition: service_healthy
       product-db:
+        condition: service_healthy
+      policy-db:
         condition: service_healthy
     ports:
       - "8083:8083"
@@ -180,6 +255,7 @@ services:
       CONNECT_CONFIG_PROVIDERS_ENV_CLASS: org.apache.kafka.common.config.provider.EnvVarConfigProvider
       PARTNER_DB_PASSWORD: ${PARTNER_DB_PASSWORD}
       PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD}
+      POLICY_DB_PASSWORD: ${POLICY_DB_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors || exit 1"]
       interval: 10s
@@ -217,9 +293,15 @@ services:
           -d @/config/product-outbox-connector.json \
           && echo 'Product connector registered.' \
           || echo 'Product connector registration failed (may already exist).'
+        curl -f -X POST http://debezium-connect:8083/connectors \
+          -H 'Content-Type: application/json' \
+          -d @/config/policy-outbox-connector.json \
+          && echo 'Policy connector registered.' \
+          || echo 'Policy connector registration failed (may already exist).'
     volumes:
       - ./infra/debezium/partner-outbox-connector.json:/config/partner-outbox-connector.json
       - ./infra/debezium/product-outbox-connector.json:/config/product-outbox-connector.json
+      - ./infra/debezium/policy-outbox-connector.json:/config/policy-outbox-connector.json
     networks:
       - backend
 
@@ -249,6 +331,7 @@ services:
 
   policy-db:
     image: postgres:16
+    command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
     environment:
       POSTGRES_DB: policy_db
       POSTGRES_USER: policy_user
@@ -271,12 +354,14 @@ services:
           memory: 256M
 
   partner-service:
-    image: lukasweibel/person-service:latest
+    image: ${IMAGE_REGISTRY:-css}/partner-service:${IMAGE_TAG:-latest}
     pull_policy: never
     depends_on:
       kafka:
         condition: service_healthy
       partner-db:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
     ports:
       - "9080:9080"
@@ -287,6 +372,8 @@ services:
       DATABASE_URL: jdbc:postgresql://partner-db:5432/partner_db
       DATABASE_USER: partner_user
       DATABASE_PASSWORD: ${PARTNER_DB_PASSWORD}
+      KEYCLOAK_URL: http://keycloak:8080
+      OIDC_CLIENT_SECRET: secret
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
     networks:
       - backend
@@ -298,12 +385,14 @@ services:
           memory: 512M
 
   product-service:
-    image: lukasweibel/product-service:latest
+    image: ${IMAGE_REGISTRY:-css}/product-service:${IMAGE_TAG:-latest}
     pull_policy: never
     depends_on:
       kafka:
         condition: service_healthy
       product-db:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
     ports:
       - "9081:9081"
@@ -314,6 +403,8 @@ services:
       DATABASE_URL: jdbc:postgresql://product-db:5432/product_db
       DATABASE_USER: product_user
       DATABASE_PASSWORD: ${PRODUCT_DB_PASSWORD}
+      KEYCLOAK_URL: http://keycloak:8080
+      OIDC_CLIENT_SECRET: secret
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5006"
     networks:
       - backend
@@ -325,7 +416,7 @@ services:
           memory: 512M
 
   policy-service:
-    image: lukasweibel/policy-service:latest
+    image: ${IMAGE_REGISTRY:-css}/policy-service:${IMAGE_TAG:-latest}
     pull_policy: never
     restart: unless-stopped
     depends_on:
@@ -334,6 +425,8 @@ services:
       schema-registry:
         condition: service_healthy
       policy-db:
+        condition: service_healthy
+      keycloak:
         condition: service_healthy
     ports:
       - "9082:9082"
@@ -345,6 +438,8 @@ services:
       DATABASE_URL: jdbc:postgresql://policy-db:5432/policy_db
       DATABASE_USER: policy_user
       DATABASE_PASSWORD: ${POLICY_DB_PASSWORD}
+      KEYCLOAK_URL: http://keycloak:8080
+      OIDC_CLIENT_SECRET: secret
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5007"
     networks:
       - backend
@@ -354,6 +449,69 @@ services:
         limits:
           cpus: '1.0'
           memory: 512M
+
+  claims-service:
+    image: ${IMAGE_REGISTRY:-css}/claims-service:${IMAGE_TAG:-latest}
+    pull_policy: never
+    depends_on:
+      kafka:
+        condition: service_healthy
+      policy-service:
+        condition: service_started
+    ports:
+      - "9083:9083"
+      - "5008:5008"
+    environment:
+      QUARKUS_PROFILE: prod
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5008"
+    networks:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  # ── Observability (Prometheus + Grafana) ─────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
   # ── Platform Database (Analytics Layer) ──────────────────────────────────────
 
@@ -433,6 +591,8 @@ services:
       context: infra/dbt
       dockerfile: Dockerfile
     restart: "no"
+    profiles:
+      - tools
     depends_on:
       platform-db:
         condition: service_healthy

@@ -8,9 +8,8 @@ metadata:
 
 spec:
   topic: policy.v1.issued
-  format: AVRO
-  schemaRegistry: http://schema-registry:8081
-  schemaSubject: policy.v1.issued-value
+  format: JSON
+  schemaFile: schema/PolicyIssued.schema.json
 
   schema:
     fields:
@@ -73,3 +72,13 @@ dataProduct:
     qualityScore: 0.98
   tags:
     - pii
+  accessPatterns:
+    - type: kafka-consumer
+      description: "Subscribe to the topic for real-time event processing"
+      protocol: kafka
+      config:
+        bootstrap.servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+        group.id: "${CONSUMER_GROUP_ID}"
+        auto.offset.reset: earliest
+        key.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        value.deserializer: org.apache.kafka.common.serialization.StringDeserializer

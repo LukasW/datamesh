@@ -1,0 +1,45 @@
+quarkus:
+  http:
+    port: 0
+    test-port: 0
+
+  datasource:
+    db-kind: postgresql
+    devservices:
+      enabled: true
+
+  flyway:
+    migrate-at-start: true
+    baseline-on-migrate: true
+    schemas: public
+    table: flyway_schema_history
+    locations: classpath:db/migration
+
+  hibernate-orm:
+    schema-management:
+      strategy: none
+
+  oidc:
+    enabled: false
+
+  security:
+    auth:
+      enabled-in-dev-mode: false
+
+  log:
+    level: INFO
+
+# Disable all Kafka messaging channels for integration tests (DB-only tests)
+mp:
+  messaging:
+    incoming:
+      partner-person-created:
+        enabled: false
+      partner-person-updated:
+        enabled: false
+      product-defined-in:
+        enabled: false
+      product-updated-in:
+        enabled: false
+      product-deprecated-in:
+        enabled: false

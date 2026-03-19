@@ -20,16 +20,16 @@ public class PersonEntity {
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
-    @Column(name = "vorname", nullable = false, length = 100)
+    @Column(name = "first_name", nullable = false, length = 100)
     private String firstName;
 
-    @Column(name = "geschlecht", nullable = false, length = 10)
+    @Column(name = "gender", nullable = false, length = 10)
     private String gender;
 
-    @Column(name = "geburtsdatum", nullable = false)
+    @Column(name = "date_of_birth", nullable = false)
     private LocalDate dateOfBirth;
 
-    @Column(name = "ahv_nummer", nullable = true, unique = true, length = 16)
+    @Column(name = "social_security_number", nullable = true, unique = true, length = 16)
     private String socialSecurityNumber;
 
     @Column(name = "created_at", nullable = false)

@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PolicyCancelled",
+  "description": "Event published when a policy transitions from ACTIVE to CANCELLED.",
+  "type": "object",
+  "required": ["eventId", "eventType", "policyId", "policyNumber", "timestamp"],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event instance."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["PolicyCancelled"],
+      "description": "Discriminator field – always 'PolicyCancelled'."
+    },
+    "policyId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the cancelled policy."
+    },
+    "policyNumber": {
+      "type": "string",
+      "description": "Human-readable policy number."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp when the event was created."
+    }
+  }
+}

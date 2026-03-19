@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PolicyChanged",
+  "description": "Event published when policy financial details (premium, deductible) are updated.",
+  "type": "object",
+  "required": ["eventId", "eventType", "policyId", "policyNumber", "premium", "deductible", "timestamp"],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event instance."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["PolicyChanged"],
+      "description": "Discriminator field – always 'PolicyChanged'."
+    },
+    "policyId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the policy."
+    },
+    "policyNumber": {
+      "type": "string",
+      "description": "Human-readable policy number."
+    },
+    "premium": {
+      "type": "string",
+      "description": "Updated annual premium in CHF as a plain decimal string (e.g. '1234.50')."
+    },
+    "deductible": {
+      "type": "string",
+      "description": "Updated deductible in CHF as a plain decimal string (e.g. '500.00')."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp when the event was created."
+    }
+  }
+}
