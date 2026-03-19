@@ -44,6 +44,7 @@ Full architecture documentation: [specs/arc42.md](specs/arc42.md)
 | Partner (Person Management) | http://localhost:9080 | http://localhost:9080/swagger-ui | 5005 |
 | Product (Insurance Products) | http://localhost:9081 | http://localhost:9081/swagger-ui | 5006 |
 | Policy (Contract Lifecycle) | http://localhost:9082 | http://localhost:9082/swagger-ui | 5007 |
+| Billing & Collection | <http://localhost:9084> | <http://localhost:9084/swagger-ui> | 5009 |
 
 ### Infrastructure
 
@@ -74,6 +75,7 @@ Full architecture documentation: [specs/arc42.md](specs/arc42.md)
 | product_db | localhost | 5433 | product_user | product_db |
 | policy_db | localhost | 5434 | policy_user | policy_db |
 | platform_db (analytics) | localhost | 5435 | platform_user | platform_db |
+| billing_db | localhost | 5436 | billing_user | billing_db |
 | airflow_db (Airflow metadata) | localhost | (internal only) | airflow | airflow |
 
 ---
@@ -145,11 +147,13 @@ mvn test
 cd partner && mvn test
 
 # Specific test class
-cd partner && mvn test -Dtest=PersonApplicationServiceTest
+cd partner && mvn test -Dtest=PersonCommandServiceTest
 
 # Integration tests (Testcontainers – requires running Podman/Docker)
 cd partner && mvn verify -Pintegration
 ```
+
+Full testing guide (German): [docs/testing-guide-de.md](docs/testing-guide-de.md)
 
 ---
 
@@ -166,11 +170,14 @@ cd partner && mvn verify -Pintegration
 | `product.v1.defined` | product | ProductDefined | Delta event |
 | `product.v1.updated` | product | ProductUpdated | Delta event |
 | `product.v1.deprecated` | product | ProductDeprecated | Delta event |
+| `product.v1.state` | product | ProductState | **Compacted** – ECST full state per product |
 | `policy.v1.issued` | policy | PolicyIssued | DRAFT → ACTIVE |
 | `policy.v1.changed` | policy | PolicyChanged | Details updated |
 | `policy.v1.cancelled` | policy | PolicyCancelled | ACTIVE → CANCELLED |
 | `policy.v1.coverage-added` | policy | CoverageAdded | Coverage added |
 | `policy.v1.coverage-removed` | policy | CoverageRemoved | Coverage removed |
+| `claims.v1.opened` | claims | ClaimsOpened | FNOL – First Notice of Loss *(planned)* |
+| `claims.v1.settled` | claims | ClaimsSettled | Claim settled or rejected *(planned)* |
 
 All topics are described by an Open Data Contract (ODC) YAML under `{domain}/src/main/resources/contracts/`.
 
@@ -212,6 +219,10 @@ datamesh/
 ├── partner/          Partner/Customer Management (SCS, :9080)
 ├── product/          Product Management (SCS, :9081)
 ├── policy/           Policy Management (SCS, :9082)
+├── claims/           Claims Management (SCS, :9083 – stub, domain model + REST skeleton only)
+├── billing/          Billing & Collection (SCS, :9084 – invoicing, dunning, payouts)
+├── billing/          Billing & Collection (spec only, not yet implemented)
+├── sales/            Sales & Distribution (spec only, not yet implemented)
 ├── specs/            Architecture documentation (arc42.md)
 ├── infra/
 │   ├── debezium/     CDC connector configs (partner + product outbox)
@@ -257,7 +268,7 @@ A production deployment requires a minimum of **3 Kafka brokers** for fault tole
 | `min.insync.replicas` | 2 | Writes succeed only when 2 of 3 replicas acknowledge, preventing data loss |
 | Number of brokers | >= 3 | Tolerates 1 broker failure without data loss or unavailability |
 
-Refer to `docker-compose.prod.yaml` for a 3-broker KRaft configuration suitable for production-like environments.
+For production deployments, configure the three Kafka brokers as separate services using the same KRaft settings shown in `docker-compose.yaml`, but with separate `KAFKA_NODE_ID` values (1, 2, 3) and `KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker1:9093,2@broker2:9093,3@broker3:9093`.
 
 ### Required Environment Variables
 

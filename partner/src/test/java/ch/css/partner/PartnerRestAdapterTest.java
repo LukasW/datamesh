@@ -26,36 +26,36 @@ class PersonRestAdapterTest {
     private static final String VALID_AHV = "756.1234.5678.97";
 
     @Test
-    @DisplayName("POST /api/personen – Person erstellen")
+    @DisplayName("POST /api/persons – Person erstellen")
     void testCreatePerson() {
         given()
                 .contentType(ContentType.JSON)
                 .body(personPayload("Muster", "Hans", VALID_AHV))
-                .when().post("/api/personen")
+                .when().post("/api/persons")
                 .then()
                 .statusCode(201)
                 .body("id", notNullValue());
     }
 
     @Test
-    @DisplayName("POST /api/personen – ungültige AHV-Nummer → 400")
+    @DisplayName("POST /api/persons – ungültige AHV-Nummer → 400")
     void testCreatePersonInvalidAhv() {
         given()
                 .contentType(ContentType.JSON)
                 .body(personPayload("Muster", "Hans", "756.0000.0000.00"))
-                .when().post("/api/personen")
+                .when().post("/api/persons")
                 .then()
                 .statusCode(400)
                 .body("message", containsString("check digit"));
     }
 
     @Test
-    @DisplayName("GET /api/personen/{id} – Person abrufen")
+    @DisplayName("GET /api/persons/{id} – Person abrufen")
     void testGetPerson() {
         String id = createTestPerson("Müller", "Anna", "756.9217.0769.85");
 
         given()
-                .when().get("/api/personen/" + id)
+                .when().get("/api/persons/" + id)
                 .then()
                 .statusCode(200)
                 .body("personId", equalTo(id))
@@ -65,38 +65,38 @@ class PersonRestAdapterTest {
     }
 
     @Test
-    @DisplayName("GET /api/personen/{id} – 404 für unbekannte ID")
+    @DisplayName("GET /api/persons/{id} – 404 für unbekannte ID")
     void testGetPersonNotFound() {
         given()
-                .when().get("/api/personen/00000000-0000-0000-0000-000000000000")
+                .when().get("/api/persons/00000000-0000-0000-0000-000000000000")
                 .then()
                 .statusCode(404);
     }
 
     @Test
-    @DisplayName("PUT /api/personen/{id} – Personalien aktualisieren")
+    @DisplayName("PUT /api/persons/{id} – Personalien aktualisieren")
     void testUpdatePerson() {
         String id = createTestPerson("Alt", "Name", "756.3456.7890.02");
 
         given()
                 .contentType(ContentType.JSON)
                 .body("{\"name\":\"Neu\",\"firstName\":\"Name\",\"gender\":\"FEMALE\",\"dateOfBirth\":\"1990-01-01\"}")
-                .when().put("/api/personen/" + id)
+                .when().put("/api/persons/" + id)
                 .then()
                 .statusCode(200)
                 .body("name", equalTo("Neu"));
     }
 
     @Test
-    @DisplayName("DELETE /api/personen/{id} – Person löschen")
+    @DisplayName("DELETE /api/persons/{id} – Person löschen")
     void testDeletePerson() {
         String id = createTestPerson("Loeschen", "Test", "756.8754.4321.86");
-        given().when().delete("/api/personen/" + id).then().statusCode(204);
-        given().when().get("/api/personen/" + id).then().statusCode(404);
+        given().when().delete("/api/persons/" + id).then().statusCode(204);
+        given().when().get("/api/persons/" + id).then().statusCode(404);
     }
 
     @Test
-    @DisplayName("POST /api/personen/{id}/adressen – Adresse hinzufügen")
+    @DisplayName("POST /api/persons/{id}/addresses – Adresse hinzufügen")
     void testAddAdresse() {
         String personId = createTestPerson("Adress", "Test", "756.2984.7562.72");
 
@@ -114,14 +114,14 @@ class PersonRestAdapterTest {
         given()
                 .contentType(ContentType.JSON)
                 .body(adressePayload)
-                .when().post("/api/personen/" + personId + "/adressen")
+                .when().post("/api/persons/" + personId + "/addresses")
                 .then()
                 .statusCode(201)
                 .body("addressId", notNullValue());
     }
 
     @Test
-    @DisplayName("POST /api/personen/{id}/adressen – Überschneidung → erste Adresse wird automatisch zugeschnitten")
+    @DisplayName("POST /api/persons/{id}/addresses – Überschneidung → erste Adresse wird automatisch zugeschnitten")
     void testAddAdresseUeberschneidung() {
         String personId = createTestPerson("Overlap", "Test", "756.5432.1987.61");
 
@@ -130,7 +130,7 @@ class PersonRestAdapterTest {
                  "postalCode":"8001","city":"Zürich","land":"Schweiz","validFrom":"2020-01-01"}
                 """;
         String ersteAdressId = given().contentType(ContentType.JSON).body(ersteAdresse)
-                .when().post("/api/personen/" + personId + "/adressen")
+                .when().post("/api/persons/" + personId + "/addresses")
                 .then().statusCode(201)
                 .extract().path("addressId");
 
@@ -139,17 +139,17 @@ class PersonRestAdapterTest {
                  "postalCode":"3000","city":"Bern","land":"Schweiz","validFrom":"2022-01-01"}
                 """;
         given().contentType(ContentType.JSON).body(zweiteAdresse)
-                .when().post("/api/personen/" + personId + "/adressen")
+                .when().post("/api/persons/" + personId + "/addresses")
                 .then().statusCode(201);
 
-        given().when().get("/api/personen/" + personId + "/adressen")
+        given().when().get("/api/persons/" + personId + "/addresses")
                 .then().statusCode(200)
                 .body("find { it.addressId == '" + ersteAdressId + "' }.validTo",
                         equalTo("2021-12-31"));
     }
 
     @Test
-    @DisplayName("DELETE /api/personen/{id}/adressen/{aid} – Adresse löschen")
+    @DisplayName("DELETE /api/persons/{id}/addresses/{aid} – Adresse löschen")
     void testDeleteAdresse() {
         String personId = createTestPerson("DelAddr", "Test", "756.7654.3219.89");
 
@@ -159,16 +159,16 @@ class PersonRestAdapterTest {
                 """;
         String adressId = given()
                 .contentType(ContentType.JSON).body(adresse)
-                .when().post("/api/personen/" + personId + "/adressen")
+                .when().post("/api/persons/" + personId + "/addresses")
                 .then().statusCode(201)
                 .extract().path("addressId");
 
-        given().when().delete("/api/personen/" + personId + "/adressen/" + adressId)
+        given().when().delete("/api/persons/" + personId + "/addresses/" + adressId)
                 .then().statusCode(204);
     }
 
     @Test
-    @DisplayName("POST /api/personen – PersonCreated-Eintrag wird in Outbox geschrieben")
+    @DisplayName("POST /api/persons – PersonCreated-Eintrag wird in Outbox geschrieben")
     @Transactional
     void testCreatePerson_writesPersonCreatedToOutbox() {
         long countBefore = outboxCount("PersonCreated");
@@ -176,7 +176,7 @@ class PersonRestAdapterTest {
         given()
                 .contentType(ContentType.JSON)
                 .body(personPayload("OutboxTest", "User", "756.4444.5555.62"))
-                .when().post("/api/personen")
+                .when().post("/api/persons")
                 .then().statusCode(201);
 
         assertTrue(outboxCount("PersonCreated") > countBefore,
@@ -184,13 +184,13 @@ class PersonRestAdapterTest {
     }
 
     @Test
-    @DisplayName("DELETE /api/personen/{id} – PersonDeleted-Eintrag wird in Outbox geschrieben")
+    @DisplayName("DELETE /api/persons/{id} – PersonDeleted-Eintrag wird in Outbox geschrieben")
     @Transactional
     void testDeletePerson_writesPersonDeletedToOutbox() {
         String id = createTestPerson("OutboxDel", "Test", "756.6543.2198.71");
         long countBefore = outboxCount("PersonDeleted");
 
-        given().when().delete("/api/personen/" + id).then().statusCode(204);
+        given().when().delete("/api/persons/" + id).then().statusCode(204);
 
         assertTrue(outboxCount("PersonDeleted") > countBefore,
                 "Expected a PersonDeleted entry in the outbox table");
@@ -202,7 +202,7 @@ class PersonRestAdapterTest {
         return given()
                 .contentType(ContentType.JSON)
                 .body(personPayload(name, firstName, ahv))
-                .when().post("/api/personen")
+                .when().post("/api/persons")
                 .then().statusCode(201)
                 .extract().path("id");
     }

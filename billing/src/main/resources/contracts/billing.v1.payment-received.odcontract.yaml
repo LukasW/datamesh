@@ -1,0 +1,48 @@
+apiVersion: v2.2.2
+info:
+  title: billing.v1.payment-received
+  version: "1.0.0"
+  description: Emitted when a payment is recorded and allocated to an invoice.
+  owner: team-billing@css.ch
+  domain: billing
+
+servers:
+  - type: kafka
+    host: kafka:9092
+    topic: billing.v1.payment-received
+    format: JSON
+    access: kafka-consumer
+    keyDeserializer: org.apache.kafka.common.serialization.StringDeserializer
+    valueDeserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+schema:
+  type: object
+  required: [eventId, eventType, invoiceId, invoiceNumber, policyId, partnerId, amountPaid, paidAt, timestamp]
+  properties:
+    eventId:       {type: string, nullable: false}
+    eventType:     {type: string, nullable: false}
+    invoiceId:     {type: string, nullable: false}
+    invoiceNumber: {type: string, nullable: false}
+    policyId:      {type: string, nullable: false}
+    partnerId:     {type: string, nullable: false}
+    amountPaid:    {type: string, nullable: false}
+    paidAt:        {type: string, nullable: false}
+    timestamp:     {type: string, nullable: false}
+
+quality:
+  type: SodaCL
+  specification: |
+    checks for billing.v1.payment-received:
+      - not_null:
+          columns: [eventId, invoiceId, partnerId, amountPaid, paidAt]
+      - no_duplicate_rows:
+          columns: [eventId]
+
+dataProduct:
+  owner: team-billing@css.ch
+  domain: billing
+  tags: [financial, payment, pii]
+  sla:
+    freshness: 30s
+    availability: 99.9%
+    qualityScore: 0.99

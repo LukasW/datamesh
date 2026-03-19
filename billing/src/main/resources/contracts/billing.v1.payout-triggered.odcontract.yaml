@@ -1,0 +1,48 @@
+apiVersion: v2.2.2
+info:
+  title: billing.v1.payout-triggered
+  version: "1.0.0"
+  description: >
+    Emitted when a claim settlement triggers a payout to the policyholder.
+    Consumed by payment processing systems to initiate the bank transfer.
+  owner: team-billing@css.ch
+  domain: billing
+
+servers:
+  - type: kafka
+    host: kafka:9092
+    topic: billing.v1.payout-triggered
+    format: JSON
+    access: kafka-consumer
+    keyDeserializer: org.apache.kafka.common.serialization.StringDeserializer
+    valueDeserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+schema:
+  type: object
+  required: [eventId, eventType, claimId, policyId, partnerId, settlementAmount, timestamp]
+  properties:
+    eventId:          {type: string, nullable: false}
+    eventType:        {type: string, nullable: false}
+    claimId:          {type: string, nullable: false}
+    policyId:         {type: string, nullable: false}
+    partnerId:        {type: string, nullable: false}
+    settlementAmount: {type: string, nullable: false}
+    timestamp:        {type: string, nullable: false}
+
+quality:
+  type: SodaCL
+  specification: |
+    checks for billing.v1.payout-triggered:
+      - not_null:
+          columns: [eventId, claimId, policyId, partnerId, settlementAmount]
+      - no_duplicate_rows:
+          columns: [eventId]
+
+dataProduct:
+  owner: team-billing@css.ch
+  domain: billing
+  tags: [financial, payout, pii]
+  sla:
+    freshness: 60s
+    availability: 99.9%
+    qualityScore: 0.99

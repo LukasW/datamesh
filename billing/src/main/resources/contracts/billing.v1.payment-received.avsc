@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "PaymentReceived",
+  "namespace": "ch.css.billing.events",
+  "doc": "Emitted when a payment is successfully allocated to an invoice.",
+  "fields": [
+    {"name": "eventId",       "type": "string"},
+    {"name": "eventType",     "type": "string"},
+    {"name": "invoiceId",     "type": "string"},
+    {"name": "invoiceNumber", "type": "string"},
+    {"name": "policyId",      "type": "string"},
+    {"name": "partnerId",     "type": "string"},
+    {"name": "amountPaid",    "type": "string", "doc": "Paid amount as decimal string (CHF)"},
+    {"name": "paidAt",        "type": "string", "doc": "ISO-8601 payment date"},
+    {"name": "timestamp",     "type": "string"}
+  ]
+}

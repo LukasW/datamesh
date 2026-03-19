@@ -1,0 +1,134 @@
+{#include layout/base.html}
+{#title}Fakturierung{/title}
+{#content}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Rechnungsübersicht</h2>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="row g-2">
+      <div class="col-md-4">
+        <input type="text" id="s-partner" name="partnerId" class="form-control"
+               placeholder="Partner-ID"
+               hx-get="/billing/fragments/list"
+               hx-include="#s-partner,#s-status"
+               hx-target="#rechnungen-tabelle" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+      </div>
+      <div class="col-md-4">
+        <select id="s-status" name="status" class="form-select"
+                hx-get="/billing/fragments/list"
+                hx-include="#s-partner,#s-status"
+                hx-target="#rechnungen-tabelle" hx-swap="innerHTML"
+                hx-trigger="change">
+          <option value="">– alle Status –</option>
+          <option value="OPEN">Offen</option>
+          <option value="PAID">Bezahlt</option>
+          <option value="OVERDUE">Überfällig</option>
+          <option value="CANCELLED">Storniert</option>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <button class="btn btn-outline-secondary w-100"
+                hx-get="/billing/fragments/list"
+                hx-include="#s-partner,#s-status"
+                hx-target="#rechnungen-tabelle" hx-swap="innerHTML">
+          Suchen
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<table class="table table-hover">
+  <thead class="table-light">
+    <tr>
+      <th>Rechnungs-Nr.</th>
+      <th>Versicherungsnehmer</th>
+      <th>Police</th>
+      <th>Status</th>
+      <th>Fälligkeit</th>
+      <th>Betrag (CHF)</th>
+      <th>Aktionen</th>
+    </tr>
+  </thead>
+  <tbody id="rechnungen-tabelle">
+    {#fragment id="tabelle"}
+    {#for rechnung in rechnungen}
+    <tr id="invoice-{rechnung.invoiceId}">
+      <td><strong>{rechnung.invoiceNumber}</strong></td>
+      <td>
+        {#if partnerSichten.get(rechnung.partnerId)}
+          {partnerSichten.get(rechnung.partnerId).name}
+          <br><small class="text-muted">{rechnung.partnerId}</small>
+        {#else}
+          <span class="text-muted small">{rechnung.partnerId}</span>
+        {/if}
+      </td>
+      <td>{rechnung.policyNumber}</td>
+      <td>
+        <span class="badge badge-{rechnung.status}">{rechnung.status}</span>
+      </td>
+      <td>{rechnung.dueDate}</td>
+      <td>CHF {rechnung.totalAmount}</td>
+      <td>
+        {#if rechnung.status.name() == "OPEN" || rechnung.status.name() == "OVERDUE"}
+        <button class="btn btn-sm btn-outline-success"
+                hx-post="/billing/fragments/{rechnung.invoiceId}/pay"
+                hx-target="#invoice-{rechnung.invoiceId}"
+                hx-swap="outerHTML"
+                hx-confirm="Zahlung für Rechnung '{rechnung.invoiceNumber}' erfassen?">
+          Bezahlt
+        </button>
+        <button class="btn btn-sm btn-outline-warning ms-1"
+                hx-post="/billing/fragments/{rechnung.invoiceId}/dun"
+                hx-target="#invoice-{rechnung.invoiceId}"
+                hx-swap="outerHTML"
+                hx-confirm="Mahnverfahren für '{rechnung.invoiceNumber}' einleiten?">
+          Mahnen
+        </button>
+        {/if}
+      </td>
+    </tr>
+    {/for}
+    {#if rechnungen.isEmpty()}
+    <tr><td colspan="7" class="text-muted text-center">Keine Rechnungen gefunden</td></tr>
+    {/if}
+    {#if totalPages?? && totalPages > 1}
+    <tr>
+      <td colspan="7">
+        <nav aria-label="Seitennavigation" class="mt-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">{totalElements} Ergebnisse</small>
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item {#if currentPage == 0}disabled{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/billing/fragments/list?partnerId={searchPartnerId}&status={searchStatus}&page={currentPage - 1}&size={pageSize}"
+                   hx-target="#rechnungen-tabelle" hx-swap="innerHTML">Zurück</a>
+              </li>
+              {#for i in totalPages}
+              <li class="page-item {#if i - 1 == currentPage}active{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/billing/fragments/list?partnerId={searchPartnerId}&status={searchStatus}&page={i - 1}&size={pageSize}"
+                   hx-target="#rechnungen-tabelle" hx-swap="innerHTML">{i}</a>
+              </li>
+              {/for}
+              <li class="page-item {#if currentPage >= totalPages - 1}disabled{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/billing/fragments/list?partnerId={searchPartnerId}&status={searchStatus}&page={currentPage + 1}&size={pageSize}"
+                   hx-target="#rechnungen-tabelle" hx-swap="innerHTML">Weiter</a>
+              </li>
+            </ul>
+            <small class="text-muted">Seite {currentPage + 1} von {totalPages}</small>
+          </div>
+        </nav>
+      </td>
+    </tr>
+    {/if}
+    {/fragment}
+  </tbody>
+</table>
+
+{/content}
+{/include}

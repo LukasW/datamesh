@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "PayoutTriggered",
+  "namespace": "ch.css.billing.events",
+  "doc": "Emitted when a claim settlement triggers a payout to the policyholder.",
+  "fields": [
+    {"name": "eventId",          "type": "string"},
+    {"name": "eventType",        "type": "string"},
+    {"name": "claimId",          "type": "string"},
+    {"name": "policyId",         "type": "string"},
+    {"name": "partnerId",        "type": "string"},
+    {"name": "settlementAmount", "type": "string", "doc": "Settlement amount as decimal string (CHF)"},
+    {"name": "timestamp",        "type": "string"}
+  ]
+}

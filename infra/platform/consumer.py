@@ -28,8 +28,10 @@ PARTNER_TOPICS = ["person.v1.created", "person.v1.updated"]
 PARTNER_STATE_TOPICS = ["person.v1.state"]
 PRODUCT_TOPICS = ["product.v1.defined", "product.v1.updated", "product.v1.deprecated"]
 POLICY_TOPICS = ["policy.v1.issued", "policy.v1.cancelled", "policy.v1.changed"]
+BILLING_TOPICS = ["billing.v1.invoice-created", "billing.v1.payment-received",
+                  "billing.v1.dunning-initiated", "billing.v1.payout-triggered"]
 
-ALL_TOPICS = PARTNER_TOPICS + PARTNER_STATE_TOPICS + PRODUCT_TOPICS + POLICY_TOPICS
+ALL_TOPICS = PARTNER_TOPICS + PARTNER_STATE_TOPICS + PRODUCT_TOPICS + POLICY_TOPICS + BILLING_TOPICS
 
 BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
 GROUP_ID = os.getenv("CONSUMER_GROUP_ID", "platform-consumer")
@@ -63,6 +65,12 @@ ON CONFLICT (event_id) DO NOTHING
 
 INSERT_POLICY_SQL = """
 INSERT INTO policy_raw.policy_events (event_id, topic, event_type, policy_id, partner_id, product_id, payload)
+VALUES (%s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (event_id) DO NOTHING
+"""
+
+INSERT_BILLING_SQL = """
+INSERT INTO billing_raw.billing_events (event_id, topic, event_type, invoice_id, policy_id, partner_id, payload)
 VALUES (%s, %s, %s, %s, %s, %s, %s)
 ON CONFLICT (event_id) DO NOTHING
 """
@@ -156,6 +164,16 @@ def process(cur, topic: str, raw_value: str) -> None:
             raw_value,
         ))
         log.info("Ingested %s | policy_id=%s", event_type, data.get("policyId"))
+
+    elif topic in BILLING_TOPICS:
+        if not event_id:
+            return
+        cur.execute(INSERT_BILLING_SQL, (
+            event_id, topic, event_type,
+            data.get("invoiceId"), data.get("policyId"), data.get("partnerId"),
+            raw_value,
+        ))
+        log.info("Ingested %s | invoice_id=%s", event_type, data.get("invoiceId"))
 
 
 def main() -> None:

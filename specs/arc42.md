@@ -274,8 +274,9 @@ rectangle "4. Federated Governance" as D4 {
 > | Partner/Customer Management | [`partner/specs/business_spec.md`](../partner/specs/business_spec.md) | 9080 | Implementiert |
 > | Product Management | [`product/specs/business_spec.md`](../product/specs/business_spec.md) | 9081 | Implementiert |
 > | Policy Management | [`policy/specs/business_spec.md`](../policy/specs/business_spec.md) | 9082 | Implementiert |
-> | Billing & Collection | [`billing/specs/business_spec.md`](../billing/specs/business_spec.md) | TBD | Planned, not yet implemented |
-> | Sales & Distribution | [`sales/specs/business_spec.md`](../sales/specs/business_spec.md) | TBD | Planned, not yet implemented |
+> | Claims Management | [`claims/specs/business_spec.md`](../claims/specs/business_spec.md) | 9083 | Stub – Domain-Modell + REST-Skeleton, keine DB/Kafka-Integration |
+> | Billing & Collection | [`billing/specs/business_spec.md`](../billing/specs/business_spec.md) | TBD | Geplant, noch nicht implementiert |
+> | Sales & Distribution | [`sales/specs/business_spec.md`](../sales/specs/business_spec.md) | TBD | Geplant, noch nicht implementiert |
 
 ### 5.1 Ebene 1 – Systemübersicht
 
@@ -292,7 +293,7 @@ package "Sachversicherungs-Plattform" {
   package "Core" #LightBlue {
     [Product Management SCS\n:9081] as PM
     [Policy Management SCS\n:9082] as POL
-    [Claims Management SCS\n(nicht implementiert)] as CLM
+    [Claims Management SCS\n:9083 (Stub)] as CLM
   }
 
   package "Supporting" #LightGreen {

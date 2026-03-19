@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "InvoiceCreated",
+  "namespace": "ch.css.billing.events",
+  "doc": "Emitted when a premium invoice is created for a policy.",
+  "fields": [
+    {"name": "eventId",       "type": "string", "doc": "Unique event UUID"},
+    {"name": "eventType",     "type": "string", "doc": "Always: InvoiceCreated"},
+    {"name": "invoiceId",     "type": "string", "doc": "UUID of the invoice"},
+    {"name": "invoiceNumber", "type": "string", "doc": "Human-readable invoice number (BILL-YYYY-NNNNN)"},
+    {"name": "policyId",      "type": "string", "doc": "UUID of the related policy"},
+    {"name": "policyNumber",  "type": "string", "doc": "Human-readable policy number"},
+    {"name": "partnerId",     "type": "string", "doc": "UUID of the policyholder (Partner domain)"},
+    {"name": "billingCycle",  "type": "string", "doc": "ANNUAL | SEMI_ANNUAL | QUARTERLY | MONTHLY"},
+    {"name": "totalAmount",   "type": "string", "doc": "Installment amount as decimal string (CHF)"},
+    {"name": "dueDate",       "type": "string", "doc": "ISO-8601 payment due date"},
+    {"name": "timestamp",     "type": "string", "doc": "ISO-8601 event creation timestamp"}
+  ]
+}

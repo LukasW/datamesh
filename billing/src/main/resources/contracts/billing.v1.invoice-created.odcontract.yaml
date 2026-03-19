@@ -1,0 +1,55 @@
+apiVersion: v2.2.2
+info:
+  title: billing.v1.invoice-created
+  version: "1.0.0"
+  description: >
+    Emitted when a premium invoice is created for a newly issued policy.
+    Downstream consumers (e.g. Document Management, Notification Service) use this
+    event to generate the invoice PDF and notify the policyholder.
+  owner: team-billing@css.ch
+  domain: billing
+
+servers:
+  - type: kafka
+    host: kafka:9092
+    topic: billing.v1.invoice-created
+    format: JSON
+    access: kafka-consumer
+    keyDeserializer: org.apache.kafka.common.serialization.StringDeserializer
+    valueDeserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+schema:
+  type: object
+  required: [eventId, eventType, invoiceId, invoiceNumber, policyId, policyNumber, partnerId, billingCycle, totalAmount, dueDate, timestamp]
+  properties:
+    eventId:       {type: string,  nullable: false, description: Unique event UUID}
+    eventType:     {type: string,  nullable: false, description: "Always: InvoiceCreated"}
+    invoiceId:     {type: string,  nullable: false, description: UUID of the invoice}
+    invoiceNumber: {type: string,  nullable: false, description: "Human-readable number (BILL-YYYY-NNNNN)"}
+    policyId:      {type: string,  nullable: false, description: UUID of the related policy}
+    policyNumber:  {type: string,  nullable: false, description: Human-readable policy number}
+    partnerId:     {type: string,  nullable: false, description: UUID of the policyholder}
+    billingCycle:  {type: string,  nullable: false, description: "ANNUAL | SEMI_ANNUAL | QUARTERLY | MONTHLY"}
+    totalAmount:   {type: string,  nullable: false, description: Installment amount in CHF}
+    dueDate:       {type: string,  nullable: false, description: ISO-8601 payment due date}
+    timestamp:     {type: string,  nullable: false, description: ISO-8601 event timestamp}
+
+quality:
+  type: SodaCL
+  specification: |
+    checks for billing.v1.invoice-created:
+      - not_null:
+          columns: [eventId, eventType, invoiceId, invoiceNumber, policyId, partnerId, totalAmount, dueDate]
+      - no_duplicate_rows:
+          columns: [eventId]
+      - invalid_count(eventType) = 0:
+          valid values: [InvoiceCreated]
+
+dataProduct:
+  owner: team-billing@css.ch
+  domain: billing
+  tags: [financial, invoice, pii]
+  sla:
+    freshness: 30s
+    availability: 99.9%
+    qualityScore: 0.99

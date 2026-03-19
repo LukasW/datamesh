@@ -1,0 +1,50 @@
+apiVersion: v2.2.2
+info:
+  title: billing.v1.dunning-initiated
+  version: "1.0.0"
+  description: Emitted when a dunning process is started or escalated for an overdue invoice.
+  owner: team-billing@css.ch
+  domain: billing
+
+servers:
+  - type: kafka
+    host: kafka:9092
+    topic: billing.v1.dunning-initiated
+    format: JSON
+    access: kafka-consumer
+    keyDeserializer: org.apache.kafka.common.serialization.StringDeserializer
+    valueDeserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+schema:
+  type: object
+  required: [eventId, eventType, dunningCaseId, invoiceId, partnerId, dunningLevel, totalAmount, dueDate, timestamp]
+  properties:
+    eventId:       {type: string, nullable: false}
+    eventType:     {type: string, nullable: false}
+    dunningCaseId: {type: string, nullable: false}
+    invoiceId:     {type: string, nullable: false}
+    invoiceNumber: {type: string, nullable: false}
+    policyId:      {type: string, nullable: false}
+    partnerId:     {type: string, nullable: false}
+    dunningLevel:  {type: string, nullable: false, description: "REMINDER | FIRST_WARNING | FINAL_WARNING | COLLECTION"}
+    totalAmount:   {type: string, nullable: false}
+    dueDate:       {type: string, nullable: false}
+    timestamp:     {type: string, nullable: false}
+
+quality:
+  type: SodaCL
+  specification: |
+    checks for billing.v1.dunning-initiated:
+      - not_null:
+          columns: [eventId, dunningCaseId, invoiceId, partnerId, dunningLevel]
+      - no_duplicate_rows:
+          columns: [eventId]
+
+dataProduct:
+  owner: team-billing@css.ch
+  domain: billing
+  tags: [financial, dunning, pii]
+  sla:
+    freshness: 60s
+    availability: 99.5%
+    qualityScore: 0.98

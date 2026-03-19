@@ -1,15 +1,15 @@
 quarkus:
   application:
-    name: partner-service
+    name: billing-service
     version: 1.0.0
 
   http:
-    port: 9080
+    port: 9084
 
   smallrye-openapi:
-    info-title: Person Service API
+    info-title: Billing & Collection Service API
     info-version: 1.0.0
-    info-description: REST API für Personenverwaltung (Hexagonal Architecture)
+    info-description: REST API für Fakturierung und Mahnwesen (Hexagonal Architecture)
     info-contact-name: CSS Team
     path: /openapi
 
@@ -42,7 +42,7 @@ quarkus:
 
   oidc:
     auth-server-url: http://localhost:8180/realms/css
-    client-id: partner-service
+    client-id: billing-service
     credentials:
       secret: secret
   security:
@@ -52,8 +52,6 @@ quarkus:
   log:
     level: INFO
 
-# Prod: explicit DB connection (env-var driven)
-# Kafka publishing is handled by Debezium CDC reading the outbox table – no Kafka client needed here.
 "%prod":
   quarkus:
     datasource:
@@ -64,6 +62,6 @@ quarkus:
         url: ${DATABASE_URL}
     oidc:
       auth-server-url: ${KEYCLOAK_URL}/realms/css
-      client-id: partner-service
+      client-id: billing-service
       credentials:
         secret: ${OIDC_CLIENT_SECRET}

@@ -16,6 +16,7 @@
         <module>product</module>
         <module>policy</module>
         <module>claims</module>
+        <module>billing</module>
     </modules>
 
     <properties>

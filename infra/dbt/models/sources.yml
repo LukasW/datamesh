@@ -111,6 +111,39 @@ sources:
           - name: consumed_at
             description: Timestamp when the event was consumed from Kafka
 
+  - name: billing_raw
+    schema: billing_raw
+    description: Raw Billing domain events ingested from Kafka by the platform consumer (Data Outside only)
+
+    tables:
+      - name: billing_events
+        description: >
+          billing.v1.invoice-created, billing.v1.payment-received, billing.v1.dunning-initiated,
+          billing.v1.payout-triggered events — one row per event.
+          Source: Billing domain data product via Kafka.
+        columns:
+          - name: id
+            description: Surrogate key (auto-increment)
+          - name: event_id
+            description: Business event UUID (UNIQUE)
+            data_tests:
+              - not_null
+              - unique
+          - name: topic
+            description: Source Kafka topic
+          - name: event_type
+            description: InvoiceCreated, PaymentReceived, DunningInitiated, or PayoutTriggered
+          - name: invoice_id
+            description: UUID of the invoice
+          - name: policy_id
+            description: UUID of the policy (links to Policy domain)
+          - name: partner_id
+            description: UUID of the policyholder (links to Partner domain)
+          - name: payload
+            description: Full raw JSON payload as string
+          - name: consumed_at
+            description: Timestamp when the event was consumed from Kafka
+
 exposures:
   - name: portfolio_report
     type: dashboard
