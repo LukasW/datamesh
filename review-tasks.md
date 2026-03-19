@@ -117,22 +117,22 @@
 **Ziel:** API-Pfade als technische Bezeichner müssen ADR-005 folgen.
 
 **Partner-Service:**
-- [ ] [PersonRestAdapter.java](partner/src/main/java/ch/css/partner/infrastructure/web/PersonRestAdapter.java): `@Path("/api/personen")` → `@Path("/api/persons")`, Sub-Pfad `adressen` → `addresses`
-- [ ] [PersonUiController.java](partner/src/main/java/ch/css/partner/infrastructure/web/PersonUiController.java): interne Redirect-URLs anpassen
+- [x] [PersonRestAdapter.java](partner/src/main/java/ch/css/partner/infrastructure/web/PersonRestAdapter.java): `@Path("/api/personen")` → `@Path("/api/persons")`, Sub-Pfad `adressen` → `addresses`
+- [x] [PersonUiController.java](partner/src/main/java/ch/css/partner/infrastructure/web/PersonUiController.java): interne Redirect-URLs anpassen
 
 **Product-Service:**
-- [ ] `ProductRestAdapter.java`: `@Path("/api/produkte")` → `@Path("/api/products")`
-- [ ] `ProductUiController.java`: interne Redirect-URLs anpassen
+- [x] `ProductRestAdapter.java`: `@Path("/api/produkte")` → `@Path("/api/products")`
+- [x] `ProductUiController.java`: interne Redirect-URLs anpassen
 
 **Policy-Service:**
-- [ ] [PolicyRestAdapter.java](policy/src/main/java/ch/css/policy/infrastructure/web/PolicyRestAdapter.java):
+- [x] [PolicyRestAdapter.java](policy/src/main/java/ch/css/policy/infrastructure/web/PolicyRestAdapter.java):
   - `@Path("/api/policen")` → `@Path("/api/policies")`
   - `/aktivieren` → `/activate`
   - `/kuendigen` → `/cancel`
   - `/deckungen` → `/coverages`
-- [ ] [PolicyUiController.java](policy/src/main/java/ch/css/policy/infrastructure/web/PolicyUiController.java): Redirect-URLs anpassen
-- [ ] Qute-Templates: `fetch`/`action`-Attribute in HTML auf neue Pfade aktualisieren (Labels bleiben Deutsch)
-- [ ] Swagger-UI testen: alle Endpunkte erreichbar
+- [x] [PolicyUiController.java](policy/src/main/java/ch/css/policy/infrastructure/web/PolicyUiController.java): Redirect-URLs anpassen
+- [x] Qute-Templates: `fetch`/`action`-Attribute in HTML auf neue Pfade aktualisieren (Labels bleiben Deutsch)
+- [x] Swagger-UI testen: alle Endpunkte erreichbar
 
 **Akzeptanzkriterium:** Alle REST-Endpunkte unter englischen Pfaden erreichbar; Qute-UI funktioniert; keine deutschen Pfad-Segmente mehr.
 
