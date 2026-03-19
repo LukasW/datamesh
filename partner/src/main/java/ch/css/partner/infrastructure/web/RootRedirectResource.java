@@ -18,6 +18,6 @@ public class RootRedirectResource {
     Router router;
 
     void onStart(@Observes StartupEvent ev) {
-        router.get("/").order(-1).handler(ctx -> ctx.redirect("/personen"));
+        router.get("/").order(-1).handler(ctx -> ctx.redirect("/persons"));
     }
 }

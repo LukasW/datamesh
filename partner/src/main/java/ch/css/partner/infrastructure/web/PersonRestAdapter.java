@@ -22,7 +22,7 @@ import java.util.Map;
  * REST adapter for Person CRUD and Address sub-resource.
  * Maps HTTP requests to PersonApplicationService use cases.
  */
-@Path("/api/personen")
+@Path("/api/persons")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class PersonRestAdapter {
@@ -107,7 +107,7 @@ public class PersonRestAdapter {
     // ── Addresses ─────────────────────────────────────────────────────────────
 
     @GET
-    @Path("/{id}/adressen")
+    @Path("/{id}/addresses")
     public Response getAddresses(@PathParam("id") String id,
                                   @QueryParam("typ") String typ,
                                   @QueryParam("current") Boolean current) {
@@ -129,7 +129,7 @@ public class PersonRestAdapter {
     }
 
     @POST
-    @Path("/{id}/adressen")
+    @Path("/{id}/addresses")
     public Response addAddress(@PathParam("id") String id, AddAddressRequest req) {
         try {
             String addressId = personService.addAddress(
@@ -152,7 +152,7 @@ public class PersonRestAdapter {
     }
 
     @PUT
-    @Path("/{id}/adressen/{aid}")
+    @Path("/{id}/addresses/{aid}")
     public Response updateAddressValidity(@PathParam("id") String id,
                                           @PathParam("aid") String aid,
                                           UpdateAddressRequest req) {
@@ -172,7 +172,7 @@ public class PersonRestAdapter {
     }
 
     @DELETE
-    @Path("/{id}/adressen/{aid}")
+    @Path("/{id}/addresses/{aid}")
     public Response deleteAddress(@PathParam("id") String id, @PathParam("aid") String aid) {
         try {
             personService.deleteAddress(id, aid);
@@ -191,7 +191,7 @@ public class PersonRestAdapter {
     }
 
     @GET
-    @Path("/{id}/adressen/{aid}/history")
+    @Path("/{id}/addresses/{aid}/history")
     public Response getAddressHistory(@PathParam("id") String id, @PathParam("aid") String aid) {
         return Response.ok(auditAdapter.getAddressHistory(aid)).build();
     }

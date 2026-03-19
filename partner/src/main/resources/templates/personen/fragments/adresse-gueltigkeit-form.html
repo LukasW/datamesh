@@ -1,6 +1,6 @@
 <div class="p-1">
   <p class="fw-semibold mb-2">{adresse.addressType} — {adresse.street} {adresse.houseNumber}, {adresse.postalCode} {adresse.city}</p>
-  <form hx-put="/personen/fragments/{personId}/adressen/{adresse.addressId}"
+  <form hx-put="/persons/fragments/{personId}/addresses/{adresse.addressId}"
         hx-target="#adresse-{adresse.addressId}"
         hx-swap="outerHTML"
         hx-encoding="application/x-www-form-urlencoded">
@@ -18,7 +18,7 @@
     </div>
     <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
     <button type="button" class="btn btn-sm btn-secondary"
-            hx-get="/personen/fragments/{personId}/adressen/{adresse.addressId}/karte"
+            hx-get="/persons/fragments/{personId}/addresses/{adresse.addressId}/card"
             hx-target="#adresse-{adresse.addressId}"
             hx-swap="outerHTML">
       Abbrechen

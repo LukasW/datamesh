@@ -1,7 +1,7 @@
 {#include layout/base.html}
 {#title}Person bearbeiten{/title}
 {#content}
-<a href="/personen" class="btn btn-outline-secondary btn-sm mb-3">← Zurück zur Liste</a>
+<a href="/persons" class="btn btn-outline-secondary btn-sm mb-3">← Zurück zur Liste</a>
 <h2>Person bearbeiten: {person.firstName} {person.name}</h2>
 
 <div class="row mt-3">
@@ -21,7 +21,7 @@
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="fw-bold">Adressen</span>
         <button class="btn btn-sm btn-outline-primary"
-                hx-get="/personen/fragments/{person.personId}/adresse-form"
+                hx-get="/persons/fragments/{person.personId}/address-form"
                 hx-target="#adress-liste"
                 hx-swap="afterbegin">
           + Adresse hinzufügen

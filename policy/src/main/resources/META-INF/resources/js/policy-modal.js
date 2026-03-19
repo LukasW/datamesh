@@ -14,7 +14,7 @@
     document.body.addEventListener('click', function (e) {
         var btn = e.target.closest('#partner-suche-btn');
         if (btn) {
-            htmx.ajax('GET', '/policen/fragments/partner-suche', {
+            htmx.ajax('GET', '/policies/fragments/partner-search', {
                 target: '#partner-suche-container',
                 swap: 'innerHTML'
             });

@@ -1,7 +1,7 @@
 <div class="card mb-2 border-success" id="deckung-neu-form">
   <div class="card-body p-2">
     <div id="deckung-form-errors">{#if errorMessage}{errorMessage.raw}{/if}</div>
-    <form hx-post="/policen/fragments/{policyId}/deckungen"
+    <form hx-post="/policies/fragments/{policyId}/coverages"
           hx-target="#deckung-neu-form"
           hx-swap="outerHTML">
       <div class="row g-2 mb-2">
@@ -27,7 +27,7 @@
       <button type="submit" class="btn btn-sm btn-success">Hinzufügen</button>
       <button type="button" class="btn btn-sm btn-secondary"
               hx-target="#deckung-neu-form" hx-swap="outerHTML"
-              hx-get="/policen/fragments/{policyId}/deckung-form-cancel">
+              hx-get="/policies/fragments/{policyId}/coverage-form-cancel">
         Abbrechen
       </button>
     </form>
