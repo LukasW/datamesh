@@ -20,9 +20,7 @@ servers:
   - type: kafka
     host: localhost:9092
     topic: product.v1.updated
-    format: AVRO
-    schemaRegistry: http://schema-registry:8081
-    schemaSubject: product.v1.updated-value
+    format: JSON
 
 terms:
   retention: 7 years

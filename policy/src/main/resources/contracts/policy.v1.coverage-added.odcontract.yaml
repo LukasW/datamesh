@@ -8,9 +8,8 @@ metadata:
 
 spec:
   topic: policy.v1.coverage-added
-  format: AVRO
-  schemaRegistry: http://schema-registry:8081
-  schemaSubject: policy.v1.coverage-added-value
+  format: JSON
+  schemaFile: schema/CoverageAdded.schema.json
 
   schema:
     fields:

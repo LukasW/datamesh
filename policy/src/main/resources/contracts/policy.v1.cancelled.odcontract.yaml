@@ -8,9 +8,8 @@ metadata:
 
 spec:
   topic: policy.v1.cancelled
-  format: AVRO
-  schemaRegistry: http://schema-registry:8081
-  schemaSubject: policy.v1.cancelled-value
+  format: JSON
+  schemaFile: schema/PolicyCancelled.schema.json
 
   schema:
     fields:

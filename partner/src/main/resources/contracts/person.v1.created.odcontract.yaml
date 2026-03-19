@@ -8,9 +8,7 @@ metadata:
 
 spec:
   topic: person.v1.created
-  format: AVRO
-  schemaRegistry: http://schema-registry:8081
-  schemaSubject: person.v1.created-value
+  format: JSON
 
   schema:
     fields:

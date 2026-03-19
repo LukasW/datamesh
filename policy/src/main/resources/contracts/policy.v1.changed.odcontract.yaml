@@ -8,9 +8,8 @@ metadata:
 
 spec:
   topic: policy.v1.changed
-  format: AVRO
-  schemaRegistry: http://schema-registry:8081
-  schemaSubject: policy.v1.changed-value
+  format: JSON
+  schemaFile: schema/PolicyChanged.schema.json
 
   schema:
     fields:

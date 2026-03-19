@@ -20,7 +20,7 @@ import java.util.Map;
 /**
  * REST adapter for Policy CRUD and Coverage sub-resource.
  */
-@Path("/api/policen")
+@Path("/api/policies")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class PolicyRestAdapter {
@@ -83,7 +83,7 @@ public class PolicyRestAdapter {
     }
 
     @POST
-    @Path("/{id}/aktivieren")
+    @Path("/{id}/activate")
     public Response activatePolicy(@PathParam("id") String id) {
         try {
             policyService.activatePolicy(id);
@@ -96,7 +96,7 @@ public class PolicyRestAdapter {
     }
 
     @POST
-    @Path("/{id}/kuendigen")
+    @Path("/{id}/cancel")
     public Response cancelPolicy(@PathParam("id") String id) {
         try {
             policyService.cancelPolicy(id);
@@ -129,7 +129,7 @@ public class PolicyRestAdapter {
     // ── Coverages ─────────────────────────────────────────────────────────────
 
     @GET
-    @Path("/{id}/deckungen")
+    @Path("/{id}/coverages")
     public Response getCoverages(@PathParam("id") String id) {
         try {
             List<CoverageDto> result = policyService.findById(id)
@@ -141,7 +141,7 @@ public class PolicyRestAdapter {
     }
 
     @POST
-    @Path("/{id}/deckungen")
+    @Path("/{id}/coverages")
     public Response addCoverage(@PathParam("id") String id, AddCoverageRequest req) {
         try {
             String coverageId = policyService.addCoverage(
@@ -158,7 +158,7 @@ public class PolicyRestAdapter {
     }
 
     @DELETE
-    @Path("/{id}/deckungen/{did}")
+    @Path("/{id}/coverages/{did}")
     public Response removeCoverage(@PathParam("id") String id, @PathParam("did") String did) {
         try {
             policyService.removeCoverage(id, did);

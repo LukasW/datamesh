@@ -27,7 +27,7 @@ servers:
     topic: partner.v1.updated
 
 schema:
-  type: avro
+  type: json
   specification: |
     {
       "type": "record",

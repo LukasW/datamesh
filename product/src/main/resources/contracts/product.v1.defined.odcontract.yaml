@@ -21,9 +21,7 @@ servers:
   - type: kafka
     host: localhost:9092
     topic: product.v1.defined
-    format: AVRO
-    schemaRegistry: http://schema-registry:8081
-    schemaSubject: product.v1.defined-value
+    format: JSON
 
 terms:
   usage: Consume to build product catalogs in downstream systems.

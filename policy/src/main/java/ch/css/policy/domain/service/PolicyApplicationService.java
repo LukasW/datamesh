@@ -5,10 +5,12 @@ import ch.css.policy.domain.model.PartnerView;
 import ch.css.policy.domain.model.Policy;
 import ch.css.policy.domain.model.PolicyStatus;
 import ch.css.policy.domain.model.ProductView;
+import ch.css.policy.domain.port.out.OutboxRepository;
 import ch.css.policy.domain.port.out.PartnerViewRepository;
-import ch.css.policy.domain.port.out.PolicyEventPublisher;
 import ch.css.policy.domain.port.out.PolicyRepository;
 import ch.css.policy.domain.port.out.ProductViewRepository;
+import ch.css.policy.infrastructure.messaging.PolicyEventPayloadBuilder;
+import ch.css.policy.infrastructure.messaging.outbox.OutboxEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -16,6 +18,7 @@ import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 @ApplicationScoped
@@ -25,7 +28,7 @@ public class PolicyApplicationService {
     PolicyRepository policyRepository;
 
     @Inject
-    PolicyEventPublisher policyEventPublisher;
+    OutboxRepository outboxRepository;
 
     @Inject
     PartnerViewRepository partnerViewRepository;
@@ -51,10 +54,13 @@ public class PolicyApplicationService {
         Policy policy = findOrThrow(policyId);
         policy.activate();
         policyRepository.save(policy);
-        policyEventPublisher.publishPolicyIssued(
-                policy.getPolicyId(), policy.getPolicyNumber(),
-                policy.getPartnerId(), policy.getProductId(),
-                policy.getCoverageStartDate(), policy.getPremium());
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "policy", policyId, "PolicyIssued",
+                PolicyEventPayloadBuilder.TOPIC_POLICY_ISSUED,
+                PolicyEventPayloadBuilder.buildPolicyIssued(
+                        policyId, policy.getPolicyNumber(),
+                        policy.getPartnerId(), policy.getProductId(),
+                        policy.getCoverageStartDate(), policy.getPremium())));
     }
 
     @Transactional
@@ -62,7 +68,10 @@ public class PolicyApplicationService {
         Policy policy = findOrThrow(policyId);
         policy.cancel();
         policyRepository.save(policy);
-        policyEventPublisher.publishPolicyCancelled(policy.getPolicyId(), policy.getPolicyNumber());
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "policy", policyId, "PolicyCancelled",
+                PolicyEventPayloadBuilder.TOPIC_POLICY_CANCELLED,
+                PolicyEventPayloadBuilder.buildPolicyCancelled(policyId, policy.getPolicyNumber())));
     }
 
     @Transactional
@@ -72,9 +81,12 @@ public class PolicyApplicationService {
         Policy policy = findOrThrow(policyId);
         policy.updateDetails(productId, coverageStartDate, coverageEndDate, premium, deductible);
         policyRepository.save(policy);
-        policyEventPublisher.publishPolicyChanged(
-                policy.getPolicyId(), policy.getPolicyNumber(),
-                policy.getPremium(), policy.getDeductible());
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "policy", policyId, "PolicyChanged",
+                PolicyEventPayloadBuilder.TOPIC_POLICY_CHANGED,
+                PolicyEventPayloadBuilder.buildPolicyChanged(
+                        policyId, policy.getPolicyNumber(),
+                        policy.getPremium(), policy.getDeductible())));
     }
 
     @Transactional
@@ -82,7 +94,10 @@ public class PolicyApplicationService {
         Policy policy = findOrThrow(policyId);
         String coverageId = policy.addCoverage(coverageType, insuredAmount);
         policyRepository.save(policy);
-        policyEventPublisher.publishCoverageAdded(policyId, coverageId, coverageType, insuredAmount);
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "policy", policyId, "CoverageAdded",
+                PolicyEventPayloadBuilder.TOPIC_COVERAGE_ADDED,
+                PolicyEventPayloadBuilder.buildCoverageAdded(policyId, coverageId, coverageType, insuredAmount)));
         return coverageId;
     }
 
@@ -91,7 +106,10 @@ public class PolicyApplicationService {
         Policy policy = findOrThrow(policyId);
         policy.removeCoverage(coverageId);
         policyRepository.save(policy);
-        policyEventPublisher.publishCoverageRemoved(policyId, coverageId);
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "policy", policyId, "CoverageRemoved",
+                PolicyEventPayloadBuilder.TOPIC_COVERAGE_REMOVED,
+                PolicyEventPayloadBuilder.buildCoverageRemoved(policyId, coverageId)));
     }
 
     // ── Queries ────────────────────────────────────────────────────────────────

@@ -159,6 +159,8 @@ services:
         condition: service_healthy
       product-db:
         condition: service_healthy
+      policy-db:
+        condition: service_healthy
     ports:
       - "8083:8083"
     environment:
@@ -180,6 +182,7 @@ services:
       CONNECT_CONFIG_PROVIDERS_ENV_CLASS: org.apache.kafka.common.config.provider.EnvVarConfigProvider
       PARTNER_DB_PASSWORD: ${PARTNER_DB_PASSWORD}
       PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD}
+      POLICY_DB_PASSWORD: ${POLICY_DB_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors || exit 1"]
       interval: 10s
@@ -217,9 +220,15 @@ services:
           -d @/config/product-outbox-connector.json \
           && echo 'Product connector registered.' \
           || echo 'Product connector registration failed (may already exist).'
+        curl -f -X POST http://debezium-connect:8083/connectors \
+          -H 'Content-Type: application/json' \
+          -d @/config/policy-outbox-connector.json \
+          && echo 'Policy connector registered.' \
+          || echo 'Policy connector registration failed (may already exist).'
     volumes:
       - ./infra/debezium/partner-outbox-connector.json:/config/partner-outbox-connector.json
       - ./infra/debezium/product-outbox-connector.json:/config/product-outbox-connector.json
+      - ./infra/debezium/policy-outbox-connector.json:/config/policy-outbox-connector.json
     networks:
       - backend
 
@@ -249,6 +258,7 @@ services:
 
   policy-db:
     image: postgres:16
+    command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
     environment:
       POSTGRES_DB: policy_db
       POSTGRES_USER: policy_user

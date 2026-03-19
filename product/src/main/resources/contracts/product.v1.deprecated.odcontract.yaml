@@ -20,9 +20,7 @@ servers:
   - type: kafka
     host: localhost:9092
     topic: product.v1.deprecated
-    format: AVRO
-    schemaRegistry: http://schema-registry:8081
-    schemaSubject: product.v1.deprecated-value
+    format: JSON
 
 terms:
   usage: Consume to remove product from active offerings in downstream systems.

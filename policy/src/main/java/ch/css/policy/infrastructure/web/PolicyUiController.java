@@ -23,7 +23,7 @@ import java.util.List;
  * Qute UI Controller for the Policenverwaltung screens.
  * Handles full-page renders and htmx fragment endpoints.
  */
-@Path("/policen")
+@Path("/policies")
 @Produces(MediaType.TEXT_HTML)
 public class PolicyUiController {
 

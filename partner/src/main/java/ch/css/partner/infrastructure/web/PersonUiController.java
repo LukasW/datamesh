@@ -23,7 +23,7 @@ import java.util.List;
  * Qute UI Controller for the Personenverwaltung screens.
  * Handles full-page renders and htmx fragment endpoints.
  */
-@Path("/personen")
+@Path("/persons")
 @Produces(MediaType.TEXT_HTML)
 public class PersonUiController {
 
@@ -139,14 +139,14 @@ public class PersonUiController {
 
     /** Returns an empty adresse-form for adding a new address. */
     @GET
-    @Path("/fragments/{id}/adresse-form")
+    @Path("/fragments/{id}/address-form")
     public TemplateInstance getAddressForm(@PathParam("id") String id) {
         return adresseForm.data("personId", id).data("errorMessage", null);
     }
 
     /** Returns empty string to remove the adresse-form from the DOM (cancel). */
     @GET
-    @Path("/fragments/{id}/adresse-form-cancel")
+    @Path("/fragments/{id}/address-form-cancel")
     public String cancelAddressForm() {
         return "";
     }
@@ -156,7 +156,7 @@ public class PersonUiController {
      * On conflict (409) re-renders the form with an error message.
      */
     @POST
-    @Path("/fragments/{id}/adressen")
+    @Path("/fragments/{id}/addresses")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Object addAddressFragment(
             @PathParam("id") String personId,
@@ -194,7 +194,7 @@ public class PersonUiController {
 
     /** Returns the adresse-karte fragment (used for cancel of gueltigkeit edit). */
     @GET
-    @Path("/fragments/{id}/adressen/{aid}/karte")
+    @Path("/fragments/{id}/addresses/{aid}/card")
     public Object getAddressCard(@PathParam("id") String personId, @PathParam("aid") String aid) {
         try {
             Address address = personService.findById(personId).getAddresses().stream()
@@ -209,7 +209,7 @@ public class PersonUiController {
 
     /** Returns the inline gueltigkeit edit form for an address card. */
     @GET
-    @Path("/fragments/{id}/adressen/{aid}/gueltigkeit")
+    @Path("/fragments/{id}/addresses/{aid}/validity")
     public Object getAddressValidityForm(@PathParam("id") String personId,
                                              @PathParam("aid") String aid) {
         try {
@@ -228,7 +228,7 @@ public class PersonUiController {
      * On conflict re-renders the gueltigkeit form with an error.
      */
     @PUT
-    @Path("/fragments/{id}/adressen/{aid}")
+    @Path("/fragments/{id}/addresses/{aid}")
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     public Object updateAddressValidityFragment(
             @PathParam("id") String personId,

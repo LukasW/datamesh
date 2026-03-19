@@ -27,9 +27,7 @@ servers:
   - type: kafka
     host: localhost:9092
     topic: person.v1.state
-    format: AVRO
-    schemaRegistry: http://schema-registry:8081
-    schemaSubject: person.v1.state-value
+    format: JSON
 
 terms:
   usage: >

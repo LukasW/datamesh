@@ -7,40 +7,40 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "adresse")
+@Table(name = "address")
 @Audited
 public class AddressEntity {
 
     @Id
-    @Column(name = "adress_id", length = 36)
+    @Column(name = "address_id", length = 36)
     private String addressId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "person_id", nullable = false)
     private PersonEntity person;
 
-    @Column(name = "adress_typ", nullable = false, length = 25)
+    @Column(name = "address_type", nullable = false, length = 25)
     private String addressType;
 
-    @Column(name = "strasse", nullable = false, length = 255)
+    @Column(name = "street", nullable = false, length = 255)
     private String street;
 
-    @Column(name = "hausnummer", nullable = false, length = 20)
+    @Column(name = "house_number", nullable = false, length = 20)
     private String houseNumber;
 
-    @Column(name = "plz", nullable = false, length = 4)
+    @Column(name = "postal_code", nullable = false, length = 4)
     private String postalCode;
 
-    @Column(name = "ort", nullable = false, length = 100)
+    @Column(name = "city", nullable = false, length = 100)
     private String city;
 
     @Column(name = "land", nullable = false, length = 100)
     private String land;
 
-    @Column(name = "gueltig_von", nullable = false)
+    @Column(name = "valid_from", nullable = false)
     private LocalDate validFrom;
 
-    @Column(name = "gueltig_bis")
+    @Column(name = "valid_to")
     private LocalDate validTo;
 
     @Column(name = "created_at", nullable = false)
