@@ -9,6 +9,7 @@ import ch.css.billing.domain.port.out.DunningCaseRepository;
 import ch.css.billing.domain.port.out.InvoiceRepository;
 import ch.css.billing.domain.port.out.OutboxRepository;
 import ch.css.billing.infrastructure.messaging.BillingEventPayloadBuilder;
+import ch.css.billing.infrastructure.messaging.InvoiceLineItemLabels;
 import ch.css.billing.infrastructure.messaging.outbox.OutboxEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -47,12 +48,7 @@ public class InvoiceCommandService {
         Invoice invoice = new Invoice(invoiceNumber, policyId, policyNumber,
                 partnerId, billingCycle, annualPremium, today, dueDate);
 
-        String cycleLabel = switch (billingCycle) {
-            case ANNUAL -> "Jahresprämie";
-            case SEMI_ANNUAL -> "Halbjahresprämie";
-            case QUARTERLY -> "Quartalsprämie";
-            case MONTHLY -> "Monatsprämie";
-        };
+        String cycleLabel = InvoiceLineItemLabels.forCycle(billingCycle);
         invoice.addLineItem(new InvoiceLineItem(cycleLabel + " " + policyNumber, invoice.getTotalAmount()));
 
         invoiceRepository.save(invoice);
@@ -118,7 +114,7 @@ public class InvoiceCommandService {
      */
     @Transactional
     public void cancelInvoicesForPolicy(String policyId) {
-        List<Invoice> openInvoices = invoiceRepository.findByPolicyIdAndStatus(policyId, InvoiceStatus.OPEN);
+        List<Invoice> openInvoices = new java.util.ArrayList<>(invoiceRepository.findByPolicyIdAndStatus(policyId, InvoiceStatus.OPEN));
         openInvoices.addAll(invoiceRepository.findByPolicyIdAndStatus(policyId, InvoiceStatus.OVERDUE));
 
         for (Invoice invoice : openInvoices) {

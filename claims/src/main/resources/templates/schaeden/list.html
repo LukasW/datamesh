@@ -1,0 +1,118 @@
+{#include layout/base}
+{#title}Schadenfälle{/title}
+{#content}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Schadenfälle</h2>
+</div>
+
+<!-- Suchmaske -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form hx-get="/claims/fragments/list" hx-target="#schaeden-tabelle" hx-swap="outerHTML">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">Police-ID</label>
+          <input type="text" class="form-control" name="policyId" value="{searchPolicyId}" placeholder="z.B. abc-123"/>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Status</label>
+          <select class="form-select" name="status">
+            <option value="">Alle</option>
+            <option value="OPEN" {#if searchStatus == 'OPEN'}selected{/if}>Offen</option>
+            <option value="IN_REVIEW" {#if searchStatus == 'IN_REVIEW'}selected{/if}>In Bearbeitung</option>
+            <option value="SETTLED" {#if searchStatus == 'SETTLED'}selected{/if}>Reguliert</option>
+            <option value="REJECTED" {#if searchStatus == 'REJECTED'}selected{/if}>Abgelehnt</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100">Suchen</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Tabelle -->
+<div id="schaeden-tabelle">
+  <table class="table table-hover table-sm">
+    <thead class="table-dark">
+      <tr>
+        <th>Schadennummer</th>
+        <th>Police-ID</th>
+        <th>Beschreibung</th>
+        <th>Schadendatum</th>
+        <th>Status</th>
+        <th>Aktionen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {#for schaden in schaeden}
+      <tr id="claim-{schaden.claimId}">
+        <td><strong>{schaden.claimNumber}</strong></td>
+        <td><small class="text-muted">{schaden.policyId}</small></td>
+        <td>{schaden.description}</td>
+        <td>{schaden.claimDate}</td>
+        <td><span class="badge badge-{schaden.status.name}">{schaden.status.name}</span></td>
+        <td>
+          {#if schaden.status.name == 'OPEN'}
+          <button class="btn btn-sm btn-outline-warning"
+                  hx-post="/claims/fragments/{schaden.claimId}/review"
+                  hx-target="#claim-{schaden.claimId}" hx-swap="outerHTML"
+                  hx-confirm="Schadenfall {schaden.claimNumber} in Bearbeitung nehmen?">
+            Bearbeiten
+          </button>
+          {/if}
+          {#if schaden.status.name == 'IN_REVIEW'}
+          <button class="btn btn-sm btn-outline-success"
+                  hx-post="/claims/fragments/{schaden.claimId}/settle"
+                  hx-target="#claim-{schaden.claimId}" hx-swap="outerHTML"
+                  hx-confirm="Schadenfall {schaden.claimNumber} regulieren?">
+            Regulieren
+          </button>
+          <button class="btn btn-sm btn-outline-danger ms-1"
+                  hx-post="/claims/fragments/{schaden.claimId}/reject"
+                  hx-target="#claim-{schaden.claimId}" hx-swap="outerHTML"
+                  hx-confirm="Schadenfall {schaden.claimNumber} ablehnen?">
+            Ablehnen
+          </button>
+          {/if}
+          {#if schaden.status.name == 'OPEN'}
+          <button class="btn btn-sm btn-outline-danger ms-1"
+                  hx-post="/claims/fragments/{schaden.claimId}/reject"
+                  hx-target="#claim-{schaden.claimId}" hx-swap="outerHTML"
+                  hx-confirm="Schadenfall {schaden.claimNumber} ablehnen?">
+            Ablehnen
+          </button>
+          {/if}
+        </td>
+      </tr>
+      {/for}
+      {#if schaeden.isEmpty}
+      <tr>
+        <td colspan="6" class="text-center text-muted">Keine Schadenfälle gefunden.</td>
+      </tr>
+      {/if}
+    </tbody>
+  </table>
+
+  <!-- Seitennavigation -->
+  <nav>
+    <ul class="pagination pagination-sm">
+      {#if currentPage > 0}
+      <li class="page-item">
+        <a class="page-link" href="/claims?page={currentPage - 1}&size={pageSize}&policyId={searchPolicyId}&status={searchStatus}">«</a>
+      </li>
+      {/if}
+      <li class="page-item disabled">
+        <span class="page-link">Seite {currentPage + 1} von {totalPages}</span>
+      </li>
+      {#if hasNextPage}
+      <li class="page-item">
+        <a class="page-link" href="/claims?page={currentPage + 1}&size={pageSize}&policyId={searchPolicyId}&status={searchStatus}">»</a>
+      </li>
+      {/if}
+    </ul>
+  </nav>
+</div>
+{/content}
+{/include}

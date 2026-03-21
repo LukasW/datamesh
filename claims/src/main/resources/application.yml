@@ -9,7 +9,7 @@ quarkus:
   smallrye-openapi:
     info-title: Claims Service API
     info-version: 1.0.0
-    info-description: REST API for Claims Management (Hexagonal Architecture - Stub)
+    info-description: REST API for Claims Management (Hexagonal Architecture)
     info-contact-name: CSS Team
     path: /openapi
 
@@ -17,21 +17,51 @@ quarkus:
     always-include: true
     path: /swagger-ui
 
+  datasource:
+    db-kind: postgresql
+
+  hibernate-orm:
+    schema-management:
+      strategy: none # Use Flyway for migrations
+
+  hibernate-envers:
+    store-data-at-delete: true
+    audit-table-suffix: _aud
+    revision-field-name: rev
+    revision-type-field-name: rev_type
+
+  flyway:
+    migrate-at-start: true
+    baseline-on-migrate: true
+    schemas: public
+    table: flyway_schema_history
+    locations: classpath:db/migration
+
   virtual-threads:
     enabled: true
+
+  oidc:
+    auth-server-url: http://localhost:8180/realms/css
+    client-id: claims-service
+    credentials:
+      secret: secret
+  security:
+    auth:
+      enabled-in-dev-mode: false
 
   log:
     level: INFO
 
-  # REST client configuration for the Policy service (coverage check)
-  rest-client:
-    policy-service:
-      url: http://localhost:9082
-      scope: jakarta.inject.Singleton
-
-# Prod: Policy service URL via env var
 "%prod":
   quarkus:
-    rest-client:
-      policy-service:
-        url: http://policy-service:9082
+    datasource:
+      db-version: "12.0"
+      username: ${DATABASE_USER}
+      password: ${DATABASE_PASSWORD}
+      jdbc:
+        url: ${DATABASE_URL}
+    oidc:
+      auth-server-url: ${KEYCLOAK_URL}/realms/css
+      client-id: claims-service
+      credentials:
+        secret: ${OIDC_CLIENT_SECRET}

@@ -1,8 +1,8 @@
 # Business Specification – Billing & Collection Service
 
-> **Version:** 0.1.0 · **Last updated:** 2026-03-19
+> **Version:** 1.0.0 · **Last updated:** 2026-03-20
 > **Owner:** Billing & Collection Team
-> **Status:** Planned, not yet implemented
+> **Status:** Implemented
 
 ---
 
@@ -89,12 +89,14 @@ The **Billing & Collection Service** is a **supporting domain** responsible for 
 
 ---
 
-## 5. Implementation Notes
+## 5. Implementation
 
-This service is **planned but not yet implemented**. When implementation begins, it should follow the same architectural patterns as the existing services:
+The service is implemented following the same architectural patterns as the other domain services:
 
-- Hexagonal Architecture (domain model free of framework dependencies)
-- Transactional Outbox Pattern via Debezium CDC
-- Own PostgreSQL instance (`billing_db`)
-- Quarkus with Qute/htmx for the UI (German labels)
-- ODC YAML contracts for all published Kafka topics
+- **Hexagonal Architecture** – domain model (`Invoice`, `DunningCase`) is free of framework dependencies; ports (`InvoiceRepository`, `BillingEventPublisher`) separate domain from infrastructure
+- **Transactional Outbox Pattern** – events are written to the `outbox` table in the same DB transaction; Debezium CDC (`billing-outbox-connector`) forwards them to Kafka
+- **Own PostgreSQL instance** – `billing_db` on port 5436; no other service may access it directly (ADR-004)
+- **Hibernate Envers** – `@Audited` on `InvoiceEntity` writes a full audit trail to `invoice_aud`; line items use `@NotAudited` as they are immutable after creation
+- **Quarkus with Qute/htmx** – server-side UI at `:9084/billing`; German labels, htmx inline-swaps for pay/dun actions
+- **ODC YAML contracts** – all four published topics have Avro schemas and `*.odcontract.yaml` in `src/main/resources/contracts/`
+- **Event-Carried State Transfer** – `person.v1.state` compacted topic populates the local `PolicyholderView` read model (no direct access to `partner_db`)

@@ -62,12 +62,14 @@ Aufbau einer modernen Versicherungsplattform für eine Sachversicherung auf Basi
 ## 3. Kontextabgrenzung
 
 > **Fachliche Spezifikationen der implementierten Services:**
+>
 > - Partner/Customer Service → [`partner/specs/business_spec.md`](../partner/specs/business_spec.md)
 > - Product Management Service → [`product/specs/business_spec.md`](../product/specs/business_spec.md)
 > - Policy Management Service → [`policy/specs/business_spec.md`](../policy/specs/business_spec.md)
+> - Billing & Collection Service → [`billing/specs/business_spec.md`](../billing/specs/business_spec.md)
 >
 > **Geplante Services (Documented Stubs):**
-> - Billing & Collection Service → [`billing/specs/business_spec.md`](../billing/specs/business_spec.md) *(Planned, not yet implemented)*
+>
 > - Sales & Distribution Service → [`sales/specs/business_spec.md`](../sales/specs/business_spec.md) *(Planned, not yet implemented)*
 
 ### 3.1 Fachlicher Kontext (Context Map)
@@ -219,7 +221,19 @@ CLMSVC ..> IAMSVC : REST (Auth)
 | **Shared Nothing** | Keine geteilten Datenbanken; kein direkter Service-zu-Service-Aufruf |
 | **REST nur synchron** | Für zeitkritische Queries (z.B. IAM-Auth) als Ausnahme |
 
-### 4.2 Data Mesh Prinzipien
+### 4.2 SCS UI-Integrationskonzept
+
+Jede Domäne liefert ihre eigene UI (Quarkus Qute + Bootstrap + htmx) als Self-Contained System aus. Die Integration der Frontends erfolgt auf drei Ebenen:
+
+| Ebene | Mechanismus | Verantwortung |
+| ----- | ---------- | ------------- |
+| **Routing** | Reverse Proxy (Nginx / Kubernetes Ingress) leitet Pfade pro Domäne weiter (`/partner/*`, `/policy/*`, `/claims/*`) | Ops-Team / Platform |
+| **Navigation** | Gemeinsame Bootstrap-Navigationsleiste als statisches HTML-Fragment (shared layout per CDN/static hosting) | Jedes SCS bindet es per `<include>` ein |
+| **Design-System** | Gemeinsame Bootstrap-Version + CSS Custom Properties im CDN; keine geteilten Quarkus-Abhängigkeiten | UI-Kapitel in CLAUDE.md |
+
+**Prinzip:** Wechsel zwischen Domänen erfolgt via normale Hyperlinks (keine SPA-Navigation). Jede Domäne ist eine eigenständige Web-Applikation. Server-Side Rendering garantiert Funktionalität ohne JavaScript.
+
+### 4.3 Data Mesh Prinzipien
 
 ```plantuml
 @startuml datamesh-principles
@@ -274,8 +288,8 @@ rectangle "4. Federated Governance" as D4 {
 > | Partner/Customer Management | [`partner/specs/business_spec.md`](../partner/specs/business_spec.md) | 9080 | Implementiert |
 > | Product Management | [`product/specs/business_spec.md`](../product/specs/business_spec.md) | 9081 | Implementiert |
 > | Policy Management | [`policy/specs/business_spec.md`](../policy/specs/business_spec.md) | 9082 | Implementiert |
-> | Claims Management | [`claims/specs/business_spec.md`](../claims/specs/business_spec.md) | 9083 | Stub – Domain-Modell + REST-Skeleton, keine DB/Kafka-Integration |
-> | Billing & Collection | [`billing/specs/business_spec.md`](../billing/specs/business_spec.md) | TBD | Geplant, noch nicht implementiert |
+> | Claims Management | [`claims/specs/business_spec.md`](../claims/specs/business_spec.md) | 9083 | Implementiert – PostgreSQL, Outbox/Debezium, OIDC, Qute UI |
+> | Billing & Collection | [`billing/specs/business_spec.md`](../billing/specs/business_spec.md) | 9084 | Implementiert |
 > | Sales & Distribution | [`sales/specs/business_spec.md`](../sales/specs/business_spec.md) | TBD | Geplant, noch nicht implementiert |
 
 ### 5.1 Ebene 1 – Systemübersicht
@@ -293,12 +307,12 @@ package "Sachversicherungs-Plattform" {
   package "Core" #LightBlue {
     [Product Management SCS\n:9081] as PM
     [Policy Management SCS\n:9082] as POL
-    [Claims Management SCS\n:9083 (Stub)] as CLM
+    [Claims Management SCS\n:9083] as CLM
   }
 
   package "Supporting" #LightGreen {
     [Partner/Customer SCS\n:9080] as PCM
-    [Billing & Collection SCS\n(nicht implementiert)] as BIL
+    [Billing & Collection SCS\n:9084] as BIL
     [Sales & Distribution SCS\n(nicht implementiert)] as SAL
   }
 
@@ -440,18 +454,17 @@ package "Claims Management SCS" {
     }
     interface "ClaimRepository\n(Port)" as REPO_PORT
     interface "EventPublisher\n(Port)" as EVENT_PORT
-    interface "PolicyQueryPort" as POL_PORT
+    interface "PolicySnapshotRepository\n(Port)" as SNAP_PORT
   }
 
   package "Driven Adapters" #LightGreen {
     [PostgreSQL Adapter] as DB_ADAPT
     [Kafka Producer\n(ClaimOpened)\n(ClaimSettled)\n(ClaimRejected)] as KPROD
-    [Policy REST Client\n(synchrone Deckungsprüfung)] as POL_ADAPT
+    [PolicySnapshot JPA Adapter\n(lokales Read Model)] as SNAP_ADAPT
   }
 
-  database "Claims DB\n(PostgreSQL)" as CLMDB
+  database "Claims DB\n(PostgreSQL)\n+ policy_snapshot table" as CLMDB
   database "Kafka" as KAFKA
-  component "Policy Service\n(REST)" as POLSVC
 }
 
 UI --> APP
@@ -462,15 +475,15 @@ APP --> COV
 APP --> SETTLE
 APP --> REPO_PORT
 APP --> EVENT_PORT
-APP --> POL_PORT
+APP --> SNAP_PORT
 
 REPO_PORT <|.. DB_ADAPT
 EVENT_PORT <|.. KPROD
-POL_PORT <|.. POL_ADAPT
+SNAP_PORT <|.. SNAP_ADAPT
 
 DB_ADAPT --> CLMDB
+SNAP_ADAPT --> CLMDB
 KPROD --> KAFKA
-POL_ADAPT --> POLSVC
 
 @enduml
 ```
@@ -502,8 +515,8 @@ UW -> UI : Police erfassen\n(Formular absenden)
 UI -> APP : createPolicy(command)
 APP -> AGG : apply(PolicyIssuanceRequested)
 AGG -> AGG : validateRisk()\ncalculatePremium()
-AGG -> DB : save(PolicyEntity)
-AGG -> KPROD : publish(PolicyIssuedEvent)
+APP -> REPO_PORT : save(policyAggregate)
+APP -> EVENT_PORT : publish(PolicyIssuedEvent)
 KPROD -> TOPIC : PolicyIssuedEvent\n{policyId, partnerId,\nproductId, premium, ...}
 APP --> UI : 201 Created + policyId
 UI --> UW : Police erstellt ✓
@@ -588,25 +601,33 @@ actor "Versicherungsnehmer" as VN
 participant "Claims UI" as UI
 participant "Claims\nApplication Service" as APP
 participant "Claim Aggregate" as AGG
-participant "Policy Service\n(REST)" as POLSVC
+participant "PolicySnapshot\nRepository" as SNAP
 participant "Coverage Checker" as COV
-participant "Claims DB" as DB
+participant "Claims DB\n(+ policy_snapshot)" as DB
 participant "Kafka Producer" as KPROD
 queue "Kafka Topic:\nclaims.v1.opened" as TOPIC
 participant "Billing Service" as BIL
 participant "DMS Service" as DMS
 
+note over SNAP, DB
+  policy_snapshot-Tabelle wird durch Kafka-Consumer
+  (PolicyIssued-Event) befüllt – kein REST-Aufruf zum
+  Policy-Service nötig (ADR-008, ECST-Prinzip).
+end note
+
 VN -> UI : Schaden melden\n(Datum, Beschreibung, Fotos)
 UI -> APP : reportClaim(command)
-APP -> POLSVC : getPolicy(policyId) [REST]
-POLSVC --> APP : PolicySnapshot\n(Deckungsumfang, Selbstbehalt)
+APP -> SNAP : findByPolicyId(policyId)
+SNAP -> DB : SELECT * FROM policy_snapshot\nWHERE policy_id = ?
+DB --> SNAP : PolicySnapshot\n(Deckungsumfang, Selbstbehalt)
+SNAP --> APP : PolicySnapshot
 APP -> COV : checkCoverage(claim, policySnapshot)
 COV --> APP : CoverageResult (gedeckt/nicht gedeckt)
 APP -> AGG : apply(ClaimOpenedEvent)
-AGG -> DB : save(ClaimEntity)
-AGG -> DMS : uploadDocuments(fotos) [REST]
-AGG -> KPROD : publish(ClaimOpenedEvent)
-KPROD -> TOPIC : ClaimOpenedEvent\n{claimId, policyId,\namount, coverageResult}
+APP -> REPO_PORT : save(claimAggregate)
+APP -> DMS : uploadDocuments(fotos) [REST]
+APP -> EVENT_PORT : publish(ClaimOpenedEvent)
+EVENT_PORT -> TOPIC : ClaimOpenedEvent\n{claimId, policyId,\namount, coverageResult}
 APP --> UI : 201 Created + claimId
 UI --> VN : Schadensfall registriert ✓
 
@@ -714,7 +735,6 @@ PROD_SVC <--> KAFKA
 PCM_SVC <--> KAFKA
 SAL_SVC <--> KAFKA
 
-CLM_SVC ..> POL_SVC : REST\n(Deckungsprüfung)
 POL_SVC ..> IAM : REST (Auth)
 CLM_SVC ..> DMS : REST (Dokumente)
 
@@ -831,6 +851,8 @@ DHINGEST --> SR : Avro-Schema\nIngestion
 
 Jedes Kafka-Topic wird durch einen **Open Data Contract (ODC)** beschrieben und im ODC-Katalog registriert. Dies ist der verbindliche "Vertrag" zwischen Producer und Consumer.
 
+**Ausführungsort der SodaCL Quality Checks:** Die im ODC definierten Qualitätsprüfungen laufen **nachgelagert in der dbt-Pipeline** (Analytics Platform) – nicht im operativen Kafka-Strom. Sie werden als dbt-Tests nach jedem `dbt run` ausgeführt und blockieren **nicht** den Producer. Abweichungen erscheinen im Governance-Dashboard des Data Product Portals. Kritische Prüfungen (z.B. Null-Checks auf Pflichtfelder) werden zusätzlich als Avro-Schema-Constraints in der Schema Registry durchgesetzt (verhindert invalide Events bereits beim Publish).
+
 **Beispiel ODC für `policy.v1.issued`:**
 
 ```yaml
@@ -925,11 +947,13 @@ Beispiele:
   partner.v1.created
   product.v1.defined
 
-Reserviert (geplant, noch nicht implementiert):
+Billing & Collection (implementiert):
   billing.v1.invoice-created
   billing.v1.payment-received
   billing.v1.dunning-initiated
   billing.v1.payout-triggered
+
+Reserviert (geplant, noch nicht implementiert):
   sales.v1.offer-created
   sales.v1.offer-accepted
   sales.v1.offer-rejected
@@ -962,7 +986,9 @@ Reserviert (geplant, noch nicht implementiert):
     └── integration/               ← @QuarkusIntegrationTest (Testcontainers)
 ```
 
-### 8.4 Event-Sourcing Light (Outbox Pattern)
+### 8.4 Transactional Outbox Pattern zur Sicherstellung von At-Least-Once Delivery
+
+> **Wichtig:** Dieses Pattern ist kein Event Sourcing. Die relationale Datenbank bleibt die **Source of Truth** (State-Driven Persistence). Das Outbox Pattern garantiert lediglich zuverlässiges Kafka-Publishing ohne Dual-Write-Risiko.
 
 Um Dual-Write-Probleme zu vermeiden (DB schreiben + Kafka publishen), wird das **Transactional Outbox Pattern** eingesetzt:
 
@@ -1124,8 +1150,11 @@ STATE -> PC : UPSERT in raw.person_state
 
 note right of STATE
   Tombstone-Event (deleted=true):
-  Unterstützt DSGVO Right-to-Erasure –
-  compaction löscht den Eintrag.
+  Compaction löscht den Eintrag im State-Topic.
+  ACHTUNG: Delta-Events enthalten weiterhin PII
+  mit unbegrenzter Retention (7 Jahre) –
+  Tombstone allein genügt NICHT für DSGVO-Konformität.
+  → Crypto-Shredding erforderlich (ADR-009).
 end note
 
 @enduml
@@ -1138,7 +1167,7 @@ end note
 | Inhalt | Einzelne Mutation | Vollständiger aktueller Zustand |
 | Retention | Unbegrenzt (7 Jahre) | Compacted (nur neuester Wert pro Key) |
 | Verwendung | Audit Trail, Event Sourcing | Read-Model Bootstrap, Query |
-| GDPR Erasure | Tombstone + Nachfolge-Events | Tombstone löscht Eintrag via Compaction |
+| GDPR Erasure | PII-Felder via Crypto-Shredding unbrauchbar (ADR-009) | Tombstone löscht Eintrag via Compaction (State-Topic) |
 
 ---
 
@@ -1168,15 +1197,15 @@ end note
 
 ---
 
-### ADR-003: REST nur für synchrone Ausnahmen
+### ADR-003: REST nur für IAM-Authentifizierung
 
-**Status:** Accepted
+**Status:** Updated (ersetzt ursprüngliche Fassung)
 
-**Kontext:** Deckungsprüfung bei Schadenmeldung braucht aktuelle Policy-Daten (Eventual Consistency reicht nicht).
+**Kontext:** Die ursprüngliche Fassung erlaubte REST auch für die synchrone Deckungsprüfung (Claims → Policy). Dies wurde durch ADR-008 ersetzt: Die Deckungsprüfung erfolgt nun vollständig gegen das lokale Policy-Snapshot-Read-Model im Claims-Service (Event-Carried State Transfer).
 
-**Entscheidung:** Claims -> Policy via REST für Deckungsprüfung. Alle anderen Integrationen via Kafka.
+**Entscheidung:** REST ist ausschliesslich für IAM-Authentifizierung (Keycloak) erlaubt. Alle Domänen-Integrationen laufen via Kafka.
 
-**Konsequenzen:** Policy-Service wird zu einer synchronen Abhängigkeit von Claims. Circuit Breaker notwendig.
+**Konsequenzen:** Claims-Service ist vollständig autonom – kein Ausfall durch Policy-Service-Unavailability.
 
 ---
 
@@ -1237,6 +1266,53 @@ PersonApplicationService
 - Domänenmodell vollständig in Englisch (`Person`, `Policy`, `Coverage`, `CoverageType.GLASS_BREAKAGE`)
 - Qute-Templates vollständig in Deutsch (Benutzerinterface)
 - Technische Schuld: Partner- und Policy-Service haben teilweise noch deutsche Feldnamen (R-6, R-7)
+
+---
+
+### ADR-008: Deckungsprüfung via lokalem Policy-Snapshot (kein REST)
+
+**Status:** Accepted
+
+**Kontext:** Die ursprüngliche Architektur (ADR-003 alt) sah vor, dass der Claims-Service bei einer Schadenmeldung den Policy-Service via REST abfragt (synchrone Deckungsprüfung). Dies erzeugt eine Laufzeit-Kopplung: Ein Ausfall des Policy-Service blockiert die Schadenmeldung vollständig und widerspricht dem SCS-Autonomieprinzip.
+
+**Entscheidung:** Der Claims-Service konsumiert das `policy.v1.issued`-Event und speichert einen **lokalen Policy-Snapshot** in seiner eigenen Datenbank (`policy_snapshot`-Tabelle). Die Deckungsprüfung bei FNOL läuft vollständig gegen dieses Read-Model – kein REST-Aufruf zum Policy-Service.
+
+```text
+PolicyIssued (Kafka) → Claims Kafka Consumer → policy_snapshot (Claims DB)
+                                                        ↓
+FNOL → ClaimsApplicationService → PolicySnapshotRepository → Deckungsprüfung
+```
+
+**Konsequenzen:**
+
+- Claims-Service ist vollständig autonom; kein Ausfall durch Policy-Unavailability
+- Eventual Consistency: Snapshot kann kurzzeitig veraltet sein (< SLA-Freshness des policy.v1.issued-Topics)
+- `policy_snapshot` muss bei Schema-Änderungen am PolicyIssued-Event migriert werden (konsumiert durch ODC-Versionierung gehandhabt)
+
+---
+
+### ADR-009: Crypto-Shredding für PII-Felder in Kafka-Events
+
+**Status:** Proposed
+
+**Kontext:** Partner-Events (`person.v1.created/updated`) enthalten personenbezogene Daten (PII: Name, Adresse, Geburtsdatum). Die Delta-Events werden 7 Jahre aufbewahrt. Ein Tombstone-Event im State-Topic löscht historische PII im Delta-Log nicht – dies ist ein DSGVO-Verstoss (Art. 17 Right to Erasure).
+
+**Entscheidung:** PII-Felder in allen Kafka-Events werden mit einem **partner-individuellen Datenverschlüsselungsschlüssel (DEK)** verschlüsselt. Der DEK wird in einem **Key Management Service (KMS)** gespeichert. Bei einer Löschanfrage (GDPR Erasure) wird ausschliesslich der DEK gelöscht – alle historischen Events bleiben physisch vorhanden, sind aber dauerhaft unlesbar (kryptografische Löschung).
+
+```text
+Partner-Event Publisher:
+  plaintext PII → AES-256-GCM(DEK[partnerId]) → encrypted payload in Kafka
+
+GDPR Erasure Request:
+  KMS.deleteKey(partnerId) → alle Events mit diesem partnerId sind dauerhaft unlesbar
+```
+
+**Konsequenzen:**
+
+- Alle Consumer müssen vor dem Lesen PII-Felder entschlüsseln (DEK-Lookup im KMS)
+- KMS wird zur neuen Infrastrukturabhängigkeit (High Availability erforderlich)
+- Performance-Overhead durch Verschlüsselung/Entschlüsselung (typisch < 1ms pro Event)
+- Breaking Change in allen bestehenden Consumers bei Einführung → koordiniertes Rollout
 
 ---
 
@@ -1322,7 +1398,8 @@ D --> D2
 | R-1 | Eventual Consistency schwer verständlich für Entwickler | Fehler bei UI-Feedback ("Ist die Police schon aktiv?") | UI-Patterns für Async (optimistic updates, polling) |
 | R-2 | Schema-Evolution (Avro) komplex | Breaking Changes unbemerkt | ODC Enforcement + Consumer-Driven Contract Tests |
 | R-3 | Kafka Single Point of Failure | Alle Domänen betroffen | Multi-AZ Kafka Cluster, Replikationsfaktor 3 |
-| R-4 | REST Claims->Policy synchrone Abhängigkeit | Claims bei Policy-Ausfall nicht nutzbar | Circuit Breaker (SmallRye Fault Tolerance) + Fallback |
+| R-4 | ~~REST Claims->Policy synchrone Abhängigkeit~~ | ~~Claims bei Policy-Ausfall nicht nutzbar~~ | **Mitigiert durch ADR-008**: Deckungsprüfung erfolgt jetzt über lokalen Policy-Snapshot (kein REST). |
 | R-5 | Data Mesh Governance-Overhead | Teams umgehen ODC | Automatisierte ODC-Validierung in CI/CD-Pipeline |
-| R-6 | **Sprachinkonsistenz: Partner-Service (TD)** | Domainmodell verwendet deutsche Feldnamen und Klassennamen (`vorname`, `Adresse`, `Geschlecht`, `gueltigVon` etc.) anstatt englischer (ADR-005-Verletzung) | Koordiniertes Refactoring + ODC-Versionsbump für geänderte Event-Felder. Details: [`partner/specs/business_spec.md#10`](../partner/specs/business_spec.md) |
-| R-7 | **Sprachinkonsistenz: Policy-Service (TD)** | Domainmodell und Enums verwenden deutsche Bezeichner (`Deckung`, `Deckungstyp`, `ENTWURF`, `AKTIV`, `versicherungsbeginn` etc.) | Koordiniertes Refactoring über alle Consumer hinweg nötig. Details: [`policy/specs/business_spec.md#10`](../policy/specs/business_spec.md) |
+| R-6 | **🚨 RELEASE BLOCKER: Sprachinkonsistenz Partner-Service** | Deutsche Payload-Felder (`vorname`, `gueltigVon` etc.) sickern in ODC-Verträge ein – Breaking Change nach v1.0-Release schmerzhaft | Refactoring **vor** ODC v1.0-Freigabe zwingend. Details: [`partner/specs/business_spec.md`](../partner/specs/business_spec.md) |
+| R-7 | **🚨 RELEASE BLOCKER: Sprachinkonsistenz Policy-Service** | Deutsche Enums (`ENTWURF`, `AKTIV`) in Kafka-Events brechen ADR-005 direkt an der Schnittstelle | Refactoring **vor** ODC v1.0-Freigabe zwingend. Details: [`policy/specs/business_spec.md`](../policy/specs/business_spec.md) |
+| R-8 | **DSGVO-Compliance: PII in Delta-Events** | Tombstone im State-Topic löscht keine historischen PII-Daten im Delta-Log (7 Jahre Retention) | Crypto-Shredding implementieren (ADR-009): PII-Felder mit partnerindividuellem Schlüssel verschlüsseln; Löschung = Schlüssel-Invalidierung im KMS |

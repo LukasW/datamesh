@@ -1,7 +1,8 @@
 # Claims Management (Schadenmanagement) - Business Specification
 
-> **Status:** Stub implementation - core domain model and REST API only.
-> No persistence layer or Kafka integration yet.
+> **Version:** 1.1.0 · **Last updated:** 2026-03-20
+> **Owner:** Claims Management Team
+> **Status:** Implemented – PostgreSQL, Outbox/Debezium, OIDC, Qute UI
 
 ---
 
@@ -22,9 +23,9 @@ The entry point for any claim. A policyholder or claims agent reports a damage e
 referencing an existing policy. The system:
 
 1. Accepts the damage report with a description and claim date.
-2. Performs a **coverage check** against the Policy service (synchronous REST call with circuit breaker).
-3. If coverage is confirmed, creates a new claim in `OPEN` status.
-4. If coverage is denied, the claim is rejected immediately.
+2. Performs a **coverage check** against the local **PolicySnapshot read model** (ADR-008).
+3. If a policy snapshot exists, creates a new claim in `OPEN` status.
+4. If no snapshot is found (policy unknown or not yet received), the claim is rejected immediately.
 
 ### Claims Processing (Regulierung)
 
@@ -34,16 +35,25 @@ Once a claim is opened, a claims agent (`CLAIMS_AGENT` role) reviews the claim:
 - Request additional documentation if needed.
 - Transition the claim to `IN_REVIEW`, `SETTLED`, or `REJECTED`.
 
-> **Note:** Claims processing workflow is not yet implemented in this stub.
-
 ### Coverage Check (Deckungspruefung)
 
-A synchronous REST call from Claims to the Policy service (`/api/policies/{policyId}`)
-to verify that the referenced policy is active and covers the reported damage type.
-This is one of the explicitly allowed REST integrations per ADR-003.
+The coverage check runs **fully autonomously** against the **local `policy_snapshot` table**
+inside the Claims service database. This read model is materialised by consuming
+`policy.v1.issued` events from Kafka (ADR-008).
 
-The call is protected by a **circuit breaker** (SmallRye Fault Tolerance) to ensure
-resilience if the Policy service is unavailable.
+No synchronous REST call to the Policy service is made. The Claims service is therefore
+independent of Policy service availability during FNOL.
+
+### PolicySnapshot Read Model
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `policyId` | UUID | Primary key |
+| `policyNumber` | String | Human-readable policy number |
+| `partnerId` | UUID | Reference to the Partner domain |
+| `productId` | UUID | Reference to the Product domain |
+| `coverageStartDate` | Date | Start of coverage |
+| `premium` | Decimal | Annual premium in CHF |
 
 ---
 
@@ -81,18 +91,29 @@ resilience if the Policy service is unavailable.
 | Regulierung          | Settlement         | Process of approving and paying out a claim       |
 | Sachbearbeiter       | Claims Agent       | Person responsible for processing the claim       |
 | Schadensdatum        | Claim Date         | Date when the damage occurred                     |
+| Polizzen-Snapshot    | PolicySnapshot     | Local read model of a policy, built from Kafka events |
 
 ---
 
-## Kafka Events (Planned)
+## Kafka Events
+
+### Published
 
 | Topic                   | Description                                  |
 |-------------------------|----------------------------------------------|
 | `claims.v1.opened`      | Published when a new claim is created (FNOL) |
 | `claims.v1.settled`     | Published when a claim is settled            |
 
-> **Note:** Kafka event publishing is not yet implemented. ODC contracts are provided
-> as placeholders for the future implementation.
+Events are published via the **Transactional Outbox Pattern** (Debezium CDC).
+The `claims.v1.settled` event triggers a payout in the Billing & Collection service.
+
+### Consumed
+
+| Topic                   | Purpose                                                |
+|-------------------------|--------------------------------------------------------|
+| `policy.v1.issued`      | Materialises the local `policy_snapshot` read model (ADR-008) |
+
+Consumer group: `claims-service-policy`
 
 ---
 
@@ -124,17 +145,45 @@ Create a new claim (FNOL).
 }
 ```
 
+**Response (409 Conflict):** If no `policy_snapshot` exists for the given `policyId`
+(policy unknown or not yet received via Kafka).
+
 ### GET /api/claims/{claimId}
 
 Retrieve a claim by its ID.
+
+### GET /api/claims?policyId={policyId}
+
+List all claims for a given policy.
+
+### POST /api/claims/{claimId}/review
+
+Transition a claim from `OPEN` to `IN_REVIEW`.
+
+### POST /api/claims/{claimId}/settle
+
+Transition a claim from `IN_REVIEW` to `SETTLED`. Publishes `claims.v1.settled`.
+
+### POST /api/claims/{claimId}/reject
+
+Transition a claim from `OPEN` or `IN_REVIEW` to `REJECTED`.
+
+---
+
+## Web UI
+
+Available at `http://localhost:9083/claims`. Displays all claims in a sortable table
+with inline htmx actions for Bearbeiten (review), Regulieren (settle), and Ablehnen (reject).
 
 ---
 
 ## Integration Points
 
-| Direction         | Service | Protocol | Purpose                    | ADR   |
-|-------------------|---------|----------|----------------------------|-------|
-| Claims -> Policy  | Policy  | REST     | Coverage check during FNOL | ADR-003 |
+| Direction               | Service  | Protocol | Purpose                                   | ADR     |
+|-------------------------|----------|----------|-------------------------------------------|---------|
+| ← Kafka (consumed)      | Policy   | Kafka    | Materialise `policy_snapshot` read model  | ADR-008 |
+| → Kafka (published)     | Billing  | Kafka    | `claims.v1.settled` triggers payout       | ADR-001 |
+| Claims → Outbox → Kafka | Debezium | CDC/WAL  | At-least-once event delivery              | ADR-006 |
 
 ---
 

@@ -2,12 +2,17 @@ package ch.css.claims.domain.service;
 
 import ch.css.claims.domain.model.Claim;
 import ch.css.claims.domain.port.out.ClaimRepository;
-import ch.css.claims.domain.port.out.CoverageCheckPort;
+import ch.css.claims.domain.port.out.OutboxRepository;
+import ch.css.claims.domain.port.out.PolicySnapshotRepository;
+import ch.css.claims.infrastructure.messaging.ClaimsEventPayloadBuilder;
+import ch.css.claims.infrastructure.messaging.outbox.OutboxEvent;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Application service orchestrating claim use cases.
@@ -18,53 +23,97 @@ import java.util.List;
 public class ClaimApplicationService {
 
     private final ClaimRepository claimRepository;
-    private final CoverageCheckPort coverageCheckPort;
+    private final PolicySnapshotRepository policySnapshotRepository;
+    private final OutboxRepository outboxRepository;
 
     public ClaimApplicationService(ClaimRepository claimRepository,
-                                   CoverageCheckPort coverageCheckPort) {
+                                   PolicySnapshotRepository policySnapshotRepository,
+                                   OutboxRepository outboxRepository) {
         this.claimRepository = claimRepository;
-        this.coverageCheckPort = coverageCheckPort;
+        this.policySnapshotRepository = policySnapshotRepository;
+        this.outboxRepository = outboxRepository;
     }
 
     /**
      * Open a new claim (First Notice of Loss).
-     * Performs a coverage check against the Policy service before creating the claim.
-     *
-     * @param policyId    the policy ID to file the claim against
-     * @param description a description of the damage
-     * @param claimDate   the date the damage occurred
-     * @return the newly created claim
-     * @throws CoverageCheckFailedException if the policy does not provide coverage
+     * Coverage is checked against the local PolicySnapshot read model (ADR-008) –
+     * no synchronous REST call to the Policy service is needed.
+     * Publishes claims.v1.opened via the outbox.
      */
+    @RolesAllowed({"CLAIMS_AGENT", "UNDERWRITER"})
     public Claim openClaim(String policyId, String description, LocalDate claimDate) {
-        boolean covered = coverageCheckPort.checkCoverage(policyId);
-        if (!covered) {
-            throw new CoverageCheckFailedException(policyId);
-        }
+        policySnapshotRepository.findByPolicyId(policyId)
+                .orElseThrow(() -> new CoverageCheckFailedException(policyId));
 
         Claim claim = Claim.openNew(policyId, description, claimDate);
-        return claimRepository.save(claim);
+        claimRepository.save(claim);
+
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "claims", claim.getClaimId(), "ClaimOpened",
+                ClaimsEventPayloadBuilder.TOPIC_CLAIM_OPENED,
+                ClaimsEventPayloadBuilder.buildClaimOpened(claim)));
+
+        return claim;
+    }
+
+    /**
+     * Start review of an open claim. Transitions OPEN → IN_REVIEW.
+     */
+    @RolesAllowed({"CLAIMS_AGENT"})
+    public Claim startReview(String claimId) {
+        Claim claim = findOrThrow(claimId);
+        claim.startReview();
+        claimRepository.save(claim);
+        return claim;
+    }
+
+    /**
+     * Settle a claim under review. Transitions IN_REVIEW → SETTLED.
+     * Publishes claims.v1.settled via the outbox (triggers payout in billing).
+     */
+    @RolesAllowed({"CLAIMS_AGENT"})
+    public Claim settle(String claimId) {
+        Claim claim = findOrThrow(claimId);
+        claim.settle();
+        claimRepository.save(claim);
+
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "claims", claim.getClaimId(), "ClaimSettled",
+                ClaimsEventPayloadBuilder.TOPIC_CLAIM_SETTLED,
+                ClaimsEventPayloadBuilder.buildClaimSettled(claim)));
+
+        return claim;
+    }
+
+    /**
+     * Reject a claim (OPEN or IN_REVIEW → REJECTED).
+     */
+    @RolesAllowed({"CLAIMS_AGENT"})
+    public Claim reject(String claimId) {
+        Claim claim = findOrThrow(claimId);
+        claim.reject();
+        claimRepository.save(claim);
+        return claim;
     }
 
     /**
      * Find a claim by its unique identifier.
-     *
-     * @param claimId the claim ID
-     * @return the claim
-     * @throws ClaimNotFoundException if no claim exists with the given ID
      */
+    @RolesAllowed({"CLAIMS_AGENT", "UNDERWRITER"})
     public Claim findById(String claimId) {
-        return claimRepository.findById(claimId)
-                .orElseThrow(() -> new ClaimNotFoundException(claimId));
+        return findOrThrow(claimId);
     }
 
     /**
      * Find all claims for a given policy.
-     *
-     * @param policyId the policy identifier
-     * @return list of claims
      */
+    @RolesAllowed({"CLAIMS_AGENT", "UNDERWRITER"})
     public List<Claim> findByPolicyId(String policyId) {
         return claimRepository.findByPolicyId(policyId);
+    }
+
+    private Claim findOrThrow(String claimId) {
+        return claimRepository.findById(claimId)
+                .orElseThrow(() -> new ClaimNotFoundException(claimId));
     }
 }

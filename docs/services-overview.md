@@ -25,7 +25,9 @@
 | **partner-db** | 5432 | Dedicated PostgreSQL instance owned exclusively by `partner-service`. WAL logical replication is enabled (`wal_level=logical`) so Debezium can read the outbox table via CDC. No other service may query this database directly (ADR-004). |
 | **product-db** | 5433 | Dedicated PostgreSQL instance owned exclusively by `product-service`. Same WAL configuration as `partner-db` for Debezium CDC. |
 | **policy-db** | 5434 | Dedicated PostgreSQL instance owned exclusively by `policy-service`. Standard PostgreSQL — no CDC needed because `policy-service` publishes events directly to Kafka (no outbox via Debezium). |
-| **platform-db** | 5435 | Shared analytics database that belongs to the data platform layer, not to any single domain. `platform-consumer` and `spark-streaming` write materialised read models here from Kafka events. `dbt` then transforms these raw tables into clean analytics models. The `portal` reads from here to surface cross-domain insights. |
+| **claims-db** | 5435 | Dedicated PostgreSQL instance owned exclusively by `claims-service`. WAL logical replication enabled for Debezium CDC (outbox pattern). Contains `claim`, `policy_snapshot` (local read model), and `outbox` tables. |
+| **billing-db** | 5436 | Dedicated PostgreSQL instance owned exclusively by `billing-service`. WAL logical replication enabled for Debezium CDC. |
+| **platform-db** | 5437 | Shared analytics database that belongs to the data platform layer, not to any single domain. `platform-consumer` and `spark-streaming` write materialised read models here from Kafka events. `dbt` then transforms these raw tables into clean analytics models. The `portal` reads from here to surface cross-domain insights. |
 
 ### Domain Services
 
@@ -34,7 +36,7 @@
 | **partner-service** | 9080 | Bounded context for natural persons (Versicherungsnehmer). Manages the lifecycle of person records — create, update, address changes. On every state change it writes a domain event to its outbox table; Debezium picks it up and publishes it to `partner.v1.*` topics. Other domains (e.g. policy) consume these events to build local read models instead of calling partner-service directly. |
 | **product-service** | 9081 | Bounded context for insurance product definitions — what can be insured, which coverages are available, and at what premium rates. Publishes `product.v1.*` events via the outbox whenever a product or coverage definition changes. `policy-service` consumes these to always have a local, up-to-date copy of valid products without a synchronous dependency. |
 | **policy-service** | 9082 | Bounded context for the insurance contract lifecycle — issuing, amending, and cancelling policies (Policen). Consumes `partner.v1.*` and `product.v1.*` events to maintain local read models (no cross-DB joins). Publishes `policy.v1.*` events (e.g. `policy.v1.issued`) directly to Kafka using schema-registry-validated Avro. Downstream services such as Billing and Claims will consume these events. |
-| **claims-service** | 9083 *(planned)* | **Stub – domain model and REST skeleton only.** Bounded context for First Notice of Loss (FNOL) and claim lifecycle management (OPEN → IN_REVIEW → SETTLED / REJECTED). Performs a synchronous coverage-check REST call to `policy-service` (with SmallRye Fault Tolerance circuit breaker) during FNOL. Persistence is in-memory only; Kafka event publishing (`claims.v1.opened`, `claims.v1.settled`) is not yet wired. No production DB or Debezium connector configured. |
+| **claims-service** | 9083 | Bounded context for First Notice of Loss (FNOL) and claim lifecycle management (OPEN → IN_REVIEW → SETTLED / REJECTED). Consumes `policy.v1.issued` to materialise a local `policy_snapshot` read model, which is used for the coverage check during FNOL — no synchronous REST call to `policy-service` needed (ADR-008). Publishes `claims.v1.opened` and `claims.v1.settled` via the Transactional Outbox Pattern + Debezium CDC from `claims-db`. UI at `:9083/claims`. |
 | **billing-service** | 9084 | Bounded context for the financial lifecycle of insurance contracts — invoicing (Fakturierung), payment recording (Zahlungseingang), dunning (Mahnwesen), and claim payouts (Auszahlungen). Consumes `policy.v1.issued` to auto-create premium invoices and `policy.v1.cancelled` to cancel open invoices. Materialises a local `PolicyholderView` from `person.v1.state` (ECST). Publishes `billing.v1.*` events via the Transactional Outbox Pattern + Debezium CDC from `billing-db`. UI at `:9084/billing`. |
 
 ### Analytics
@@ -100,12 +102,16 @@ component "debezium-init" <<init>> as DINIT
 database "partner-db\n:5432"  as PDB
 database "product-db\n:5433"  as PRDB
 database "policy-db\n:5434"   as POLDB
-database "platform-db\n:5435" as PLATDB
+database "claims-db\n:5435"   as CLMDB
+database "billing-db\n:5436"  as BILDB
+database "platform-db\n:5437" as PLATDB
 
 ' ── Domain Services ───────────────────────────────────────────────────
 component "partner-service\n:9080" <<domain>> as PS
 component "product-service\n:9081" <<domain>> as PRS
 component "policy-service\n:9082"  <<domain>> as POLS
+component "claims-service\n:9083"  <<domain>> as CLMS
+component "billing-service\n:9084" <<domain>> as BILS
 
 ' ── Analytics ─────────────────────────────────────────────────────────
 component "platform-consumer" <<analytics>> as PC
@@ -126,17 +132,23 @@ DINIT --> DBZ    : registers connectors (REST)
 PS   --> PDB   : JPA (outbox)
 PRS  --> PRDB  : JPA (outbox)
 POLS --> POLDB : JPA
+CLMS --> CLMDB : JPA (outbox + policy_snapshot)
+BILS --> BILDB : JPA (outbox)
 
 ' ── CDC: DB → Kafka via Debezium ──────────────────────────────────────
 DBZ --> PDB   : CDC (WAL)
 DBZ --> PRDB  : CDC (WAL)
-DBZ --> KAFKA : partner.v1.* / product.v1.*
+DBZ --> CLMDB : CDC (WAL)
+DBZ --> BILDB : CDC (WAL)
+DBZ --> KAFKA : partner.v1.* / product.v1.*\nclaims.v1.* / billing.v1.*
 
 ' ── Policy publishes directly ─────────────────────────────────────────
 POLS --> KAFKA : policy.v1.*
 
 ' ── Domain ← Kafka (consumed events) ─────────────────────────────────
 KAFKA --> POLS : partner.v1.* / product.v1.*
+KAFKA --> CLMS : policy.v1.issued (policy_snapshot)
+KAFKA --> BILS : policy.v1.issued/cancelled\nclaims.v1.settled\nperson.v1.state
 
 ' ── Schema Registry ───────────────────────────────────────────────────
 POLS --> SR   : schema lookup

@@ -9,3 +9,5 @@
 * Schema changes
 * Partner delete
 * PII classification
+
+* OpenMetadata

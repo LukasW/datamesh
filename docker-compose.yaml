@@ -238,7 +238,25 @@ services:
           --topic billing-policy-cancelled-dlq \
           --partitions 1 \
           --replication-factor 1 \
-          && echo 'billing-policy-cancelled-dlq topic created.'
+          && echo 'billing-policy-cancelled-dlq topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic claims.v1.opened \
+          --partitions 6 \
+          --replication-factor 1 \
+          && echo 'claims.v1.opened topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic claims.v1.settled \
+          --partitions 6 \
+          --replication-factor 1 \
+          && echo 'claims.v1.settled topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic billing-claims-settled-dlq \
+          --partitions 1 \
+          --replication-factor 1 \
+          && echo 'billing-claims-settled-dlq topic created.'
         # sales.v1.offer-created        – New offer created for a prospective policyholder
         # sales.v1.offer-accepted       – Offer accepted, triggers policy creation
         # sales.v1.offer-rejected       – Offer explicitly rejected by customer
@@ -268,6 +286,8 @@ services:
         condition: service_healthy
       billing-db:
         condition: service_healthy
+      claims-db:
+        condition: service_healthy
     ports:
       - "8083:8083"
     environment:
@@ -291,6 +311,7 @@ services:
       PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD}
       POLICY_DB_PASSWORD: ${POLICY_DB_PASSWORD}
       BILLING_DB_PASSWORD: ${BILLING_DB_PASSWORD}
+      CLAIMS_DB_PASSWORD: ${CLAIMS_DB_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors || exit 1"]
       interval: 10s
@@ -338,11 +359,17 @@ services:
           -d @/config/billing-outbox-connector.json \
           && echo 'Billing connector registered.' \
           || echo 'Billing connector registration failed (may already exist).'
+        curl -f -X POST http://debezium-connect:8083/connectors \
+          -H 'Content-Type: application/json' \
+          -d @/config/claims-outbox-connector.json \
+          && echo 'Claims connector registered.' \
+          || echo 'Claims connector registration failed (may already exist).'
     volumes:
       - ./infra/debezium/partner-outbox-connector.json:/config/partner-outbox-connector.json
       - ./infra/debezium/product-outbox-connector.json:/config/product-outbox-connector.json
       - ./infra/debezium/policy-outbox-connector.json:/config/policy-outbox-connector.json
       - ./infra/debezium/billing-outbox-connector.json:/config/billing-outbox-connector.json
+      - ./infra/debezium/claims-outbox-connector.json:/config/claims-outbox-connector.json
     networks:
       - backend
 
@@ -494,8 +521,15 @@ services:
   claims-service:
     image: ${IMAGE_REGISTRY:-css}/claims-service:${IMAGE_TAG:-latest}
     pull_policy: never
+    restart: unless-stopped
     depends_on:
       kafka:
+        condition: service_healthy
+      claims-db:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      debezium-connect:
         condition: service_healthy
       policy-service:
         condition: service_started
@@ -505,6 +539,11 @@ services:
     environment:
       QUARKUS_PROFILE: prod
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DATABASE_URL: jdbc:postgresql://claims-db:5432/claims_db
+      DATABASE_USER: claims_user
+      DATABASE_PASSWORD: ${CLAIMS_DB_PASSWORD}
+      KEYCLOAK_URL: http://keycloak:8080
+      OIDC_CLIENT_SECRET: secret
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5008"
     networks:
       - backend
@@ -514,6 +553,30 @@ services:
         limits:
           cpus: '1.0'
           memory: 512M
+
+  claims-db:
+    image: postgres:16
+    command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
+    environment:
+      POSTGRES_DB: claims_db
+      POSTGRES_USER: claims_user
+      POSTGRES_PASSWORD: ${CLAIMS_DB_PASSWORD}
+    ports:
+      - "5437:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U claims_user -d claims_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - claims-db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
   billing-db:
     image: postgres:16
@@ -726,6 +789,7 @@ services:
       - ./policy/src/main/resources/contracts:/contracts/policy:ro
       - ./product/src/main/resources/contracts:/contracts/product:ro
       - ./billing/src/main/resources/contracts:/contracts/billing:ro
+      - ./claims/src/main/resources/contracts:/contracts/claims:ro
       - ./partner/src/main/resources/contracts:/avro/partner:ro
       - ./policy/src/main/resources/contracts:/avro/policy:ro
       - ./product/src/main/resources/contracts:/avro/product:ro
@@ -1110,6 +1174,7 @@ volumes:
   partner-db-data:
   product-db-data:
   policy-db-data:
+  claims-db-data:
   billing-db-data:
   platform-db-data:
   spark-warehouse:
