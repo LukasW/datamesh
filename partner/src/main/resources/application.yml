@@ -5,6 +5,14 @@ quarkus:
 
   http:
     port: 9080
+    auth:
+      permission:
+        public:
+          paths: /q/*,/swagger-ui/*,/openapi
+          policy: permit
+        authenticated:
+          paths: /*
+          policy: authenticated
 
   smallrye-openapi:
     info-title: Person Service API
@@ -45,9 +53,9 @@ quarkus:
     client-id: partner-service
     credentials:
       secret: secret
-  security:
-    auth:
-      enabled-in-dev-mode: false
+    application-type: hybrid
+    roles:
+      role-claim-path: realm_access/roles
 
   log:
     level: INFO

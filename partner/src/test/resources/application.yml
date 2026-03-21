@@ -22,5 +22,12 @@ quarkus:
     auth:
       enabled-in-dev-mode: false
 
+  http:
+    auth:
+      permission:
+        authenticated:
+          paths: /*
+          policy: permit
+
   log:
     level: INFO

@@ -109,6 +109,54 @@
         "roles",
         "email"
       ]
+    },
+    {
+      "clientId": "claims-service",
+      "name": "Claims Service",
+      "description": "Claims Management SCS",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "secret",
+      "redirectUris": ["http://localhost:9083/*"],
+      "webOrigins": ["http://localhost:9083"],
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ]
+    },
+    {
+      "clientId": "billing-service",
+      "name": "Billing Service",
+      "description": "Billing & Collection SCS",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "secret",
+      "redirectUris": ["http://localhost:9084/*"],
+      "webOrigins": ["http://localhost:9084"],
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "fullScopeAllowed": true,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ]
     }
   ],
   "users": [
@@ -170,7 +218,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "test",
+          "value": "admin",
           "temporary": false
         }
       ],

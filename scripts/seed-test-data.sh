@@ -57,7 +57,7 @@ refresh_token() {
     "$KEYCLOAK_URL/realms/css/protocol/openid-connect/token" \
     -H "Host: keycloak:8080" \
     -H "Content-Type: application/x-www-form-urlencoded" \
-    -d "grant_type=password&client_id=partner-service&client_secret=secret&username=admin&password=test" \
+    -d "grant_type=password&client_id=partner-service&client_secret=secret&username=admin&password=admin" \
     | _json access_token)
   [[ -n "$TOKEN" ]] || fail "Could not obtain Keycloak token"
 }

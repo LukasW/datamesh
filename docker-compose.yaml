@@ -102,6 +102,9 @@ services:
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: true
     ports:
       - "8180:8080"
     volumes:
