@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PaymentReceived",
+  "description": "Event emitted when a payment is received for an invoice.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "invoiceId",
+    "invoiceNumber",
+    "policyId",
+    "partnerId",
+    "amountPaid",
+    "paidAt",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["PaymentReceived"],
+      "description": "The type of domain event."
+    },
+    "invoiceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the invoice."
+    },
+    "invoiceNumber": {
+      "type": "string",
+      "description": "Human-readable invoice number."
+    },
+    "policyId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the associated policy."
+    },
+    "partnerId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the partner (customer)."
+    },
+    "amountPaid": {
+      "type": "string",
+      "description": "Amount paid as a decimal string (e.g., \"1250.00\")."
+    },
+    "paidAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the payment was received (ISO 8601)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the event was created (ISO 8601)."
+    }
+  }
+}

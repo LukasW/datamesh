@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PayoutTriggered",
+  "description": "Event emitted when a payout is triggered for a settled claim.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "claimId",
+    "policyId",
+    "partnerId",
+    "settlementAmount",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["PayoutTriggered"],
+      "description": "The type of domain event."
+    },
+    "claimId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the settled claim."
+    },
+    "policyId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the associated policy."
+    },
+    "partnerId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the partner (customer) receiving the payout."
+    },
+    "settlementAmount": {
+      "type": "string",
+      "description": "Settlement payout amount as a decimal string (e.g., \"5000.00\")."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the event was created (ISO 8601)."
+    }
+  }
+}

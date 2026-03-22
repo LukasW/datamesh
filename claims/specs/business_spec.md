@@ -172,8 +172,14 @@ Transition a claim from `OPEN` or `IN_REVIEW` to `REJECTED`.
 
 ## Web UI
 
-Available at `http://localhost:9083/claims`. Displays all claims in a sortable table
-with inline htmx actions for Bearbeiten (review), Regulieren (settle), and Ablehnen (reject).
+Available at `http://localhost:9083/claims`. Features:
+
+- **Übersichtsliste** – sortable table of all claims with search by police ID and status filter.
+- **Neue Schadenmeldung** (`/claims/neu`) – full-page form to manually enter a First Notice of Loss (policyId, claimDate, description). Validates policy snapshot presence on submit.
+- **Inline-Bearbeitung** – for `OPEN` claims: "Ändern" button swaps the table row with an inline edit form (htmx). Allows updating description and claimDate without leaving the list page.
+- **Statusübergänge** (htmx inline):
+  - `OPEN` → "In Bearbeitung" (review), "Ablehnen"
+  - `IN_REVIEW` → "Regulieren" (settle), "Ablehnen"
 
 ---
 

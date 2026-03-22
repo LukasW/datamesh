@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PersonCreated",
+  "description": "Emitted when a new person is registered in the partner domain.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "personId",
+    "name",
+    "firstName",
+    "dateOfBirth",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event instance."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["PersonCreated"],
+      "description": "Discriminator for the event type."
+    },
+    "personId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the person aggregate."
+    },
+    "name": {
+      "type": "string",
+      "description": "Last name of the person (may be encrypted when encrypted=true)."
+    },
+    "firstName": {
+      "type": "string",
+      "description": "First name of the person (may be encrypted when encrypted=true)."
+    },
+    "socialSecurityNumber": {
+      "type": ["string", "null"],
+      "description": "Swiss AHV number in formatted form (756.XXXX.XXXX.XX), or null if not provided."
+    },
+    "dateOfBirth": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of birth in ISO-8601 format (YYYY-MM-DD). May be encrypted when encrypted=true."
+    },
+    "encrypted": {
+      "type": "boolean",
+      "description": "When true, PII fields (name, firstName, socialSecurityNumber, dateOfBirth) are Vault-encrypted per ADR-009."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of when the event was produced."
+    }
+  }
+}

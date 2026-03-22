@@ -13,8 +13,8 @@ public class Claim {
     private final String claimId;
     private final String policyId;
     private final String claimNumber;
-    private final String description;
-    private final LocalDate claimDate;
+    private String description;
+    private LocalDate claimDate;
     private ClaimStatus status;
     private final Instant createdAt;
 
@@ -82,6 +82,23 @@ public class Claim {
             throw new IllegalStateException("Only OPEN or IN_REVIEW claims can be rejected");
         }
         this.status = ClaimStatus.REJECTED;
+    }
+
+    /**
+     * Update mutable fields (description, claimDate). Only allowed for OPEN claims.
+     */
+    public void updateDetails(String description, LocalDate claimDate) {
+        if (this.status != ClaimStatus.OPEN) {
+            throw new IllegalStateException("Only OPEN claims can be updated");
+        }
+        if (description == null || description.isBlank()) {
+            throw new IllegalArgumentException("Description must not be blank");
+        }
+        if (claimDate == null) {
+            throw new IllegalArgumentException("Claim date must not be null");
+        }
+        this.description = description;
+        this.claimDate = claimDate;
     }
 
     // --- Getters (no framework annotations) ---

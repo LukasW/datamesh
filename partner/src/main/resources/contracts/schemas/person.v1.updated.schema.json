@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PersonUpdated",
+  "description": "Emitted when a person's core attributes (name, firstName) are updated.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "personId",
+    "name",
+    "firstName",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event instance."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["PersonUpdated"],
+      "description": "Discriminator for the event type."
+    },
+    "personId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the person aggregate."
+    },
+    "name": {
+      "type": "string",
+      "description": "Updated last name of the person (may be encrypted when encrypted=true)."
+    },
+    "firstName": {
+      "type": "string",
+      "description": "Updated first name of the person (may be encrypted when encrypted=true)."
+    },
+    "encrypted": {
+      "type": "boolean",
+      "description": "When true, PII fields (name, firstName) are Vault-encrypted per ADR-009."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of when the event was produced."
+    }
+  }
+}

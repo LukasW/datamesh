@@ -109,6 +109,19 @@ public class ClaimRestAdapter {
         }
     }
 
+    @PATCH
+    @Path("/{claimId}")
+    @Operation(summary = "Update mutable fields of an OPEN claim (description, claimDate)")
+    public Response updateClaim(@PathParam("claimId") String claimId, UpdateClaimRequest request) {
+        try {
+            return Response.ok(toResponse(claimService.updateClaim(claimId, request.description(), request.claimDate()))).build();
+        } catch (ClaimNotFoundException e) {
+            return Response.status(Response.Status.NOT_FOUND).entity(new ErrorResponse(e.getMessage())).build();
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return Response.status(Response.Status.CONFLICT).entity(new ErrorResponse(e.getMessage())).build();
+        }
+    }
+
     private ClaimResponse toResponse(Claim claim) {
         return new ClaimResponse(
                 claim.getClaimId(), claim.getPolicyId(), claim.getClaimNumber(),
@@ -117,6 +130,7 @@ public class ClaimRestAdapter {
     }
 
     public record OpenClaimRequest(String policyId, String description, LocalDate claimDate) {}
+    public record UpdateClaimRequest(String description, LocalDate claimDate) {}
     public record ClaimResponse(String claimId, String policyId, String claimNumber,
                                 String description, LocalDate claimDate,
                                 String status, String createdAt) {}

@@ -97,6 +97,17 @@ public class ClaimApplicationService {
     }
 
     /**
+     * Update mutable details of an OPEN claim (description, claimDate).
+     */
+    @RolesAllowed({"CLAIMS_AGENT"})
+    public Claim updateClaim(String claimId, String description, LocalDate claimDate) {
+        Claim claim = findOrThrow(claimId);
+        claim.updateDetails(description, claimDate);
+        claimRepository.save(claim);
+        return claim;
+    }
+
+    /**
      * Find a claim by its unique identifier.
      */
     @RolesAllowed({"CLAIMS_AGENT", "UNDERWRITER"})

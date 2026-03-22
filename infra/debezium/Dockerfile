@@ -15,4 +15,13 @@ RUN confluent-hub install --no-prompt confluentinc/kafka-connect-avro-converter:
 # Resolved via Maven in the builder stage to include all transitive dependencies.
 USER root
 COPY --from=iceberg-deps /tmp/iceberg-plugin/libs/ /usr/share/confluent-hub-components/iceberg-kafka-connect/
+
+# OpenLineage transport – enables automatic lineage emission from Kafka Connect
+# connectors (Debezium source + Iceberg sink) to Marquez via OPENLINEAGE_URL env var.
+RUN mkdir -p /usr/share/java/openlineage && \
+    curl -sL -o /usr/share/java/openlineage/openlineage-java-1.25.0.jar \
+      https://repo1.maven.org/maven2/io/openlineage/openlineage-java/1.25.0/openlineage-java-1.25.0.jar && \
+    curl -sL -o /usr/share/java/openlineage/openlineage-sql-java-1.25.0.jar \
+      https://repo1.maven.org/maven2/io/openlineage/openlineage-sql-java/1.25.0/openlineage-sql-java-1.25.0.jar
+
 USER appuser

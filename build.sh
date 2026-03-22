@@ -102,6 +102,20 @@ if [[ "$DAEMON_MODE" == true ]]; then
   register_connector infra/debezium/billing-outbox-connector.json
   register_connector infra/debezium/claims-outbox-connector.json
 
+  echo ""
+  echo "▶ Registering Iceberg sink connectors…"
+  for sink in infra/debezium/iceberg-sink-*.json; do
+    register_connector "$sink"
+  done
+
+  echo ""
+  echo "▶ Registering JSON Schemas in Schema Registry…"
+  scripts/register-schemas.sh || echo "  ⚠ Schema registration failed (non-blocking)"
+
+  echo ""
+  echo "▶ Initializing OpenMetadata catalog…"
+  scripts/init-openmetadata.sh || echo "  ⚠ OpenMetadata init failed (non-blocking)"
+
   if [[ "$CREATE_TEST_DATA" == true ]]; then
     echo ""
     echo "▶ Seeding test data…"

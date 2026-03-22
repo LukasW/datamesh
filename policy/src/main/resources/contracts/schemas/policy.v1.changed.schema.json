@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PolicyChanged",
+  "description": "Event emitted when a policy's terms are changed (e.g. premium or deductible adjustment).",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "policyId",
+    "policyNumber",
+    "premium",
+    "deductible",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["PolicyChanged"],
+      "description": "Discriminator for the event type."
+    },
+    "policyId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the policy."
+    },
+    "policyNumber": {
+      "type": "string",
+      "description": "Human-readable policy number."
+    },
+    "premium": {
+      "type": "string",
+      "description": "Updated premium amount as a decimal string (e.g. \"1234.56\")."
+    },
+    "deductible": {
+      "type": "string",
+      "description": "Updated deductible amount as a decimal string (e.g. \"500.00\")."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of when the event occurred."
+    }
+  }
+}

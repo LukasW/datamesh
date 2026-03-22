@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ClaimOpened",
+  "description": "Event emitted when a new insurance claim is opened.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "claimId",
+    "claimNumber",
+    "policyId",
+    "description",
+    "claimDate",
+    "status",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["ClaimOpened"],
+      "description": "The type of domain event."
+    },
+    "claimId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the claim."
+    },
+    "claimNumber": {
+      "type": "string",
+      "description": "Human-readable claim number."
+    },
+    "policyId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the associated policy."
+    },
+    "description": {
+      "type": "string",
+      "description": "Free-text description of the claim."
+    },
+    "claimDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Date when the insured event occurred (ISO 8601)."
+    },
+    "status": {
+      "type": "string",
+      "description": "Current status of the claim."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the event was created (ISO 8601)."
+    }
+  }
+}

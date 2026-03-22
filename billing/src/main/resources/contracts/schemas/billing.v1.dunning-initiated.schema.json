@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DunningInitiated",
+  "description": "Event emitted when a dunning process is initiated for an overdue invoice.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "dunningCaseId",
+    "invoiceId",
+    "invoiceNumber",
+    "policyId",
+    "partnerId",
+    "dunningLevel",
+    "totalAmount",
+    "dueDate",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["DunningInitiated"],
+      "description": "The type of domain event."
+    },
+    "dunningCaseId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the dunning case."
+    },
+    "invoiceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the overdue invoice."
+    },
+    "invoiceNumber": {
+      "type": "string",
+      "description": "Human-readable invoice number."
+    },
+    "policyId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the associated policy."
+    },
+    "partnerId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the partner (customer)."
+    },
+    "dunningLevel": {
+      "type": "string",
+      "description": "Current dunning level as a number string (e.g., \"1\", \"2\", \"3\")."
+    },
+    "totalAmount": {
+      "type": "string",
+      "description": "Total outstanding amount as a decimal string (e.g., \"1250.00\")."
+    },
+    "dueDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Original due date of the overdue invoice (ISO 8601)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the event was created (ISO 8601)."
+    }
+  }
+}

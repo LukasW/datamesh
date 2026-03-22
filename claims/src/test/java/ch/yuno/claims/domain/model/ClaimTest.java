@@ -83,4 +83,43 @@ class ClaimTest {
         claim.settle();
         assertThrows(IllegalStateException.class, claim::reject);
     }
+
+    @Test
+    void updateDetails_onOpenClaim_changesValues() {
+        Claim claim = Claim.openNew("policy-1", "Original description", LocalDate.of(2026, 3, 1));
+        claim.updateDetails("Updated description", LocalDate.of(2026, 3, 10));
+        assertEquals("Updated description", claim.getDescription());
+        assertEquals(LocalDate.of(2026, 3, 10), claim.getClaimDate());
+    }
+
+    @Test
+    void updateDetails_onInReviewClaim_throws() {
+        Claim claim = Claim.openNew("policy-1", "Damage", LocalDate.now());
+        claim.startReview();
+        assertThrows(IllegalStateException.class,
+                () -> claim.updateDetails("Updated", LocalDate.now()));
+    }
+
+    @Test
+    void updateDetails_onSettledClaim_throws() {
+        Claim claim = Claim.openNew("policy-1", "Damage", LocalDate.now());
+        claim.startReview();
+        claim.settle();
+        assertThrows(IllegalStateException.class,
+                () -> claim.updateDetails("Updated", LocalDate.now()));
+    }
+
+    @Test
+    void updateDetails_withBlankDescription_throws() {
+        Claim claim = Claim.openNew("policy-1", "Damage", LocalDate.now());
+        assertThrows(IllegalArgumentException.class,
+                () -> claim.updateDetails("   ", LocalDate.now()));
+    }
+
+    @Test
+    void updateDetails_withNullClaimDate_throws() {
+        Claim claim = Claim.openNew("policy-1", "Damage", LocalDate.now());
+        assertThrows(IllegalArgumentException.class,
+                () -> claim.updateDetails("Valid description", null));
+    }
 }

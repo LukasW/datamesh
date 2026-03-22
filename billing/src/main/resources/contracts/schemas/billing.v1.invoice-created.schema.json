@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InvoiceCreated",
+  "description": "Event emitted when a new invoice is created for a policy.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "invoiceId",
+    "invoiceNumber",
+    "policyId",
+    "policyNumber",
+    "partnerId",
+    "billingCycle",
+    "totalAmount",
+    "dueDate",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["InvoiceCreated"],
+      "description": "The type of domain event."
+    },
+    "invoiceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the invoice."
+    },
+    "invoiceNumber": {
+      "type": "string",
+      "description": "Human-readable invoice number."
+    },
+    "policyId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the associated policy."
+    },
+    "policyNumber": {
+      "type": "string",
+      "description": "Human-readable policy number."
+    },
+    "partnerId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Identifier of the partner (customer)."
+    },
+    "billingCycle": {
+      "type": "string",
+      "description": "Billing cycle for the invoice (e.g., MONTHLY, QUARTERLY, YEARLY)."
+    },
+    "totalAmount": {
+      "type": "string",
+      "description": "Total invoice amount as a decimal string (e.g., \"1250.00\")."
+    },
+    "dueDate": {
+      "type": "string",
+      "format": "date",
+      "description": "Due date for the invoice payment (ISO 8601)."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Timestamp when the event was created (ISO 8601)."
+    }
+  }
+}

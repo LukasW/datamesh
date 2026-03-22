@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CoverageRemoved",
+  "description": "Event emitted when a coverage is removed from an existing policy.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "policyId",
+    "coverageId",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["CoverageRemoved"],
+      "description": "Discriminator for the event type."
+    },
+    "policyId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the policy."
+    },
+    "coverageId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the coverage to remove."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of when the event occurred."
+    }
+  }
+}

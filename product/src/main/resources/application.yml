@@ -75,3 +75,5 @@ quarkus:
       client-id: product-service
       credentials:
         secret: ${OIDC_CLIENT_SECRET}
+  openlineage:
+    url: ${OPENLINEAGE_URL:http://marquez:5050}

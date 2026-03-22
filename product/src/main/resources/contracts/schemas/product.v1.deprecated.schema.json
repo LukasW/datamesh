@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProductDeprecated",
+  "description": "Event emitted when a product is deprecated and no longer available for new policies.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "productId",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["ProductDeprecated"],
+      "description": "Discriminator for the event type."
+    },
+    "productId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the product."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of when the event occurred."
+    }
+  }
+}

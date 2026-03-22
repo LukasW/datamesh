@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AddressAdded",
+  "description": "Emitted when a new address is added to a person in the partner domain.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "personId",
+    "addressId",
+    "addressType",
+    "street",
+    "houseNumber",
+    "postalCode",
+    "city",
+    "land",
+    "validFrom",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event instance."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["AddressAdded"],
+      "description": "Discriminator for the event type."
+    },
+    "personId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the person aggregate."
+    },
+    "addressId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the address."
+    },
+    "addressType": {
+      "type": "string",
+      "description": "Type of address (e.g. MAIN, CORRESPONDENCE)."
+    },
+    "street": {
+      "type": "string",
+      "description": "Street name (may be encrypted when encrypted=true)."
+    },
+    "houseNumber": {
+      "type": "string",
+      "description": "House number (may be encrypted when encrypted=true)."
+    },
+    "postalCode": {
+      "type": "string",
+      "description": "Postal code (may be encrypted when encrypted=true)."
+    },
+    "city": {
+      "type": "string",
+      "description": "City name (may be encrypted when encrypted=true)."
+    },
+    "land": {
+      "type": "string",
+      "description": "Country (may be encrypted when encrypted=true)."
+    },
+    "validFrom": {
+      "type": "string",
+      "format": "date",
+      "description": "Start date of address validity in ISO-8601 format (YYYY-MM-DD)."
+    },
+    "validTo": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "End date of address validity in ISO-8601 format (YYYY-MM-DD), or null if open-ended."
+    },
+    "encrypted": {
+      "type": "boolean",
+      "description": "When true, PII fields (street, houseNumber, postalCode, city, land) are Vault-encrypted per ADR-009."
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of when the event was produced."
+    }
+  }
+}

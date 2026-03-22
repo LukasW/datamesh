@@ -62,6 +62,25 @@ services:
           cpus: '0.5'
           memory: 512M
 
+  schema-registry-init:
+    image: python:3.12-slim
+    depends_on:
+      schema-registry:
+        condition: service_healthy
+    volumes:
+      - ./scripts/register-schemas.sh:/opt/register-schemas.sh:ro
+      - ./partner/src/main/resources/contracts/schemas:/opt/partner/src/main/resources/contracts/schemas:ro
+      - ./product/src/main/resources/contracts/schemas:/opt/product/src/main/resources/contracts/schemas:ro
+      - ./policy/src/main/resources/contracts/schemas:/opt/policy/src/main/resources/contracts/schemas:ro
+      - ./claims/src/main/resources/contracts/schemas:/opt/claims/src/main/resources/contracts/schemas:ro
+      - ./billing/src/main/resources/contracts/schemas:/opt/billing/src/main/resources/contracts/schemas:ro
+    environment:
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    entrypoint: ["bash", "-c", "apt-get update -qq && apt-get install -yqq curl > /dev/null 2>&1; cd /opt && bash register-schemas.sh"]
+    restart: "no"
+    networks:
+      - backend
+
   akhq:
     image: tchiotludo/akhq:0.25.1
     depends_on:
@@ -483,6 +502,7 @@ services:
       DATABASE_PASSWORD: ${PRODUCT_DB_PASSWORD}
       KEYCLOAK_URL: http://keycloak:8080
       OIDC_CLIENT_SECRET: secret
+      OPENLINEAGE_URL: http://marquez:5050
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5006"
     networks:
       - backend
@@ -520,6 +540,7 @@ services:
       OIDC_CLIENT_SECRET: secret
       GRPC_PREMIUM_HOST: product-service
       GRPC_PREMIUM_PORT: "9181"
+      OPENLINEAGE_URL: http://marquez:5050
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5007"
     networks:
       - backend
@@ -556,6 +577,7 @@ services:
       DATABASE_PASSWORD: ${CLAIMS_DB_PASSWORD}
       KEYCLOAK_URL: http://keycloak:8080
       OIDC_CLIENT_SECRET: secret
+      OPENLINEAGE_URL: http://marquez:5050
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5008"
     networks:
       - backend
@@ -638,6 +660,7 @@ services:
       DATABASE_PASSWORD: ${BILLING_DB_PASSWORD}
       KEYCLOAK_URL: http://keycloak:8080
       OIDC_CLIENT_SECRET: secret
+      OPENLINEAGE_URL: http://marquez:5050
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
     networks:
       - backend
@@ -815,7 +838,10 @@ services:
           memory: 256M
 
   superset-init:
-    image: apache/superset
+    build:
+      context: infra/superset
+      dockerfile: Dockerfile
+    image: yuno/superset:local
     depends_on:
       superset-db:
         condition: service_healthy
@@ -826,15 +852,17 @@ services:
       SUPERSET_SECRET_KEY: datamesh-dev-secret-change-in-prod
       SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://superset:superset@superset-db:5432/superset"
     volumes:
-      - ./infra/superset/superset_config.py:/app/superset_config.py:ro
+      - ./infra/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
       - ./infra/superset/superset-init.sh:/init.sh:ro
-    command: >
-      bash -c "pip install psycopg2-binary sqlalchemy-trino --quiet && bash /init.sh"
+    command: bash /init.sh
     networks:
       - backend
 
   superset:
-    image: apache/superset
+    build:
+      context: infra/superset
+      dockerfile: Dockerfile
+    image: yuno/superset:local
     restart: unless-stopped
     depends_on:
       superset-init:
@@ -844,10 +872,9 @@ services:
     environment:
       SUPERSET_SECRET_KEY: datamesh-dev-secret-change-in-prod
       SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://superset:superset@superset-db:5432/superset"
-    command: >
-      bash -c "pip install psycopg2-binary sqlalchemy-trino --quiet && superset run -h 0.0.0.0 -p 8088"
+    command: superset run -h 0.0.0.0 -p 8088
     volumes:
-      - ./infra/superset/superset_config.py:/app/superset_config.py:ro
+      - ./infra/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8088/health || exit 1"]
       interval: 10s
@@ -944,6 +971,7 @@ services:
       retries: 20
     volumes:
       - openmetadata-db-data:/var/lib/postgresql/data
+      - ./infra/openmetadata/init-airflow-db.sql:/docker-entrypoint-initdb.d/init-airflow-db.sql:ro
     networks:
       - backend
     deploy:
@@ -1054,10 +1082,25 @@ services:
     depends_on:
       openmetadata-server:
         condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        airflow db migrate
+        airflow users create --username admin --firstname Admin --lastname Admin \
+          --email admin@yuno.ch --role Admin --password admin 2>/dev/null || true
+        airflow scheduler &
+        SCHEDULER_PID=$$!
+        airflow webserver --port 8080 &
+        WEBSERVER_PID=$$!
+        trap "kill $$SCHEDULER_PID $$WEBSERVER_PID 2>/dev/null; exit" SIGTERM SIGINT
+        wait -n
+        kill $$SCHEDULER_PID $$WEBSERVER_PID 2>/dev/null
+        exit 1
     environment:
       AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://openmetadata:openmetadata@openmetadata-db:5432/openmetadata"
+      AIRFLOW__WEBSERVER__WORKERS: "2"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://openmetadata:openmetadata@openmetadata-db:5432/airflow"
     volumes:
       - ./infra/openmetadata/kafka-ingestion.json:/config/kafka-ingestion.json:ro
       - ./infra/openmetadata/trino-ingestion.json:/config/trino-ingestion.json:ro
@@ -1074,8 +1117,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
+          cpus: '1.5'
+          memory: 3G
 
   # ── Marquez / OpenLineage (Lineage Tracking) ───────────────────────────────
 

@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PersonState",
+  "description": "Event-Carried State Transfer: full current state of a person, written to the compacted topic person.v1.state on every state change. Downstream services use this to bootstrap and maintain a local materialized view.",
+  "type": "object",
+  "required": [
+    "eventType",
+    "personId",
+    "deleted",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventType": {
+      "type": "string",
+      "enum": ["PersonState"],
+      "description": "Discriminator for the event type."
+    },
+    "personId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the person aggregate."
+    },
+    "name": {
+      "type": "string",
+      "description": "Last name of the person (may be encrypted when encrypted=true). Absent when deleted=true."
+    },
+    "firstName": {
+      "type": "string",
+      "description": "First name of the person (may be encrypted when encrypted=true). Absent when deleted=true."
+    },
+    "gender": {
+      "type": "string",
+      "description": "Gender of the person (enum value). Absent when deleted=true."
+    },
+    "dateOfBirth": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of birth in ISO-8601 format (YYYY-MM-DD). May be encrypted when encrypted=true. Absent when deleted=true."
+    },
+    "socialSecurityNumber": {
+      "type": ["string", "null"],
+      "description": "Swiss AHV number in formatted form (756.XXXX.XXXX.XX), or null if not provided."
+    },
+    "deleted": {
+      "type": "boolean",
+      "description": "When true, this is a semantic tombstone indicating the person has been deleted."
+    },
+    "encrypted": {
+      "type": "boolean",
+      "description": "When true, PII fields are Vault-encrypted per ADR-009."
+    },
+    "addresses": {
+      "type": "array",
+      "description": "List of all addresses associated with this person. Absent when deleted=true.",
+      "items": {
+        "type": "object",
+        "required": [
+          "addressId",
+          "addressType",
+          "street",
+          "houseNumber",
+          "postalCode",
+          "city",
+          "land",
+          "validFrom"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "addressId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier of the address."
+          },
+          "addressType": {
+            "type": "string",
+            "description": "Type of address (e.g. MAIN, CORRESPONDENCE)."
+          },
+          "street": {
+            "type": "string",
+            "description": "Street name (may be encrypted when encrypted=true)."
+          },
+          "houseNumber": {
+            "type": "string",
+            "description": "House number (may be encrypted when encrypted=true)."
+          },
+          "postalCode": {
+            "type": "string",
+            "description": "Postal code (may be encrypted when encrypted=true)."
+          },
+          "city": {
+            "type": "string",
+            "description": "City name (may be encrypted when encrypted=true)."
+          },
+          "land": {
+            "type": "string",
+            "description": "Country (may be encrypted when encrypted=true)."
+          },
+          "validFrom": {
+            "type": "string",
+            "format": "date",
+            "description": "Start date of address validity in ISO-8601 format (YYYY-MM-DD)."
+          },
+          "validTo": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "End date of address validity in ISO-8601 format (YYYY-MM-DD), or null if open-ended."
+          }
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of when the event was produced."
+    }
+  }
+}

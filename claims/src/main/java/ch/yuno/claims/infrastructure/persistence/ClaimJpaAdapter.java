@@ -29,6 +29,8 @@ public class ClaimJpaAdapter implements ClaimRepository {
             em.persist(entity);
         } else {
             entity.setStatus(claim.getStatus().name());
+            entity.setDescription(claim.getDescription());
+            entity.setClaimDate(claim.getClaimDate());
         }
         return claim;
     }

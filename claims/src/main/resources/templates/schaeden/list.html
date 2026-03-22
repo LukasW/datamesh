@@ -3,6 +3,7 @@
 {#content}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>Schadenfälle</h2>
+  <a href="/claims/neu" class="btn btn-primary">Neue Schadenmeldung</a>
 </div>
 
 <!-- Suchmaske -->
@@ -55,11 +56,22 @@
         <td><span class="badge badge-{schaden.status.name}">{schaden.status.name}</span></td>
         <td>
           {#if schaden.status.name == 'OPEN'}
-          <button class="btn btn-sm btn-outline-warning"
+          <button class="btn btn-sm btn-outline-secondary"
+                  hx-get="/claims/fragments/{schaden.claimId}/edit"
+                  hx-target="#claim-{schaden.claimId}" hx-swap="outerHTML">
+            Ändern
+          </button>
+          <button class="btn btn-sm btn-outline-warning ms-1"
                   hx-post="/claims/fragments/{schaden.claimId}/review"
                   hx-target="#claim-{schaden.claimId}" hx-swap="outerHTML"
                   hx-confirm="Schadenfall {schaden.claimNumber} in Bearbeitung nehmen?">
-            Bearbeiten
+            In Bearbeitung
+          </button>
+          <button class="btn btn-sm btn-outline-danger ms-1"
+                  hx-post="/claims/fragments/{schaden.claimId}/reject"
+                  hx-target="#claim-{schaden.claimId}" hx-swap="outerHTML"
+                  hx-confirm="Schadenfall {schaden.claimNumber} ablehnen?">
+            Ablehnen
           </button>
           {/if}
           {#if schaden.status.name == 'IN_REVIEW'}
@@ -69,14 +81,6 @@
                   hx-confirm="Schadenfall {schaden.claimNumber} regulieren?">
             Regulieren
           </button>
-          <button class="btn btn-sm btn-outline-danger ms-1"
-                  hx-post="/claims/fragments/{schaden.claimId}/reject"
-                  hx-target="#claim-{schaden.claimId}" hx-swap="outerHTML"
-                  hx-confirm="Schadenfall {schaden.claimNumber} ablehnen?">
-            Ablehnen
-          </button>
-          {/if}
-          {#if schaden.status.name == 'OPEN'}
           <button class="btn btn-sm btn-outline-danger ms-1"
                   hx-post="/claims/fragments/{schaden.claimId}/reject"
                   hx-target="#claim-{schaden.claimId}" hx-swap="outerHTML"

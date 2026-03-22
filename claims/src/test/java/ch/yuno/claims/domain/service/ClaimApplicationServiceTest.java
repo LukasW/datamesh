@@ -99,4 +99,28 @@ class ClaimApplicationServiceTest {
         when(claimRepository.findById("unknown")).thenReturn(Optional.empty());
         assertThrows(ClaimNotFoundException.class, () -> service.findById("unknown"));
     }
+
+    @Test
+    void updateClaim_onOpenClaim_persistsNewValues() {
+        Claim claim = Claim.openNew("policy-1", "Original", LocalDate.of(2026, 3, 1));
+        when(claimRepository.findById(claim.getClaimId())).thenReturn(Optional.of(claim));
+        when(claimRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        Claim result = service.updateClaim(claim.getClaimId(), "Updated description", LocalDate.of(2026, 3, 15));
+
+        assertEquals("Updated description", result.getDescription());
+        assertEquals(LocalDate.of(2026, 3, 15), result.getClaimDate());
+        verify(claimRepository).save(claim);
+    }
+
+    @Test
+    void updateClaim_onInReviewClaim_throwsIllegalState() {
+        Claim claim = Claim.openNew("policy-1", "Damage", LocalDate.now());
+        claim.startReview();
+        when(claimRepository.findById(claim.getClaimId())).thenReturn(Optional.of(claim));
+
+        assertThrows(IllegalStateException.class,
+                () -> service.updateClaim(claim.getClaimId(), "Updated", LocalDate.now()));
+        verify(claimRepository, never()).save(any());
+    }
 }
