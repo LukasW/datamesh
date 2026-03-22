@@ -1,0 +1,30 @@
+{#if orgUnits}
+  {#for ou in orgUnits}
+  <tr id="ou-{ou.orgUnitId}">
+    <td><code>{ou.orgUnitId}</code></td>
+    <td>{ou.name}</td>
+    <td>{#if ou.parentOrgUnitId}<span class="badge bg-secondary">{ou.parentOrgUnitId}</span>{#else}<span class="text-muted">–</span>{/if}</td>
+    <td>{#if ou.managerEmployeeId}{ou.managerEmployeeId}{#else}<span class="text-muted">–</span>{/if}</td>
+    <td>{ou.level}</td>
+    <td>
+      {#if ou.active}
+        <span class="badge bg-success">Aktiv</span>
+      {#else}
+        <span class="badge bg-danger">Inaktiv</span>
+      {/if}
+    </td>
+    <td>
+      <a href="/organisation/{ou.orgUnitId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+      <button class="btn btn-sm btn-outline-danger"
+              hx-delete="/organisation/{ou.orgUnitId}"
+              hx-confirm="Einheit '{ou.name}' wirklich löschen?"
+              hx-target="#ou-{ou.orgUnitId}"
+              hx-swap="outerHTML swap:0.3s">
+        Löschen
+      </button>
+    </td>
+  </tr>
+  {/for}
+{#else}
+  <tr><td colspan="7" class="text-muted text-center">Keine Organisationseinheiten gefunden</td></tr>
+{/if}

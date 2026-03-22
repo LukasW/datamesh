@@ -1,0 +1,54 @@
+{#include layout/base.html}
+{#title}Organisationseinheiten{/title}
+{#content}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Organisationseinheiten</h2>
+  <button class="btn btn-primary"
+          hx-get="/organisation/fragments/neu"
+          hx-target="#modal-container"
+          hx-swap="innerHTML">
+    + Neue Einheit
+  </button>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="row g-2">
+      <div class="col-md-4">
+        <input type="text" id="s-name" name="name" class="form-control" placeholder="Name"
+               hx-get="/organisation/fragments/list"
+               hx-include="#s-name"
+               hx-target="#org-tabelle" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-outline-secondary w-100"
+                hx-get="/organisation/fragments/list"
+                hx-include="#s-name"
+                hx-target="#org-tabelle" hx-swap="innerHTML">
+          Suchen
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<table class="table table-hover">
+  <thead class="table-light">
+    <tr>
+      <th>ID</th>
+      <th>Name</th>
+      <th>Übergeordnete Einheit</th>
+      <th>Leiter/in</th>
+      <th>Stufe</th>
+      <th>Status</th>
+      <th>Aktionen</th>
+    </tr>
+  </thead>
+  <tbody id="org-tabelle">
+    {#include organisation/fragments/org-rows.html /}
+  </tbody>
+</table>
+
+{/content}
+{/include}

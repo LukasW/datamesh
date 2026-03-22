@@ -17,6 +17,8 @@
         <module>policy</module>
         <module>claims</module>
         <module>billing</module>
+        <module>hr-system</module>
+        <module>hr-integration</module>
     </modules>
 
     <properties>

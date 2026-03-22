@@ -1,0 +1,78 @@
+apiVersion: v2.2.2
+kind: DataContract
+metadata:
+  name: hr-employee-state
+  version: 1.0.0
+  domain: hr
+  owner: team-platform@yuno.ch
+  description: >
+    Compacted state topic containing the current state of all employees
+    from the external HR system. Materialized via OData polling by the
+    hr-integration Camel service.
+  tags:
+    - pii
+    - hr
+    - ecst
+
+infrastructure:
+  platform: kafka
+  topic: hr.v1.employee.state
+  format: json
+  compaction: true
+  retention: infinite
+
+schema:
+  fields:
+    - name: employeeId
+      type: string
+      description: Internal UUID, deterministic from externalId
+      nullable: false
+      primaryKey: true
+    - name: externalId
+      type: string
+      description: Original ID from the HR system
+      nullable: false
+    - name: firstName
+      type: string
+      nullable: false
+      pii: true
+    - name: lastName
+      type: string
+      nullable: false
+      pii: true
+    - name: email
+      type: string
+      nullable: true
+      pii: true
+    - name: jobTitle
+      type: string
+      nullable: true
+    - name: department
+      type: string
+      nullable: true
+    - name: orgUnitId
+      type: string
+      nullable: true
+    - name: entryDate
+      type: date
+      nullable: false
+    - name: exitDate
+      type: date
+      nullable: true
+    - name: active
+      type: boolean
+      nullable: false
+    - name: deleted
+      type: boolean
+      nullable: false
+      description: Tombstone marker for GDPR deletion
+    - name: version
+      type: long
+      nullable: false
+    - name: timestamp
+      type: timestamp
+      nullable: false
+
+sla:
+  freshness: 5m
+  availability: 99.5%

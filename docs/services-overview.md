@@ -16,9 +16,9 @@
 
 | Service | Purpose |
 |---|---|
-| **kafka-init** | One-shot job (`restart: no`). Waits for Kafka to be healthy, then pre-creates all required topics: compacted state topics (`person.v1.state`, `product.v1.state` — 6 partitions, `cleanup.policy=compact`), domain event topics (`billing.v1.*`, `claims.v1.*` — 6 partitions each), and DLQ topics for every consumer (`*-dlq` — 1 partition). |
+| **kafka-init** | One-shot job (`restart: no`). Waits for Kafka to be healthy, then pre-creates all required topics: compacted state topics (`person.v1.state`, `product.v1.state`, `hr.v1.employee.state`, `hr.v1.org-unit.state` — 6 partitions, `cleanup.policy=compact`), domain event topics (`billing.v1.*`, `claims.v1.*`, `hr.v1.employee.changed`, `hr.v1.org-unit.changed` — 6 partitions each), and DLQ topics for every consumer (`*-dlq` — 1 partition). |
 | **debezium-init** | One-shot job (`curlimages/curl`). Waits for the Connect REST API, then registers the five Debezium outbox connectors (`partner-outbox-connector`, `product-outbox-connector`, `policy-outbox-connector`, `billing-outbox-connector`, `claims-outbox-connector`) via `PUT /connectors/{name}/config`. Each connector tails the `public.outbox` table and routes events by `event_type`. |
-| **iceberg-init** | One-shot job (`curlimages/curl`). Waits for Debezium, MinIO, and Nessie to be healthy. Registers five Iceberg Sink Connector configurations (one per domain) that consume from `{domain}.v1.*` topics and write Parquet files into per-domain raw schemas (`partner_raw.person_events`, `product_raw.product_events`, etc.) on MinIO via the Nessie catalog. |
+| **iceberg-init** | One-shot job (`curlimages/curl`). Waits for Debezium, MinIO, and Nessie to be healthy. Registers six Iceberg Sink Connector configurations (one per domain) that consume from `{domain}.v1.*` topics and write Parquet files into per-domain raw schemas (`partner_raw.person_events`, `product_raw.product_events`, `hr_raw.employee_events`, `hr_raw.org_unit_events`, etc.) on MinIO via the Nessie catalog. |
 | **minio-init** | One-shot job (`minio/mc`). Waits for MinIO to be healthy, then creates the `warehouse` S3 bucket used by Iceberg for Parquet file storage and by Nessie for catalog metadata. |
 | **superset-init** | One-shot job (`apache/superset`). Runs `superset db upgrade`, creates the admin user (`admin/admin`), registers the Trino datasource (`trino://trino@trino:8086/iceberg`), and calls `superset init` to seed default roles and permissions. |
 | **openmetadata-migrate** | One-shot job (`openmetadata/server:1.6.13`). Runs `/opt/openmetadata/bootstrap/openmetadata-ops.sh migrate` against the OpenMetadata database to apply schema migrations before the server starts. Required because the server image does not auto-migrate on boot. |
@@ -36,6 +36,7 @@
 | **superset-db** | — | PostgreSQL 16 instance for Apache Superset internal metadata (dashboards, saved queries, datasource configs, user sessions). Not exposed externally. |
 | **openmetadata-db** | — | PostgreSQL 16 instance for OpenMetadata server metadata and (in a separate `airflow` database created by `init-airflow-db.sql`) for the Airflow scheduler/webserver state used by the ingestion container. |
 | **marquez-db** | — | PostgreSQL 16 instance for Marquez lineage data (namespaces, jobs, runs, datasets, lineage edges). Not exposed externally. |
+| **hr-db** | 5438 | PostgreSQL 16 instance owned exclusively by `hr-system`. Standard configuration (no CDC/WAL needed — integration runs via OData polling, not Debezium). Volume: `hr-db-data`. |
 
 ### Domain Services
 
@@ -46,6 +47,18 @@
 | **policy-service** | 9082 | Bounded Context for the insurance contract lifecycle. Quarkus service (`yuno/policy-service`). **Consumes** `partner.v1.*` and `product.v1.*` events to build local read models. Publishes `policy.v1.*` events (`issued`, `cancelled`, `coverage-added`) directly to Kafka via SmallRye Reactive Messaging (not via outbox). Calls `product-service` over **gRPC** for premium calculation with mandatory Circuit Breaker, Timeout, and Retry (ADR-010). Depends on Schema Registry for Avro serialisation. Debug port: 5007. |
 | **claims-service** | 9083 | Bounded Context for FNOL (First Notice of Loss) and claim lifecycle. Quarkus service (`yuno/claims-service`). **Consumes** `policy.v1.issued` to maintain a local policy snapshot (read model). Publishes `claims.v1.*` events (`opened`, `settled`) via outbox + Debezium CDC. Debug port: 5008. |
 | **billing-service** | 9084 | Bounded Context for invoicing, payments, dunning, and payouts. Quarkus service (`yuno/billing-service`). **Consumes** `policy.v1.*`, `claims.v1.*`, and `person.v1.*` events for billing triggers. Publishes `billing.v1.*` events (`invoice-created`, `payment-received`, `dunning-initiated`, `payout-triggered`) via outbox + Debezium CDC. Debug port: 5009. |
+
+### External Systems (COTS Simulation)
+
+| Service | Port | Purpose |
+|---|---|---|
+| **hr-system** | 9085 | Simulates an external COTS HR system. Quarkus service (`yuno/hr-system`). Manages employees (`Employee`) and organizational units (`OrganizationUnit`) with full CRUD. Exposes an **OData v4-compatible REST API** at `/odata/Employees` and `/odata/OrganizationUnits` with `$filter=lastModified gt` for delta queries. Provides a **Qute + htmx CRUD UI** at `/mitarbeiter` and `/organisation`. Does **not** follow hexagonal architecture (flat structure, JPA entities used directly). Own PostgreSQL instance (`hr-db`, port 5438). No Keycloak authentication. |
+
+### Integration Services
+
+| Service | Port | Purpose |
+|---|---|---|
+| **hr-integration** | 9086 | Apache Camel (Quarkus) integration bridge between `hr-system` and the Kafka-based platform. Polls OData endpoints on a timer, detects changes via `lastModified` delta queries, and transforms them into domain events. Publishes to **ECST topics** (`hr.v1.employee.state`, `hr.v1.org-unit.state` — compacted) and **change topics** (`hr.v1.employee.changed`, `hr.v1.org-unit.changed`). Uses deterministic UUIDs (`UUID.nameUUIDFromBytes`) for idempotent event IDs. Dead-letter queue: `hr-integration-dlq`. Includes OData health check for readiness. |
 
 ### Lakehouse Foundation (Phase 1)
 
@@ -125,6 +138,7 @@ database "product-db\n:5433"  as PRDB
 database "policy-db\n:5434"   as POLDB
 database "claims-db\n:5437"   as CLMDB
 database "billing-db\n:5436"  as BILDB
+database "hr-db\n:5438"       as HRDB
 
 ' ── Domain Services ───────────────────────────────────────────────────
 component "partner-service\n:9080" <<domain>> as PS
@@ -132,6 +146,10 @@ component "product-service\n:9081" <<domain>> as PRS
 component "policy-service\n:9082"  <<domain>> as POLS
 component "claims-service\n:9083"  <<domain>> as CLMS
 component "billing-service\n:9084" <<domain>> as BILS
+
+' ── External Systems & Integration ───────────────────────────────────
+component "hr-system\n:9085\n(COTS Stub)" <<infra>> as HRS
+component "hr-integration\n:9086\n(Camel)" <<infra>> as HRI
 
 ' ── Lakehouse Foundation ─────────────────────────────────────────────
 component "minio\n:9000"          <<lakehouse>> as MINIO
@@ -158,6 +176,7 @@ PRS  --> PRDB  : JPA (outbox)
 POLS --> POLDB : JPA
 CLMS --> CLMDB : JPA (outbox + policy_snapshot)
 BILS --> BILDB : JPA (outbox)
+HRS  --> HRDB  : JPA (Employee + OrgUnit)
 
 ' ── Domain → Keycloak (OIDC) ─────────────────────────────────────────
 PS   --> KC : OIDC
@@ -183,6 +202,10 @@ POLS --> KAFKA : policy.v1.*
 KAFKA --> POLS : partner.v1.* / product.v1.*
 KAFKA --> CLMS : policy.v1.issued
 KAFKA --> BILS : policy.v1.* / claims.v1.* / person.v1.*
+
+' ── HR Integration: OData → Camel → Kafka ──────────────────────
+HRI --> HRS   : OData v4 polling\n(delta queries)
+HRI --> KAFKA : hr.v1.employee.* / hr.v1.org-unit.*
 
 ' ── gRPC: Policy → Product (Premium Calculation, ADR-010) ──────
 POLS ..> PRS : gRPC (Premium Calculation\n:9181, ADR-010)

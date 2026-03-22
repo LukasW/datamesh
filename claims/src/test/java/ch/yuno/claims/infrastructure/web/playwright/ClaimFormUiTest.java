@@ -42,10 +42,8 @@ class ClaimFormUiTest extends BasePlaywrightTest {
     void formPage_loadsAllRequiredFields() {
         formPage.navigate();
         formPage.assertLoaded();
-        // Partner search tabs visible
-        assertThat(page.locator("button:has-text('Name')")).isVisible();
-        assertThat(page.locator("button:has-text('AHV-Nr.')")).isVisible();
-        assertThat(page.locator("button:has-text('Versichertennr.')")).isVisible();
+        // Partner search modal trigger visible
+        assertThat(page.locator("#no-partner-selected button")).isVisible();
         // Hidden policyId field exists
         assertThat(page.locator("#policyId")).isHidden();
         assertThat(page.locator("#claimDate")).isVisible();
@@ -87,6 +85,34 @@ class ClaimFormUiTest extends BasePlaywrightTest {
         assertThat(page).hasURL(Pattern.compile(".*/claims$"));
         listPage.assertLoaded();
         assertThat(page.locator("td:has-text(\'Einbruch Gartenhaus\')")).isVisible();
+    }
+
+    @Test
+    void partnerSearch_findsAndSelectsPartner() {
+        String partnerId = "aaaaaaaa-1111-1111-1111-aaaaaaaaaaaa";
+        String policyId = KNOWN_POLICY_ID;
+        dataHelper.insertPartner(partnerId, "Müller", "Hans",
+                java.time.LocalDate.of(1985, 3, 15), "756.1234.5678.97", "VN-00000042");
+        dataHelper.insertPolicySnapshot(policyId);
+
+        formPage.navigate();
+        formPage.openPartnerModal();
+
+        // Wait for modal to be visible
+        page.waitForSelector("#partnerModal.show", new com.microsoft.playwright.Page.WaitForSelectorOptions().setTimeout(3000));
+
+        formPage.searchPartnerByName("Müller");
+
+        // Verify search results appear
+        assertThat(page.locator("#modal-partner-results table")).isVisible();
+        assertThat(page.locator("#modal-partner-results td:has-text('Müller')")).isVisible();
+
+        // Select the partner
+        formPage.selectFirstPartnerResult();
+
+        // Verify partner is shown in the form
+        assertThat(page.locator("#selected-partner")).isVisible();
+        assertThat(page.locator("#selected-partner-name")).containsText("Müller");
     }
 
     @Test

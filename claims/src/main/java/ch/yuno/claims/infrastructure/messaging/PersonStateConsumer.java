@@ -1,6 +1,7 @@
 package ch.yuno.claims.infrastructure.messaging;
 
 import ch.yuno.claims.domain.port.out.PartnerSearchViewRepository;
+import ch.yuno.claims.domain.port.out.PiiDecryptor;
 import ch.yuno.claims.infrastructure.messaging.acl.PersonStateEventTranslator;
 import ch.yuno.claims.infrastructure.messaging.acl.PersonStateEventTranslator.TranslationResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,10 +19,15 @@ import org.jboss.logging.Logger;
 public class PersonStateConsumer {
 
     private static final Logger LOG = Logger.getLogger(PersonStateConsumer.class);
-    private final PersonStateEventTranslator translator = new PersonStateEventTranslator(new ObjectMapper());
+    private final PersonStateEventTranslator translator;
 
     @Inject
     PartnerSearchViewRepository repository;
+
+    @Inject
+    PersonStateConsumer(PiiDecryptor piiDecryptor) {
+        this.translator = new PersonStateEventTranslator(new ObjectMapper(), piiDecryptor);
+    }
 
     @Transactional
     @Incoming("partner-state-in")

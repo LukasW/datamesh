@@ -1,0 +1,63 @@
+<div class="modal-header">
+  <h5 class="modal-title">Neuer Mitarbeiter</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+  <div id="emp-form-errors"></div>
+
+  <form id="emp-neu-form"
+        hx-post="/mitarbeiter"
+        hx-target="#mitarbeiter-tabelle"
+        hx-swap="innerHTML"
+        hx-disabled-elt="find button[type='submit']"
+        hx-on::after-request="if(event.detail.successful) bootstrap.Modal.getInstance(document.getElementById('mainModal')).hide()"
+        hx-on:htmx:response-error="document.getElementById('emp-form-errors').innerHTML = event.detail.xhr.responseText">
+
+    <div class="row g-2 mb-2">
+      <div class="col-md-6">
+        <label class="form-label">Nachname <span class="text-danger">*</span></label>
+        <input type="text" name="lastName" class="form-control" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Vorname <span class="text-danger">*</span></label>
+        <input type="text" name="firstName" class="form-control" required>
+      </div>
+    </div>
+
+    <div class="row g-2 mb-2">
+      <div class="col-md-6">
+        <label class="form-label">E-Mail</label>
+        <input type="email" name="email" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Funktion</label>
+        <input type="text" name="jobTitle" class="form-control">
+      </div>
+    </div>
+
+    <div class="row g-2 mb-2">
+      <div class="col-md-4">
+        <label class="form-label">Abteilung</label>
+        <input type="text" name="department" class="form-control">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Org.-Einheit</label>
+        <select name="orgUnitId" class="form-select">
+          <option value="">– keine –</option>
+          {#for ou in orgUnits}
+          <option value="{ou.orgUnitId}">{ou.name}</option>
+          {/for}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Eintrittsdatum <span class="text-danger">*</span></label>
+        <input type="date" name="entryDate" class="form-control" required>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <button type="submit" class="btn btn-primary">Erstellen</button>
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+    </div>
+  </form>
+</div>

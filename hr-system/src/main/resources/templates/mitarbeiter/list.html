@@ -1,0 +1,69 @@
+{#include layout/base.html}
+{#title}Mitarbeiterverwaltung{/title}
+{#content}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>Mitarbeiterverwaltung</h2>
+  <button class="btn btn-primary"
+          hx-get="/mitarbeiter/fragments/neu"
+          hx-target="#modal-container"
+          hx-swap="innerHTML">
+    + Neuer Mitarbeiter
+  </button>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="row g-2">
+      <div class="col-md-3">
+        <input type="text" id="s-name" name="name" class="form-control" placeholder="Nachname"
+               hx-get="/mitarbeiter/fragments/list"
+               hx-include="#s-name,#s-vorname,#s-abteilung"
+               hx-target="#mitarbeiter-tabelle" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+      </div>
+      <div class="col-md-3">
+        <input type="text" id="s-vorname" name="firstName" class="form-control" placeholder="Vorname"
+               hx-get="/mitarbeiter/fragments/list"
+               hx-include="#s-name,#s-vorname,#s-abteilung"
+               hx-target="#mitarbeiter-tabelle" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+      </div>
+      <div class="col-md-3">
+        <input type="text" id="s-abteilung" name="department" class="form-control" placeholder="Abteilung"
+               hx-get="/mitarbeiter/fragments/list"
+               hx-include="#s-name,#s-vorname,#s-abteilung"
+               hx-target="#mitarbeiter-tabelle" hx-swap="innerHTML"
+               hx-trigger="keyup changed delay:300ms">
+      </div>
+      <div class="col-md-3">
+        <button class="btn btn-outline-secondary w-100"
+                hx-get="/mitarbeiter/fragments/list"
+                hx-include="#s-name,#s-vorname,#s-abteilung"
+                hx-target="#mitarbeiter-tabelle" hx-swap="innerHTML">
+          Suchen
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<table class="table table-hover">
+  <thead class="table-light">
+    <tr>
+      <th>Nachname</th>
+      <th>Vorname</th>
+      <th>E-Mail</th>
+      <th>Funktion</th>
+      <th>Abteilung</th>
+      <th>Org.-Einheit</th>
+      <th>Status</th>
+      <th>Aktionen</th>
+    </tr>
+  </thead>
+  <tbody id="mitarbeiter-tabelle">
+    {#include mitarbeiter/fragments/mitarbeiter-rows.html /}
+  </tbody>
+</table>
+
+{/content}
+{/include}

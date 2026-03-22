@@ -37,6 +37,9 @@ public class ClaimUiController {
     @Location("schaeden/fragments/policy-picker")
     Template policyPicker;
 
+    @Location("schaeden/fragments/list-table")
+    Template listTableFragment;
+
     @Inject
     ClaimApplicationService claimService;
 
@@ -72,7 +75,20 @@ public class ClaimUiController {
             @QueryParam("status") String status,
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("size") @DefaultValue("20") int size) {
-        return list(policyId, status, page, size);
+
+        List<Claim> claims = loadClaims(policyId, status, page, size);
+        long total = claimJpaAdapter.countAll();
+        long totalPages = Math.max(1, (total + size - 1) / size);
+
+        return listTableFragment
+                .data("schaeden", claims)
+                .data("totalElements", total)
+                .data("totalPages", totalPages)
+                .data("currentPage", page)
+                .data("pageSize", size)
+                .data("hasNextPage", page + 1 < totalPages)
+                .data("searchPolicyId", policyId != null ? policyId : "")
+                .data("searchStatus", status != null ? status : "");
     }
 
     // ── Partner Search Fragments (FNOL) ───────────────────────────────────────
@@ -190,7 +206,7 @@ public class ClaimUiController {
             return Response.ok(renderEditRow(c)).type(MediaType.TEXT_HTML).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(404)
-                    .entity("<tr><td colspan='7' class='text-danger'>Schadenfall nicht gefunden</td></tr>")
+                    .entity("<tr><td colspan='6' class='text-danger'>Schadenfall nicht gefunden</td></tr>")
                     .type(MediaType.TEXT_HTML).build();
         }
     }
@@ -209,12 +225,11 @@ public class ClaimUiController {
             return Response.ok(renderRow(updated)).type(MediaType.TEXT_HTML).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(404)
-                    .entity("<tr><td colspan='7' class='text-danger'>Schadenfall nicht gefunden</td></tr>")
+                    .entity("<tr><td colspan='6' class='text-danger'>Schadenfall nicht gefunden</td></tr>")
                     .type(MediaType.TEXT_HTML).build();
         } catch (IllegalStateException | IllegalArgumentException e) {
-            return Response.status(409)
-                    .entity("<tr><td colspan='7' class='text-danger'>" + e.getMessage() + "</td></tr>")
-                    .type(MediaType.TEXT_HTML).build();
+            Claim c = claimService.findById(ClaimId.of(claimId));
+            return Response.ok(renderEditRowWithError(c, e.getMessage())).type(MediaType.TEXT_HTML).build();
         }
     }
 
@@ -227,7 +242,7 @@ public class ClaimUiController {
             return Response.ok(renderRow(c)).type(MediaType.TEXT_HTML).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(404)
-                    .entity("<tr><td colspan='7' class='text-danger'>Schadenfall nicht gefunden</td></tr>")
+                    .entity("<tr><td colspan='6' class='text-danger'>Schadenfall nicht gefunden</td></tr>")
                     .type(MediaType.TEXT_HTML).build();
         }
     }
@@ -298,7 +313,7 @@ public class ClaimUiController {
     private String renderEditRow(Claim c) {
         return """
                 <tr id="claim-%s">
-                  <td colspan="7">
+                  <td colspan="6">
                     <form hx-post="/claims/fragments/%s/save"
                           hx-target="#claim-%s" hx-swap="outerHTML"
                           class="row g-2 align-items-center p-2">
@@ -325,6 +340,46 @@ public class ClaimUiController {
                   </td>
                 </tr>""".formatted(
                 c.getClaimId().value(), c.getClaimId().value(), c.getClaimId().value(),
+                c.getClaimNumber(), c.getPolicyId(),
+                escapeHtml(c.getDescription()), c.getClaimDate(),
+                c.getClaimId().value(), c.getClaimId().value());
+    }
+
+    private String renderEditRowWithError(Claim c, String errorMessage) {
+        return """
+                <tr id="claim-%s">
+                  <td colspan="6">
+                    <div class="alert alert-danger alert-dismissible py-1 mb-2" role="alert">
+                      %s
+                      <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+                    </div>
+                    <form hx-post="/claims/fragments/%s/save"
+                          hx-target="#claim-%s" hx-swap="outerHTML"
+                          class="row g-2 align-items-center p-2">
+                      <div class="col-auto">
+                        <strong>%s</strong>
+                        <br/><small class="text-muted">%s</small>
+                      </div>
+                      <div class="col-md-4">
+                        <input type="text" class="form-control form-control-sm"
+                               name="description" value="%s" required
+                               placeholder="Schadensbeschreibung"/>
+                      </div>
+                      <div class="col-md-2">
+                        <input type="date" class="form-control form-control-sm"
+                               name="claimDate" value="%s" required/>
+                      </div>
+                      <div class="col-auto">
+                        <button type="submit" class="btn btn-sm btn-success">Speichern</button>
+                        <button type="button" class="btn btn-sm btn-secondary ms-1"
+                                hx-get="/claims/fragments/%s/row"
+                                hx-target="#claim-%s" hx-swap="outerHTML">Abbrechen</button>
+                      </div>
+                    </form>
+                  </td>
+                </tr>""".formatted(
+                c.getClaimId().value(), escapeHtml(errorMessage),
+                c.getClaimId().value(), c.getClaimId().value(),
                 c.getClaimNumber(), c.getPolicyId(),
                 escapeHtml(c.getDescription()), c.getClaimDate(),
                 c.getClaimId().value(), c.getClaimId().value());

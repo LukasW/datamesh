@@ -15,7 +15,7 @@ public class ClaimFormPage {
     }
     // ── Assertions ────────────────────────────────────────────────────────────
     public void assertLoaded() {
-        assertThat(page.locator("h5")).containsText("Schadenmeldung erfassen");
+        assertThat(page.locator(".card-header h5")).containsText("Schadenmeldung erfassen");
     }
     public void assertErrorMessageContains(String text) {
         assertThat(page.locator(".alert-danger")).containsText(text);
@@ -25,9 +25,7 @@ public class ClaimFormPage {
     }
     // ── Actions ───────────────────────────────────────────────────────────────
     public void fillPolicyId(String policyId) {
-        // Open the "Direkte Police-ID Eingabe" accordion and fill the direct input
-        page.locator("summary:has-text('Direkte Police-ID Eingabe')").click();
-        page.locator("details input[type=text]").fill(policyId);
+        page.evaluate("id => document.getElementById('policyId').value = id", policyId);
     }
     public void fillDescription(String description) {
         page.locator("#description").fill(description);
@@ -40,5 +38,19 @@ public class ClaimFormPage {
     }
     public void clickCancel() {
         page.locator("a:has-text('Abbrechen')").click();
+    }
+    public void openPartnerModal() {
+        page.locator("#no-partner-selected button").click();
+    }
+
+    public void searchPartnerByName(String name) {
+        page.locator("#modal-tab-name input[name='q']").fill(name);
+        // trigger htmx keyup event
+        page.locator("#modal-tab-name input[name='q']").press("Space");
+        page.waitForSelector("#modal-partner-results table", new Page.WaitForSelectorOptions().setTimeout(5000));
+    }
+
+    public void selectFirstPartnerResult() {
+        page.locator("#modal-partner-results table tbody tr:first-child button").click();
     }
 }

@@ -278,6 +278,42 @@ services:
           --partitions 1 \
           --replication-factor 1 \
           && echo 'billing-claims-settled-dlq topic created.'
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic hr.v1.employee.state \
+          --partitions 6 \
+          --replication-factor 1 \
+          --config cleanup.policy=compact \
+          --config min.cleanable.dirty.ratio=0.01 \
+          --config segment.ms=10000 \
+          && echo 'hr.v1.employee.state topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic hr.v1.employee.changed \
+          --partitions 6 \
+          --replication-factor 1 \
+          && echo 'hr.v1.employee.changed topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic hr.v1.org-unit.state \
+          --partitions 6 \
+          --replication-factor 1 \
+          --config cleanup.policy=compact \
+          --config min.cleanable.dirty.ratio=0.01 \
+          --config segment.ms=10000 \
+          && echo 'hr.v1.org-unit.state topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic hr.v1.org-unit.changed \
+          --partitions 6 \
+          --replication-factor 1 \
+          && echo 'hr.v1.org-unit.changed topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic hr-integration-dlq \
+          --partitions 1 \
+          --replication-factor 1 \
+          && echo 'hr-integration-dlq topic created.'
         # sales.v1.offer-created        – New offer created for a prospective policyholder
         # sales.v1.offer-accepted       – Offer accepted, triggers policy creation
         # sales.v1.offer-rejected       – Offer explicitly rejected by customer
@@ -566,6 +602,8 @@ services:
         condition: service_healthy
       policy-service:
         condition: service_started
+      vault:
+        condition: service_healthy
     ports:
       - "9083:9083"
       - "5008:5008"
@@ -578,6 +616,8 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       OIDC_CLIENT_SECRET: secret
       OPENLINEAGE_URL: http://marquez:5050
+      VAULT_URL: http://vault:8200
+      VAULT_TOKEN: dev-root-token
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5008"
     networks:
       - backend
@@ -669,6 +709,79 @@ services:
       resources:
         limits:
           cpus: '1.0'
+          memory: 512M
+
+  # ── HR System (COTS Stub) + Integration ────────────────────────────────────
+
+  hr-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: hr_db
+      POSTGRES_USER: hr_user
+      POSTGRES_PASSWORD: ${HR_DB_PASSWORD:-hr_password}
+    ports:
+      - "5438:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hr_user -d hr_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - hr-db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  hr-system:
+    image: ${IMAGE_REGISTRY:-yuno}/hr-system:${IMAGE_TAG:-latest}
+    pull_policy: never
+    depends_on:
+      hr-db:
+        condition: service_healthy
+    ports:
+      - "9085:9085"
+      - "5010:5010"
+    environment:
+      QUARKUS_PROFILE: prod
+      DATABASE_URL: jdbc:postgresql://hr-db:5432/hr_db
+      DATABASE_USER: hr_user
+      DATABASE_PASSWORD: ${HR_DB_PASSWORD:-hr_password}
+      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5010"
+    networks:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  hr-integration:
+    image: ${IMAGE_REGISTRY:-yuno}/hr-integration:${IMAGE_TAG:-latest}
+    pull_policy: never
+    depends_on:
+      kafka:
+        condition: service_healthy
+      hr-system:
+        condition: service_started
+    ports:
+      - "9086:9086"
+      - "5011:5011"
+    environment:
+      QUARKUS_PROFILE: prod
+      HR_ODATA_BASE_URL: http://hr-system:9085/odata
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5011"
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
           memory: 512M
 
   # ── Observability (Prometheus + Grafana) ─────────────────────────────────────
@@ -911,7 +1024,7 @@ services:
           echo 'Debezium not ready yet, retrying in 3s...'
           sleep 3
         done
-        for domain in partner product policy billing claims; do
+        for domain in partner product policy billing claims hr; do
           curl -f -X POST http://debezium-connect:8083/connectors \
             -H 'Content-Type: application/json' \
             -d @/config/iceberg-sink-$${domain}.json \
@@ -924,6 +1037,7 @@ services:
       - ./infra/debezium/iceberg-sink-policy.json:/config/iceberg-sink-policy.json:ro
       - ./infra/debezium/iceberg-sink-billing.json:/config/iceberg-sink-billing.json:ro
       - ./infra/debezium/iceberg-sink-claims.json:/config/iceberg-sink-claims.json:ro
+      - ./infra/debezium/iceberg-sink-hr.json:/config/iceberg-sink-hr.json:ro
     networks:
       - backend
 
@@ -1267,6 +1381,7 @@ volumes:
   policy-db-data:
   claims-db-data:
   billing-db-data:
+  hr-db-data:
   minio-data:
   superset-db-data:
   openmetadata-db-data:

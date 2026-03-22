@@ -1,0 +1,57 @@
+apiVersion: v2.2.2
+kind: DataContract
+metadata:
+  name: hr-org-unit-state
+  version: 1.0.0
+  domain: hr
+  owner: team-platform@yuno.ch
+  description: >
+    Compacted state topic for organizational units from the external HR system.
+  tags:
+    - hr
+    - ecst
+
+infrastructure:
+  platform: kafka
+  topic: hr.v1.org-unit.state
+  format: json
+  compaction: true
+  retention: infinite
+
+schema:
+  fields:
+    - name: orgUnitId
+      type: string
+      nullable: false
+      primaryKey: true
+    - name: externalId
+      type: string
+      nullable: false
+    - name: name
+      type: string
+      nullable: false
+    - name: parentOrgUnitId
+      type: string
+      nullable: true
+    - name: managerEmployeeId
+      type: string
+      nullable: true
+    - name: level
+      type: integer
+      nullable: false
+    - name: active
+      type: boolean
+      nullable: false
+    - name: deleted
+      type: boolean
+      nullable: false
+    - name: version
+      type: long
+      nullable: false
+    - name: timestamp
+      type: timestamp
+      nullable: false
+
+sla:
+  freshness: 5m
+  availability: 99.5%

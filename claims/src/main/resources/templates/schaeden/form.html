@@ -29,45 +29,27 @@
           <!-- 1. Partner suchen -->
           <fieldset class="mb-3">
             <legend class="fs-6 fw-semibold">1. Partner suchen</legend>
-            <ul class="nav nav-tabs nav-fill mb-2" role="tablist">
-              <li class="nav-item" role="presentation">
-                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-name" type="button">Name</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-ahv" type="button">AHV-Nr.</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-vn" type="button">Versichertennr.</button>
-              </li>
-            </ul>
-            <div class="tab-content">
-              <div class="tab-pane fade show active" id="tab-name" role="tabpanel">
-                <input type="text" class="form-control" placeholder="Name / Vorname eingeben…"
-                       hx-get="/claims/fragments/partner-search"
-                       hx-target="#partner-results"
-                       hx-trigger="keyup changed delay:300ms"
-                       name="q" autocomplete="off">
-              </div>
-              <div class="tab-pane fade" id="tab-ahv" role="tabpanel">
-                <input type="text" class="form-control font-monospace" placeholder="756.XXXX.XXXX.XX"
-                       hx-get="/claims/fragments/partner-search"
-                       hx-target="#partner-results"
-                       hx-trigger="keyup changed delay:500ms"
-                       name="ahv" autocomplete="off">
-              </div>
-              <div class="tab-pane fade" id="tab-vn" role="tabpanel">
-                <div class="input-group">
-                  <span class="input-group-text">VN-</span>
-                  <input type="text" class="form-control font-monospace" placeholder="00000042" maxlength="11"
-                         hx-get="/claims/fragments/partner-search"
-                         hx-target="#partner-results"
-                         hx-trigger="keyup changed delay:500ms"
-                         name="vn" autocomplete="off">
+            <div id="selected-partner" class="d-none mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong id="selected-partner-name"></strong>
+                    <span id="selected-partner-vn" class="badge bg-success font-monospace ms-2 d-none"></span>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#partnerModal">
+                    Ändern
+                  </button>
                 </div>
-                <small class="text-muted">Versichertennummer eingeben (z.B. VN-00000042)</small>
               </div>
             </div>
-            <div id="partner-results" class="mt-2"></div>
+            <div id="no-partner-selected">
+              <button type="button" class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#partnerModal">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search me-1" viewBox="0 0 16 16">
+                  <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+                Partner suchen und auswählen
+              </button>
+            </div>
           </fieldset>
 
           <!-- 2. Police auswählen -->
@@ -77,12 +59,6 @@
               <p class="text-muted small">Bitte zuerst einen Partner suchen und auswählen.</p>
             </div>
             <input type="hidden" id="policyId" name="policyId" value="{policyId ?: ''}" required>
-            <details class="mt-2">
-              <summary class="text-muted small">Direkte Police-ID Eingabe</summary>
-              <input type="text" class="form-control form-control-sm mt-1"
-                     placeholder="z.B. a1b2c3d4-e5f6-…"
-                     oninput="document.getElementById('policyId').value=this.value">
-            </details>
           </fieldset>
 
           <!-- 3. Schadendetails -->
@@ -119,6 +95,84 @@
 
   </div>
 </div>
+
+<!-- Partner-Suche Modal -->
+<div class="modal fade" id="partnerModal" tabindex="-1" aria-labelledby="partnerModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="partnerModalLabel">Partner suchen</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schliessen"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="nav nav-tabs nav-fill mb-3" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#modal-tab-name" type="button">Name</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#modal-tab-ahv" type="button">AHV-Nr.</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#modal-tab-vn" type="button">Versichertennr.</button>
+          </li>
+        </ul>
+        <div class="tab-content mb-3">
+          <div class="tab-pane fade show active" id="modal-tab-name" role="tabpanel">
+            <input type="text" class="form-control" placeholder="Name / Vorname eingeben…"
+                   hx-get="/claims/fragments/partner-search"
+                   hx-target="#modal-partner-results"
+                   hx-trigger="keyup changed delay:300ms"
+                   name="q" autocomplete="off">
+          </div>
+          <div class="tab-pane fade" id="modal-tab-ahv" role="tabpanel">
+            <input type="text" class="form-control font-monospace" placeholder="756.XXXX.XXXX.XX"
+                   hx-get="/claims/fragments/partner-search"
+                   hx-target="#modal-partner-results"
+                   hx-trigger="keyup changed delay:500ms"
+                   name="ahv" autocomplete="off">
+          </div>
+          <div class="tab-pane fade" id="modal-tab-vn" role="tabpanel">
+            <div class="input-group">
+              <span class="input-group-text">VN-</span>
+              <input type="text" class="form-control font-monospace" placeholder="00000042" maxlength="11"
+                     hx-get="/claims/fragments/partner-search"
+                     hx-target="#modal-partner-results"
+                     hx-trigger="keyup changed delay:500ms"
+                     name="vn" autocomplete="off">
+            </div>
+            <small class="text-muted">Versichertennummer eingeben (z.B. VN-00000042)</small>
+          </div>
+        </div>
+        <div id="modal-partner-results"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function selectPartner(partnerId, lastName, firstName, insuredNumber) {
+    // Update selected partner display
+    document.getElementById('selected-partner-name').textContent = lastName + ' ' + firstName;
+    var vnBadge = document.getElementById('selected-partner-vn');
+    if (insuredNumber) {
+      vnBadge.textContent = insuredNumber;
+      vnBadge.classList.remove('d-none');
+    } else {
+      vnBadge.classList.add('d-none');
+    }
+    document.getElementById('selected-partner').classList.remove('d-none');
+    document.getElementById('no-partner-selected').classList.add('d-none');
+
+    // Reset policy selection
+    document.getElementById('policyId').value = '';
+
+    // Load policies via htmx
+    htmx.ajax('GET', '/claims/fragments/partner/' + partnerId + '/policies', \{target: '#policy-picker'\});
+
+    // Close modal
+    var modal = bootstrap.Modal.getInstance(document.getElementById('partnerModal'));
+    if (modal) modal.hide();
+  }
+</script>
 {/content}
 {/include}
-

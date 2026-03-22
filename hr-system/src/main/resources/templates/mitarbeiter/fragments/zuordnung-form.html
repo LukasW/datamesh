@@ -1,0 +1,33 @@
+{#if success}
+<div class="alert alert-success alert-dismissible">
+  Gespeichert.
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{/if}
+
+<form hx-put="/mitarbeiter/{emp.employeeId}/zuordnung"
+      hx-target="#zuordnung-form"
+      hx-swap="innerHTML">
+
+  <div class="mb-2">
+    <label class="form-label">Funktion</label>
+    <input type="text" name="jobTitle" class="form-control" value="{emp.jobTitle}">
+  </div>
+
+  <div class="mb-2">
+    <label class="form-label">Abteilung</label>
+    <input type="text" name="department" class="form-control" value="{emp.department}">
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">Org.-Einheit</label>
+    <select name="orgUnitId" class="form-select">
+      <option value="">– keine –</option>
+      {#for ou in orgUnits}
+      <option value="{ou.orgUnitId}" {#if emp.orgUnitId == ou.orgUnitId}selected{/if}>{ou.name} ({ou.orgUnitId})</option>
+      {/for}
+    </select>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Speichern</button>
+</form>

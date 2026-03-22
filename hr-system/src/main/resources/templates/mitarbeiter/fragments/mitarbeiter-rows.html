@@ -1,0 +1,31 @@
+{#if mitarbeiter}
+  {#for emp in mitarbeiter}
+  <tr id="emp-{emp.employeeId}">
+    <td>{emp.lastName}</td>
+    <td>{emp.firstName}</td>
+    <td>{#if emp.email}{emp.email}{#else}<span class="text-muted">–</span>{/if}</td>
+    <td>{#if emp.jobTitle}{emp.jobTitle}{#else}<span class="text-muted">–</span>{/if}</td>
+    <td>{#if emp.department}{emp.department}{#else}<span class="text-muted">–</span>{/if}</td>
+    <td>{#if emp.orgUnitId}<span class="badge bg-secondary">{emp.orgUnitId}</span>{#else}<span class="text-muted">–</span>{/if}</td>
+    <td>
+      {#if emp.active}
+        <span class="badge bg-success">Aktiv</span>
+      {#else}
+        <span class="badge bg-danger">Inaktiv</span>
+      {/if}
+    </td>
+    <td>
+      <a href="/mitarbeiter/{emp.employeeId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+      <button class="btn btn-sm btn-outline-danger"
+              hx-delete="/mitarbeiter/{emp.employeeId}"
+              hx-confirm="Mitarbeiter '{emp.firstName} {emp.lastName}' wirklich löschen?"
+              hx-target="#emp-{emp.employeeId}"
+              hx-swap="outerHTML swap:0.3s">
+        Löschen
+      </button>
+    </td>
+  </tr>
+  {/for}
+{#else}
+  <tr><td colspan="8" class="text-muted text-center">Keine Mitarbeiter gefunden</td></tr>
+{/if}

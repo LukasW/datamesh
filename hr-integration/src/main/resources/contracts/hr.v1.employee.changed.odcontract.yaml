@@ -1,0 +1,45 @@
+apiVersion: v2.2.2
+kind: DataContract
+metadata:
+  name: hr-employee-changed
+  version: 1.0.0
+  domain: hr
+  owner: team-platform@yuno.ch
+  description: >
+    Change event topic for employee modifications from the external HR system.
+    Each event represents a single create, update, or delete operation.
+  tags:
+    - hr
+    - change-event
+
+infrastructure:
+  platform: kafka
+  topic: hr.v1.employee.changed
+  format: json
+  compaction: false
+  retention: 90d
+
+schema:
+  fields:
+    - name: eventId
+      type: string
+      description: Deterministic UUID from employeeId + version
+      nullable: false
+      primaryKey: true
+    - name: eventType
+      type: string
+      description: "employee.created | employee.updated | employee.deleted"
+      nullable: false
+    - name: employeeId
+      type: string
+      nullable: false
+    - name: externalId
+      type: string
+      nullable: false
+    - name: timestamp
+      type: timestamp
+      nullable: false
+
+sla:
+  freshness: 5m
+  availability: 99.5%

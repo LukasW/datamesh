@@ -1,0 +1,38 @@
+{#include layout/base.html}
+{#title}Organisationseinheit bearbeiten{/title}
+{#content}
+
+<a href="/organisation" class="btn btn-outline-secondary btn-sm mb-3">&larr; Zurück zur Liste</a>
+<h2>Organisationseinheit: {ou.name}</h2>
+
+<div class="row mt-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header fw-bold">Stammdaten</div>
+      <div class="card-body">
+        <div id="org-edit-form">
+          {#include organisation/fragments/org-edit-form.html /}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header fw-bold">Info</div>
+      <div class="card-body">
+        <p>
+          {#if ou.active}
+            <span class="badge bg-success">Aktiv</span>
+          {#else}
+            <span class="badge bg-danger">Inaktiv</span>
+          {/if}
+        </p>
+        <p class="text-muted mb-0">Version: {ou.version} &middot; Letzte Änderung: {ou.lastModified}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{/content}
+{/include}

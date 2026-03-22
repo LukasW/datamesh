@@ -2,6 +2,7 @@
 {#if partners.isEmpty}
 <div class="text-muted p-2">Keine Partner gefunden.</div>
 {#else}
+<h6 class="text-muted mb-2">Suchergebnisse</h6>
 <table class="table table-hover table-sm">
   <thead>
     <tr>
@@ -28,10 +29,10 @@
       <td>{partner.formattedDateOfBirth ?: '–'}</td>
       <td class="font-monospace">{partner.maskedSocialSecurityNumber ?: '–'}</td>
       <td>
-        <button class="btn btn-sm btn-outline-primary"
-                hx-get="/claims/fragments/partner/{partner.partnerId}/policies"
-                hx-target="#policy-picker">
-          Policen anzeigen
+        <button class="btn btn-sm btn-primary"
+                type="button"
+                onclick="selectPartner('{partner.partnerId}', '{partner.lastName}', '{partner.firstName}', '{partner.insuredNumber ?: ''}')">
+          Auswählen
         </button>
       </td>
     </tr>
@@ -39,4 +40,3 @@
   </tbody>
 </table>
 {/if}
-

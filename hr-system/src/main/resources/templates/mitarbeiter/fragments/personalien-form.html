@@ -1,0 +1,45 @@
+{#if success}
+<div class="alert alert-success alert-dismissible">
+  Gespeichert.
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{/if}
+
+<form hx-put="/mitarbeiter/{emp.employeeId}/personalien"
+      hx-target="#personalien-form"
+      hx-swap="innerHTML">
+
+  <div class="row g-2 mb-2">
+    <div class="col-md-6">
+      <label class="form-label">Nachname <span class="text-danger">*</span></label>
+      <input type="text" name="lastName" class="form-control" value="{emp.lastName}" required>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Vorname <span class="text-danger">*</span></label>
+      <input type="text" name="firstName" class="form-control" value="{emp.firstName}" required>
+    </div>
+  </div>
+
+  <div class="mb-2">
+    <label class="form-label">E-Mail</label>
+    <input type="email" name="email" class="form-control" value="{emp.email}">
+  </div>
+
+  <div class="row g-2 mb-2">
+    <div class="col-md-6">
+      <label class="form-label">Eintrittsdatum</label>
+      <input type="date" name="entryDate" class="form-control" value="{emp.entryDate}" required>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Austrittsdatum</label>
+      <input type="date" name="exitDate" class="form-control" value="{emp.exitDate}">
+    </div>
+  </div>
+
+  <div class="form-check mb-3">
+    <input type="checkbox" name="active" class="form-check-input" id="chk-active" {#if emp.active}checked{/if}>
+    <label class="form-check-label" for="chk-active">Aktiv</label>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Speichern</button>
+</form>

@@ -1,7 +1,9 @@
 package ch.yuno.claims.infrastructure.web.playwright;
 import ch.yuno.claims.domain.model.Claim;
+import ch.yuno.claims.domain.model.PartnerSearchView;
 import ch.yuno.claims.domain.model.PolicySnapshot;
 import ch.yuno.claims.infrastructure.persistence.ClaimJpaAdapter;
+import ch.yuno.claims.infrastructure.persistence.PartnerSearchViewJpaAdapter;
 import ch.yuno.claims.infrastructure.persistence.PolicySnapshotJpaAdapter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -22,6 +24,8 @@ public class TestDataHelper {
     ClaimJpaAdapter claimJpaAdapter;
     @Inject
     PolicySnapshotJpaAdapter policySnapshotJpaAdapter;
+    @Inject
+    PartnerSearchViewJpaAdapter partnerSearchViewJpaAdapter;
     /** Remove all claims, snapshots and outbox events between tests. */
     @Transactional
     public void clearAll() {
@@ -29,6 +33,7 @@ public class TestDataHelper {
         em.createNativeQuery("DELETE FROM claim_aud").executeUpdate();
         em.createNativeQuery("DELETE FROM claim").executeUpdate();
         em.createNativeQuery("DELETE FROM policy_snapshot").executeUpdate();
+        em.createNativeQuery("DELETE FROM partner_search_view").executeUpdate();
     }
     /**
      * Insert a minimal PolicySnapshot so that FNOL creation can succeed.
@@ -49,6 +54,15 @@ public class TestDataHelper {
         policySnapshotJpaAdapter.upsert(snapshot);
         return policyId;
     }
+    @Transactional
+    public String insertPartner(String partnerId, String lastName, String firstName,
+                                LocalDate dateOfBirth, String ssn, String insuredNumber) {
+        PartnerSearchView view = new PartnerSearchView(
+                partnerId, lastName, firstName, dateOfBirth, ssn, insuredNumber);
+        partnerSearchViewJpaAdapter.upsert(view);
+        return partnerId;
+    }
+
     /**
      * Insert an OPEN claim directly (bypasses the application service so that
      * no outbox event is required).

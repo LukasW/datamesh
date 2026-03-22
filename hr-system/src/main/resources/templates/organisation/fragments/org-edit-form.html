@@ -1,0 +1,54 @@
+{#if success}
+<div class="alert alert-success alert-dismissible">
+  Gespeichert.
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{/if}
+
+<form hx-put="/organisation/{ou.orgUnitId}"
+      hx-target="#org-edit-form"
+      hx-swap="innerHTML">
+
+  <div class="mb-2">
+    <label class="form-label">ID</label>
+    <input type="text" class="form-control" value="{ou.orgUnitId}" disabled>
+  </div>
+
+  <div class="mb-2">
+    <label class="form-label">Name <span class="text-danger">*</span></label>
+    <input type="text" name="name" class="form-control" value="{ou.name}" required>
+  </div>
+
+  <div class="mb-2">
+    <label class="form-label">Übergeordnete Einheit</label>
+    <select name="parentOrgUnitId" class="form-select">
+      <option value="">– keine –</option>
+      {#for parent in allOrgUnits}
+      <option value="{parent.orgUnitId}" {#if ou.parentOrgUnitId == parent.orgUnitId}selected{/if}>{parent.name} ({parent.orgUnitId})</option>
+      {/for}
+    </select>
+  </div>
+
+  <div class="row g-2 mb-2">
+    <div class="col-md-6">
+      <label class="form-label">Stufe</label>
+      <input type="number" name="level" class="form-control" value="{ou.level}" min="1">
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Leiter/in</label>
+      <select name="managerEmployeeId" class="form-select">
+        <option value="">– kein/e –</option>
+        {#for emp in employees}
+        <option value="{emp.employeeId}" {#if ou.managerEmployeeId == emp.employeeId}selected{/if}>{emp.lastName} {emp.firstName}</option>
+        {/for}
+      </select>
+    </div>
+  </div>
+
+  <div class="form-check mb-3">
+    <input type="checkbox" name="active" class="form-check-input" id="chk-active" {#if ou.active}checked{/if}>
+    <label class="form-check-label" for="chk-active">Aktiv</label>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Speichern</button>
+</form>

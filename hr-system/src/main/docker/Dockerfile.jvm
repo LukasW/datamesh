@@ -1,0 +1,19 @@
+# Quarkus JVM image build used by quarkus-container-image-podman.
+FROM eclipse-temurin:25-jre
+
+ENV LANGUAGE='en_US:en'
+
+WORKDIR /work/
+RUN chown 185:0 /work \
+    && chmod g+rwX /work \
+    && chown 185:0 /work
+
+COPY --chown=185:0 target/quarkus-app/lib/ /work/lib/
+COPY --chown=185:0 target/quarkus-app/*.jar /work/
+COPY --chown=185:0 target/quarkus-app/app/ /work/app/
+COPY --chown=185:0 target/quarkus-app/quarkus/ /work/quarkus/
+
+EXPOSE 8080
+USER 185
+
+ENTRYPOINT ["java", "-jar", "/work/quarkus-run.jar"]

@@ -1,6 +1,6 @@
 # Yuno Sachversicherung – Data Mesh Platform
 
-A property insurance platform built on **Domain-Driven Design**, **Hexagonal Architecture**, and **Data Mesh** principles. Three autonomous Quarkus services publish domain events to Kafka; an analytics platform layer consumes those events for cross-domain reporting and governance.
+A property insurance platform built on **Domain-Driven Design**, **Hexagonal Architecture**, and **Data Mesh** principles. Five autonomous Quarkus domain services plus an external HR system stub publish domain events to Kafka; an analytics platform layer consumes those events for cross-domain reporting and governance.
 
 ---
 
@@ -10,24 +10,31 @@ A property insurance platform built on **Domain-Driven Design**, **Hexagonal Arc
 ┌─────────────────────────────────────────────────────────────────┐
 │ Domain Services (SCS)                                           │
 │  partner :9080  ──┐                                             │
-│  product :9081  ──┼──► Kafka :9092 ──► platform-consumer       │
-│  policy  :9082  ──┘    (Outbox/CDC)    └──► platform-db :5435  │
+│  product :9081  ──┤                                             │
+│  policy  :9082  ──┼──► Kafka :9092 ──► Iceberg Sink            │
+│  claims  :9083  ──┤    (Outbox/CDC)    └──► MinIO (Parquet)    │
+│  billing :9084  ──┘                                             │
+├─────────────────────────────────────────────────────────────────┤
+│ External Systems                                                │
+│  hr-system :9085 ──► hr-integration :9086 (Camel) ──► Kafka    │
+│                      (OData polling → ECST + Change Topics)     │
 └─────────────────────────────────────────────────────────────────┘
-        │ Debezium CDC (WAL → Kafka topics)
+        │ Kafka → Iceberg Sink → Parquet on MinIO
         ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ Analytics & Governance Platform                                 │
-│  dbt (staging → marts)    Spark Structured Streaming            │
-│  portal :8090             governance (lint / compat / freshness)│
-│  Airflow :8091 (scheduling)                                     │
+│ Lakehouse & Analytics                                           │
+│  Trino :8086 (Federated SQL on Iceberg)                        │
+│  SQLMesh (staging → marts, incremental)                        │
+│  Superset :8088 (BI dashboards, Keycloak SSO)                  │
+│  Soda Core (data quality checks via SodaCL)                    │
 └─────────────────────────────────────────────────────────────────┘
-        │ ODC metadata + Kafka schema ingestion
+        │ OpenLineage + Metadata Ingestion
         ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ Metadata Platform                                               │
-│  DataHub GMS :8080        DataHub Frontend :9002                │
-│  Elasticsearch :9200      MySQL (DataHub store)                 │
-│  datahub-ingest (auto, on startup)                              │
+│ Governance & Metadata                                           │
+│  OpenMetadata :8585 (catalog, PII tags, lineage)               │
+│  Marquez :5050 (OpenLineage lineage server)                    │
+│  Vault :8200 (crypto-shredding, ADR-009)                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -45,7 +52,15 @@ Full architecture documentation: [specs/arc42.md](specs/arc42.md)
 | Product (Insurance Products) | http://localhost:9081 | http://localhost:9081/swagger-ui | 5006 |
 | Product gRPC (Premium Calculation) | grpc://localhost:9181 | — | — |
 | Policy (Contract Lifecycle) | http://localhost:9082 | http://localhost:9082/swagger-ui | 5007 |
-| Billing & Collection | <http://localhost:9084> | <http://localhost:9084/swagger-ui> | 5009 |
+| Claims (FNOL & Claim Lifecycle) | http://localhost:9083 | http://localhost:9083/swagger-ui | 5008 |
+| Billing & Collection | http://localhost:9084 | http://localhost:9084/swagger-ui | 5009 |
+
+### External Systems & Integration
+
+| Service | UI | API | Notes |
+| --- | --- | --- | --- |
+| HR-System (COTS Stub) | http://localhost:9085/mitarbeiter | http://localhost:9085/odata/Employees | Simulated external HR system |
+| HR-Integration (Camel) | — | http://localhost:9086/q/health | OData → Kafka bridge |
 
 ### Infrastructure
 
@@ -55,18 +70,21 @@ Full architecture documentation: [specs/arc42.md](specs/arc42.md)
 | Schema Registry | http://localhost:8081/subjects | Avro schema catalogue |
 | Debezium Connect | http://localhost:8083/connectors | CDC connector status |
 
-### Analytics & Governance
+### Lakehouse & Analytics
 
 | Component | URL | Purpose |
 | --- | --- | --- |
-| Data Product Portal | http://localhost:8090 | Product catalogue, lineage, governance dashboard |
-| Data Product Portal – Demo | http://localhost:8090/demo | Live cross-domain analytics (mart_portfolio_summary) |
-| Data Product Portal – Lineage | http://localhost:8090/lineage | Cross-domain lineage graph (D3.js) |
-| Data Product Portal – Governance | http://localhost:8090/governance | Schema compat, ODC quality scores |
-| Airflow | http://localhost:8091 | DAG scheduling, dbt orchestration, pipeline monitoring |
-| DataHub Frontend | [http://localhost:9002](http://localhost:9002) | Enterprise metadata catalogue (Topics, ODC, dbt lineage) |
-| DataHub GMS API | [http://localhost:8080](http://localhost:8080) | DataHub metadata REST API |
-| Elasticsearch | [http://localhost:9200](http://localhost:9200) | DataHub search & graph index |
+| MinIO Console | http://localhost:9001 | S3-compatible object store (Iceberg Parquet files) |
+| Trino | http://localhost:8086 | Federated SQL on Iceberg tables |
+| Superset | http://localhost:8088 | Self-Service BI dashboards (Keycloak SSO) |
+
+### Governance & Metadata
+
+| Component | URL | Purpose |
+| --- | --- | --- |
+| OpenMetadata | http://localhost:8585 | Data catalog, PII tagging, lineage |
+| Marquez | http://localhost:5050 | OpenLineage lineage server |
+| Marquez Web | http://localhost:3001 | Lineage visualization UI |
 
 ### Databases (direct access via psql / DBeaver)
 
@@ -75,9 +93,9 @@ Full architecture documentation: [specs/arc42.md](specs/arc42.md)
 | partner_db | localhost | 5432 | partner_user | partner_db |
 | product_db | localhost | 5433 | product_user | product_db |
 | policy_db | localhost | 5434 | policy_user | policy_db |
-| platform_db (analytics) | localhost | 5435 | platform_user | platform_db |
 | billing_db | localhost | 5436 | billing_user | billing_db |
-| airflow_db (Airflow metadata) | localhost | (internal only) | airflow | airflow |
+| claims_db | localhost | 5437 | claims_user | claims_db |
+| hr_db | localhost | 5438 | hr_user | hr_db |
 
 ---
 
@@ -180,36 +198,25 @@ Full testing guide (German): [docs/testing-guide-de.md](docs/testing-guide-de.md
 | `claims.v1.opened` | claims | ClaimsOpened | FNOL – First Notice of Loss *(planned)* |
 | `claims.v1.settled` | claims | ClaimsSettled | Claim settled or rejected *(planned)* |
 
+| `hr.v1.employee.state` | hr | EmployeeState | **Compacted** – ECST full state per employee |
+| `hr.v1.employee.changed` | hr | EmployeeChanged | Delta event (created/updated) |
+| `hr.v1.org-unit.state` | hr | OrgUnitState | **Compacted** – ECST full state per org unit |
+| `hr.v1.org-unit.changed` | hr | OrgUnitChanged | Delta event (created/updated) |
+| `hr-integration-dlq` | hr | — | Dead-letter queue for hr-integration |
+
 All topics are described by an Open Data Contract (ODC) YAML under `{domain}/src/main/resources/contracts/`.
 
 ---
 
-## DataHub
+## Metadata & Governance
 
-DataHub is fully integrated into the main stack and starts automatically with `podman compose up`. No separate setup required.
+**OpenMetadata** provides data discovery, PII tagging, and quality dashboards at http://localhost:8585. Two ingestion pipelines run every 6 hours:
+- **kafka-metadata-ingestion** — discovers all `*.v1.*` topics
+- **trino-metadata-ingestion** — discovers Iceberg tables in all raw + analytics schemas
 
-**What happens on startup:**
+**Marquez** (http://localhost:5050) tracks end-to-end data lineage via OpenLineage events from Debezium Connect and SQLMesh.
 
-1. `datahub-mysql` + `datahub-elasticsearch` start as DataHub's storage backend
-2. `datahub-kafka-setup` creates DataHub's internal Kafka topics on the existing broker
-3. `datahub-upgrade` runs DB migrations
-4. `datahub-gms` (GMS core service) becomes healthy
-5. `datahub-ingest` runs automatically and ingests Kafka schemas + ODC metadata
-6. `datahub-frontend` serves the UI at [http://localhost:9002](http://localhost:9002)
-
-**Login:** `datahub` / `datahub` (DataHub default credentials)
-
-**DataHub reuses the existing Kafka and Schema Registry — no extra ZooKeeper or Kafka instance needed.**
-
-**Manual re-ingestion** (e.g. after adding new ODC contracts):
-
-```bash
-# Trigger ingestion container manually
-podman compose run --rm datahub-ingest
-
-# Or run the local ingestion script (requires pip install -r infra/datahub/requirements.txt)
-./infra/datahub/ingest.sh
-```
+**Soda Core** runs SodaCL quality checks against Iceberg tables via Trino (null rates, duplicates, freshness).
 
 ---
 
@@ -220,22 +227,24 @@ datamesh/
 ├── partner/          Partner/Customer Management (SCS, :9080)
 ├── product/          Product Management (SCS, :9081)
 ├── policy/           Policy Management (SCS, :9082)
-├── claims/           Claims Management (SCS, :9083 – stub, domain model + REST skeleton only)
+├── claims/           Claims Management (SCS, :9083)
 ├── billing/          Billing & Collection (SCS, :9084 – invoicing, dunning, payouts)
-├── billing/          Billing & Collection (spec only, not yet implemented)
+├── hr-system/        External HR System Stub (COTS, :9085 – OData + CRUD UI)
+├── hr-integration/   HR Integration Bridge (Camel, :9086 – OData → Kafka)
 ├── sales/            Sales & Distribution (spec only, not yet implemented)
 ├── specs/            Architecture documentation (arc42.md)
 ├── infra/
-│   ├── debezium/     CDC connector configs (partner + product outbox)
-│   ├── platform/     Kafka → platform_db consumer (Python)
-│   ├── dbt/          Staging + mart models (cross-domain analytics)
-│   ├── spark/        Spark Structured Streaming (Delta Lake)
-│   ├── governance/   ODC linting, schema compat, freshness checks
-│   ├── portal/       Data Product Portal (FastAPI, :8090)
-│   └── datahub/      DataHub ingestion recipes + ODC metadata script
+│   ├── debezium/     CDC connector configs + Iceberg Sink Connectors
+│   ├── sqlmesh/      SQLMesh incremental models (staging → marts on Iceberg/Trino)
+│   ├── soda/         Soda Core quality checks (SodaCL on Trino)
+│   ├── trino/        Trino catalog configuration (Iceberg on Nessie/MinIO)
+│   ├── superset/     Apache Superset configuration (Keycloak SSO)
+│   ├── keycloak/     Keycloak realm import (yuno-realm.json)
+│   ├── prometheus/   Prometheus scrape configs
+│   └── grafana/      Grafana dashboards + datasource provisioning
 ├── docker-compose.yaml
 ├── build.sh
-├── pom.xml           Maven parent (Quarkus 3.32.3, Java 21)
+├── pom.xml           Maven parent (Quarkus 3.32.3, Java 25)
 └── .env.example      Environment variable template
 ```
 
@@ -303,18 +312,23 @@ Each domain service (partner, product, policy) requires its own `DATABASE_URL`, 
 
 | Layer | Technology |
 | --- | --- |
-| Runtime | Java 21 (Virtual Threads) |
+| Runtime | Java 25 (Virtual Threads) |
 | Framework | Quarkus 3.32.3 |
 | Async Messaging | Apache Kafka (KRaft, Confluent 7.5.0) |
 | Sync Communication | gRPC (Quarkus gRPC, Protobuf) – ADR-010 |
+| Integration | Apache Camel (Quarkus) – HR OData bridge |
 | Fault Tolerance | MicroProfile Fault Tolerance (SmallRye) |
 | Schema Registry | Confluent Schema Registry (Avro) |
 | CDC | Debezium PostgreSQL connector |
 | Persistence | PostgreSQL 16 (one DB per domain) |
+| Analytical Storage | Apache Iceberg on MinIO/S3 (Parquet, Nessie catalog) |
+| Query Engine | Trino (Federated SQL on Iceberg) |
+| Transformations | SQLMesh (incremental models on Iceberg via Trino) |
+| Data Quality | Soda Core (SodaCL on Trino) |
+| BI / Dashboards | Apache Superset (Keycloak SSO, Row-Level Security) |
+| Metadata Catalogue | OpenMetadata |
+| Data Lineage | OpenLineage / Marquez |
+| Crypto-Shredding | HashiCorp Vault (Transit engine, ADR-009) |
 | UI | Quarkus Qute + Bootstrap + htmx |
 | Build | Maven (multi-module) |
 | Container | Podman + podman-compose |
-| Analytics | dbt + Spark Structured Streaming |
-| Governance | Custom Python scripts (lint, compat, freshness) |
-| Data Portal | FastAPI + Jinja2 |
-| Metadata Catalogue | DataHub (optional) |

@@ -11,6 +11,20 @@ log()  { echo "  $*" >&2 }
 ok()   { echo "  ✓ $*" >&2 }
 fail() { echo "  ✗ $*" >&2; exit 1 }
 
+# ── wait for OpenMetadata server ──────────────────────────────────────────
+echo ""
+echo "▶ Waiting for OpenMetadata server to be ready…"
+for i in {1..60}; do
+  if curl -sf "$OM_URL/api/v1/system/version" > /dev/null 2>&1; then
+    ok "OpenMetadata server is up"
+    break
+  fi
+  if [[ $i -eq 60 ]]; then
+    fail "OpenMetadata server not reachable after 120s at $OM_URL"
+  fi
+  sleep 2
+done
+
 # ── authenticate ──────────────────────────────────────────────────────────
 echo ""
 echo "▶ Authenticating with OpenMetadata…"

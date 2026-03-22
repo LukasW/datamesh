@@ -1,0 +1,44 @@
+checks for hr_raw.employee_events:
+  - row_count > 0:
+      name: HR employee events exist
+  - missing_count(employee_id) = 0:
+      name: No null employee_id in raw events
+  - freshness(consumed_at) < 24h:
+      name: HR employee events are fresh (< 24h)
+
+checks for hr_raw.org_unit_events:
+  - row_count > 0:
+      name: HR org unit events exist
+  - missing_count(org_unit_id) = 0:
+      name: No null org_unit_id in raw events
+  - freshness(consumed_at) < 24h:
+      name: HR org unit events are fresh (< 24h)
+
+checks for analytics.dim_employee:
+  - row_count > 0:
+      name: dim_employee is not empty
+  - duplicate_count(employee_id) = 0:
+      name: No duplicate employee_id in dim_employee
+  - missing_count(last_name) = 0:
+      name: Every employee has a last_name
+  - missing_count(entry_date) = 0:
+      name: Every employee has an entry_date
+  - invalid_count(employment_status) = 0:
+      name: employment_status has valid values
+      valid: [ACTIVE, INACTIVE, EXITED, DELETED]
+  - invalid_count(email) = 0:
+      name: Employee emails match expected format
+      valid regex: "^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$"
+      filter: email IS NOT NULL
+
+checks for analytics.dim_org_unit:
+  - row_count > 0:
+      name: dim_org_unit is not empty
+  - duplicate_count(org_unit_id) = 0:
+      name: No duplicate org_unit_id in dim_org_unit
+  - missing_count(name) = 0:
+      name: Every org unit has a name
+
+checks for analytics.mart_org_hierarchy:
+  - row_count > 0:
+      name: mart_org_hierarchy is not empty

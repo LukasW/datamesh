@@ -40,7 +40,7 @@ Aufbau einer modernen Versicherungsplattform für eine Sachversicherung auf Basi
 
 | Constraint | Beschreibung |
 |------------|--------------|
-| Java 21+ | Alle Services in Java 21 mit Virtual Threads |
+| Java 25 | Alle Services in Java 25 mit Virtual Threads |
 | Quarkus | Micro-Framework für schnellen Start und geringen Footprint |
 | Apache Kafka | Einziger Kanal für asynchrone Domänenintegration |
 | REST | Synchrone Kommunikation nur wo zwingend nötig |
@@ -67,6 +67,11 @@ Aufbau einer modernen Versicherungsplattform für eine Sachversicherung auf Basi
 > - Product Management Service → [`product/specs/business_spec.md`](../product/specs/business_spec.md)
 > - Policy Management Service → [`policy/specs/business_spec.md`](../policy/specs/business_spec.md)
 > - Billing & Collection Service → [`billing/specs/business_spec.md`](../billing/specs/business_spec.md)
+>
+> **Externe Systeme (COTS-Simulation):**
+>
+> - HR-System (Stub) → `hr-system/` *(OData v4 API + CRUD UI, Port 9085)*
+> - HR-Integration (Camel) → `hr-integration/` *(OData → Kafka Bridge, Port 9086)*
 >
 > **Geplante Services (Documented Stubs):**
 >
@@ -97,6 +102,11 @@ package "Supporting Domains" {
 package "Generic Domains" {
   component [Document Management\n(DMS)] as DMS
   component [Identity & Access\nManagement (IAM)] as IAM
+}
+
+package "External Systems (COTS)" {
+  component [HR-System\n(Mitarbeiter & Org)] as HRS
+  component [HR-Integration\n(Apache Camel)] as HRI
 }
 
 database "Apache Kafka\n(Event Backbone)" as KAFKA
@@ -131,6 +141,10 @@ IAM <.. POL
 IAM <.. CLM
 IAM <.. SAL
 
+' External HR System
+HRS -down-> HRI : OData v4\n(Polling)
+HRI -down-> KAFKA : publiziert\nEmployeeState\nOrgUnitState
+
 @enduml
 ```
 
@@ -163,6 +177,8 @@ rectangle "Sachversicherungs-Plattform" {
   component "Sales Service" as SALSVC
   component "DMS Service" as DMSSVC
   component "IAM Service\n(Keycloak)" as IAMSVC
+  component "HR-System\n(COTS Stub)" as HRSVC
+  component "HR-Integration\n(Camel)" as HRINTSVC
 
   database "Kafka Cluster\n(Event Backbone)" as KAFKA
   database "Policy DB\n(PostgreSQL)" as POLDB
@@ -171,6 +187,7 @@ rectangle "Sachversicherungs-Plattform" {
   database "Product DB\n(PostgreSQL)" as PRODDB
   database "Partner DB\n(PostgreSQL)" as PARTDB
   database "Sales DB\n(PostgreSQL)" as SALESDB
+  database "HR DB\n(PostgreSQL)" as HRDB
 }
 
 VN --> BROWSER
@@ -192,6 +209,7 @@ BILSVC --> BILDB
 PRODSVC --> PRODDB
 PARTSVC --> PARTDB
 SALSVC --> SALESDB
+HRSVC --> HRDB
 
 POLSVC <--> KAFKA
 CLMSVC <--> KAFKA
@@ -203,6 +221,8 @@ SALSVC <--> KAFKA
 POLSVC ..> IAMSVC : REST (Auth)
 CLMSVC ..> IAMSVC : REST (Auth)
 POLSVC ..> PRODSVC : gRPC (Prämienberechnung, ADR-010)
+HRINTSVC --> HRSVC : OData v4 (Polling)
+HRINTSVC --> KAFKA : hr.v1.*
 
 @enduml
 ```
@@ -293,6 +313,8 @@ rectangle "4. Federated Governance" as D4 {
 > | Claims Management | [`claims/specs/business_spec.md`](../claims/specs/business_spec.md) | 9083 | Implementiert – PostgreSQL, Outbox/Debezium, OIDC, Qute UI |
 > | Billing & Collection | [`billing/specs/business_spec.md`](../billing/specs/business_spec.md) | 9084 | Implementiert |
 > | Sales & Distribution | [`sales/specs/business_spec.md`](../sales/specs/business_spec.md) | TBD | Geplant, noch nicht implementiert |
+> | HR-System (Extern) | — | 9085 | Implementiert – COTS-Stub mit OData v4 API + CRUD UI |
+> | HR-Integration (Camel) | — | 9086 | Implementiert – OData → Kafka Bridge (ECST + Change Topics) |
 
 ### 5.1 Ebene 1 – Systemübersicht
 
@@ -323,6 +345,11 @@ package "Sachversicherungs-Plattform" {
     [IAM (Keycloak)] as IAM
   }
 
+  package "External Systems (COTS)" #LightPink {
+    [HR-System\n:9085\n(OData + CRUD UI)] as HRS
+    [HR-Integration\n:9086\n(Apache Camel)] as HRI
+  }
+
   database "Apache Kafka\n(KRaft, :9092)" as KAFKA
   database "Schema Registry\n(Avro, :8081)" as SR
   database "AKHQ Kafka UI\n(:8085)" as AKHQ
@@ -348,6 +375,8 @@ POL --> KAFKA
 PCM --> KAFKA
 CLM --> KAFKA
 BIL --> KAFKA
+HRI --> KAFKA : hr.v1.*
+HRI --> HRS : OData Polling
 
 KAFKA --> SR : Schema\nvalidation
 KAFKA --> MINIO : Iceberg Sink\nConnector
@@ -725,6 +754,14 @@ node "Kubernetes Cluster" {
     SAL_SVC --> SAL_DB
   }
 
+  node "Namespace: hr (External)" {
+    artifact "hr-system\n(COTS Stub :9085)" as HR_SVC
+    artifact "hr-integration\n(Camel :9086)" as HR_INT
+    database "hr-db\n(PostgreSQL)" as HR_DB
+    HR_SVC --> HR_DB
+    HR_INT --> HR_SVC : OData
+  }
+
   node "Namespace: platform" {
     artifact "Kafka Cluster\n(3 Broker)" as KAFKA
     artifact "Schema Registry" as SR
@@ -760,6 +797,7 @@ BIL_SVC <--> KAFKA
 PROD_SVC <--> KAFKA
 PCM_SVC <--> KAFKA
 SAL_SVC <--> KAFKA
+HR_INT --> KAFKA : hr.v1.*
 
 KAFKA --> MINIO : Iceberg Sink
 SODA --> TRINO : Quality Checks
@@ -806,6 +844,14 @@ node "Localhost" {
     POLICY --> POLICYDB
   }
 
+  node "External Systems" {
+    artifact "hr-system\n(COTS :9085)" as HRSYS
+    artifact "hr-integration\n(Camel :9086)" as HRINT
+    database "hr_db\n(PostgreSQL :5438)" as HRDB
+    HRSYS --> HRDB
+    HRINT --> HRSYS : OData v4 polling
+  }
+
   node "CDC" {
     artifact "debezium-connect\n(:8083)" as DEBEZIUM
     DEBEZIUM --> PARTNERDB : WAL (logical)
@@ -849,6 +895,7 @@ node "Localhost" {
 PARTNER --> DEBEZIUM : outbox table
 PRODUCT --> DEBEZIUM : outbox table
 POLICY --> KAFKA : Outbox\n(in-proc)
+HRINT --> KAFKA : hr.v1.* (ECST + Change)
 
 KAFKA --> MINIO : Iceberg Sink\nConnector (Parquet)
 SQLMESH --> TRINO : Transform Models
@@ -863,7 +910,7 @@ MRQ ..> SQLMESH : OpenLineage Events
 **Startup-Reihenfolge (docker-compose depends_on):**
 
 1. `kafka` → `schema-registry`, `akhq`, `kafka-init`
-2. `partner-db`, `product-db`, `policy-db`, `claims-db`, `billing-db` → je Domain-Service
+2. `partner-db`, `product-db`, `policy-db`, `claims-db`, `billing-db`, `hr-db` → je Domain-/COTS-Service
 3. `debezium-connect` (depends: kafka, alle domain-dbs) → `debezium-init`
 4. `minio` → `minio-init` (creates warehouse bucket)
 5. `nessie`, `minio` → `trino`
@@ -873,6 +920,7 @@ MRQ ..> SQLMESH : OpenLineage Events
 9. `openmetadata-db`, `openmetadata-elasticsearch` → `openmetadata-server` → `openmetadata-ingestion`
 10. `marquez-db` → `marquez` → `marquez-web`
 11. `vault` (standalone, dev mode)
+12. `hr-db` → `hr-system` → `hr-integration` (depends: kafka, hr-system)
 
 ---
 
@@ -983,6 +1031,13 @@ Billing & Collection (implementiert):
   billing.v1.payment-received
   billing.v1.dunning-initiated
   billing.v1.payout-triggered
+
+HR-System (via Camel Integration):
+  hr.v1.employee.state      (compacted – ECST)
+  hr.v1.employee.changed    (delta event)
+  hr.v1.org-unit.state      (compacted – ECST)
+  hr.v1.org-unit.changed    (delta event)
+  hr-integration-dlq        (dead-letter queue)
 
 Reserviert (geplant, noch nicht implementiert):
   sales.v1.offer-created

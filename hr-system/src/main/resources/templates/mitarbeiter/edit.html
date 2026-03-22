@@ -1,0 +1,50 @@
+{#include layout/base.html}
+{#title}Mitarbeiter bearbeiten{/title}
+{#content}
+
+<a href="/mitarbeiter" class="btn btn-outline-secondary btn-sm mb-3">&larr; Zurück zur Liste</a>
+<h2>Mitarbeiter: {emp.firstName} {emp.lastName}</h2>
+
+<div class="row mt-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header fw-bold">Personalien</div>
+      <div class="card-body">
+        <div id="personalien-form">
+          {#include mitarbeiter/fragments/personalien-form.html /}
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header fw-bold">Status</div>
+      <div class="card-body">
+        <p>
+          {#if emp.active}
+            <span class="badge bg-success">Aktiv</span>
+          {#else}
+            <span class="badge bg-danger">Inaktiv</span>
+          {/if}
+          {#if emp.exitDate}
+            &middot; Austritt: {emp.exitDate}
+          {/if}
+        </p>
+        <p class="text-muted mb-0">Version: {emp.version} &middot; Letzte Änderung: {emp.lastModified}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header fw-bold">Zuordnung</div>
+      <div class="card-body">
+        <div id="zuordnung-form">
+          {#include mitarbeiter/fragments/zuordnung-form.html /}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{/content}
+{/include}
