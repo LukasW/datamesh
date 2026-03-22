@@ -18,7 +18,7 @@ quarkus:
     info-title: Person Service API
     info-version: 1.0.0
     info-description: REST API für Personenverwaltung (Hexagonal Architecture)
-    info-contact-name: CSS Team
+    info-contact-name: Yuno Team
     path: /openapi
 
   swagger-ui:
@@ -49,7 +49,7 @@ quarkus:
     enabled: true
 
   oidc:
-    auth-server-url: http://localhost:8180/realms/css
+    auth-server-url: http://localhost:8180/realms/yuno
     client-id: partner-service
     credentials:
       secret: secret
@@ -59,6 +59,11 @@ quarkus:
 
   log:
     level: INFO
+
+# Vault Transit Engine for PII encryption (ADR-009 Crypto-Shredding)
+vault:
+  url: http://localhost:8200
+  token: dev-root-token
 
 # Prod: explicit DB connection (env-var driven)
 # Kafka publishing is handled by Debezium CDC reading the outbox table – no Kafka client needed here.
@@ -71,7 +76,10 @@ quarkus:
       jdbc:
         url: ${DATABASE_URL}
     oidc:
-      auth-server-url: ${KEYCLOAK_URL}/realms/css
+      auth-server-url: ${KEYCLOAK_URL}/realms/yuno
       client-id: partner-service
       credentials:
         secret: ${OIDC_CLIENT_SECRET}
+  vault:
+    url: ${VAULT_URL:http://vault:8200}
+    token: ${VAULT_TOKEN:dev-root-token}

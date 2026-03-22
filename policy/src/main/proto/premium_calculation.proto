@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package ch.yuno.product.grpc;
+
+option java_package = "ch.yuno.product.grpc";
+option java_outer_classname = "PremiumCalculationProto";
+
+/**
+ * Synchronous premium calculation service (ADR-010).
+ * Called by the Policy Service during policy creation and updates
+ * to compute the risk-adjusted premium based on product configuration
+ * and individual risk factors (age, postal code, coverages).
+ */
+service PremiumCalculation {
+  // Calculate the premium for a given product configuration and risk profile
+  rpc CalculatePremium (PremiumCalculationRequest) returns (PremiumCalculationResponse);
+}
+
+message PremiumCalculationRequest {
+  string product_id = 1;                // UUID of the product
+  string product_line = 2;              // e.g. HOUSEHOLD_CONTENTS, LIABILITY
+  int32  age = 3;                       // Age of the policyholder
+  string postal_code = 4;              // Swiss postal code (PLZ)
+  string canton = 5;                    // Swiss canton code (optional)
+  repeated string coverage_types = 6;  // Selected coverage types
+}
+
+message PremiumCalculationResponse {
+  string base_premium = 1;             // Base premium from product (decimal as string)
+  string risk_surcharge = 2;           // Surcharge based on age/location
+  string coverage_surcharge = 3;       // Surcharge based on selected coverages
+  string discount = 4;                 // Any applicable discounts
+  string total_premium = 5;            // Final calculated premium
+  string currency = 6;                 // Always "CHF"
+  string calculation_id = 7;           // Unique ID for audit trail
+}
+

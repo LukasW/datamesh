@@ -3,7 +3,7 @@ info:
   title: billing.v1.payment-received
   version: "1.0.0"
   description: Emitted when a payment is recorded and allocated to an invoice.
-  owner: team-billing@css.ch
+  owner: team-billing@yuno.ch
   domain: billing
 
 servers:
@@ -39,7 +39,7 @@ quality:
           columns: [eventId]
 
 dataProduct:
-  owner: team-billing@css.ch
+  owner: team-billing@yuno.ch
   domain: billing
   tags: [financial, payment, pii]
   sla:

@@ -35,6 +35,7 @@ The Product Service is upstream of all services that deal with contracts: change
 | **Product line classification** | Classify products into lines (HAUSRAT, HAFTPFLICHT, etc.) |
 | **Base premium definition** | Define the starting premium that underwriters use as a basis |
 | **Product lifecycle** | Manage the ACTIVE → DEPRECATED state transition |
+| **Premium calculation (gRPC)** | Calculate risk-adjusted premiums based on product config, age, and location (ADR-010) |
 | **Event publication** | Publish product events to Kafka for downstream read models |
 
 ---
@@ -110,6 +111,42 @@ Base path: `/api/products`
 | `PUT` | `/api/products/{id}` | Update product details |
 | `DELETE` | `/api/products/{id}` | Delete a product |
 | `POST` | `/api/products/{id}/deprecate` | Deprecate a product |
+
+---
+
+## 5.1 gRPC API (ADR-010)
+
+The Product Service exposes a **synchronous gRPC endpoint** for premium calculation, consumed by the Policy Service during policy creation and updates.
+
+| Service | Method | Port |
+|---------|--------|------|
+| `PremiumCalculation` | `CalculatePremium` | 9181 |
+
+**Proto definition:** `src/main/proto/premium_calculation.proto`
+
+**Request fields:**
+- `product_id` – UUID of the product
+- `product_line` – Product line classification (e.g. `HOUSEHOLD_CONTENTS`)
+- `age` – Policyholder age
+- `postal_code` – Swiss postal code (PLZ)
+- `coverage_types` – Selected coverage types
+
+**Response fields:**
+- `base_premium`, `risk_surcharge`, `coverage_surcharge`, `discount`, `total_premium` (decimal as string)
+- `currency` (always `CHF`)
+- `calculation_id` (UUID for audit trail)
+
+**Calculation rules:**
+- Base premium from product definition
+- Age surcharge: +10% for age < 25, +20% for age > 70
+- Region surcharge: +5% for urban postal code areas (Zurich, Bern, Basel, Geneva, Lausanne)
+- Coverage surcharge: +3% per additional coverage type beyond the first
+- Discounts: 5% bundle discount for 3+ coverages
+
+**Error handling:**
+- `NOT_FOUND` – product does not exist
+- `FAILED_PRECONDITION` – product is deprecated
+- `INVALID_ARGUMENT` – invalid age or postal code
 
 ---
 
@@ -223,4 +260,8 @@ These are tracked in the Policy Service's technical debt section.
 | Produkt definieren | defineProduct | The act of creating a new product entry in the catalogue |
 | Produkt abkündigen | deprecateProduct | The act of marking a product as no longer available for new policies |
 | Underwriter | underwriter | The person responsible for defining products and assessing risk |
+| Prämienberechnung | premiumCalculation | The act of computing the risk-adjusted premium for a policy |
+| Risikozuschlag | riskSurcharge | Additional premium charge based on age/location risk factors |
+| Risikoprofil | riskProfile | Combination of age, postal code, and canton for risk assessment |
+| Berechnungs-ID | calculationId | Unique identifier for a premium calculation (audit trail) |
 

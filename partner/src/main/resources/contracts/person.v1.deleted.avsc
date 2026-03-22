@@ -1,5 +1,5 @@
 {
-  "namespace": "ch.css.partner.events",
+  "namespace": "ch.yuno.partner.events",
   "type": "record",
   "name": "PersonDeleted",
   "doc": "Published when a person is deleted. Derived from ODC person.v1.deleted v1.0.0",

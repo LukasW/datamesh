@@ -5,7 +5,7 @@ info:
   description: >
     Emitted when a claim settlement triggers a payout to the policyholder.
     Consumed by payment processing systems to initiate the bank transfer.
-  owner: team-billing@css.ch
+  owner: team-billing@yuno.ch
   domain: billing
 
 servers:
@@ -39,7 +39,7 @@ quality:
           columns: [eventId]
 
 dataProduct:
-  owner: team-billing@css.ch
+  owner: team-billing@yuno.ch
   domain: billing
   tags: [financial, payout, pii]
   sla:

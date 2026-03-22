@@ -19,10 +19,20 @@ Eine moderne Sachversicherungs-Plattform basierend auf **Domain-Driven Design (D
 | **Framework** | Quarkus 3.x+ | Reactive Core, ArC DI |
 | **Messaging** | Apache Kafka | SmallRye Reactive Messaging |
 | **Persistence** | PostgreSQL | Ein DB-Cluster pro Domain; Hibernate Envers für Audit |
+| **Analytical Storage** | Apache Iceberg on MinIO/S3 | Parquet files, Project Nessie catalog |
+| **Query Engine** | Trino | Federated SQL on Iceberg tables |
+| **Transformations** | SQLMesh | Incremental models on Iceberg via Trino |
+| **BI / Dashboards** | Apache Superset | Self-Service BI on Trino, Keycloak SSO, Row-Level Security |
+| **Metadata Catalog** | OpenMetadata | Self-service catalog, PII tags, retention |
+| **Data Lineage** | OpenLineage / Marquez | Active lineage tracking |
+| **Data Quality** | Soda Core | Contract testing via SodaCL on Trino |
+| **Data Privacy** | HashiCorp Vault | Crypto-Shredding per ADR-009 |
 | **Frontend** | Qute + htmx + Bootstrap | Server-side Rendering (SSR), kein schwerfälliges SPA-Framework |
 | **Security** | Keycloak (OIDC) | Quarkus Security OIDC |
 | **Data Contracts** | Open Data Contract (ODC) | YAML-basiert in `src/main/resources/contracts/` |
 | **API/Schemas** | Avro / OpenAPI | Registry-gestützt |
+| **Sync Communication** | gRPC (Quarkus gRPC) | Nur für ADR-010-konforme Spezialfälle (Berechnungen) |
+| **Fault Tolerance** | SmallRye Fault Tolerance | Circuit Breaker, Timeout, Retry für gRPC-Calls |
 | **Infrastructure** | Podman / Compose | Rootless Container-Management |
 
 ---
@@ -52,7 +62,7 @@ Eine moderne Sachversicherungs-Plattform basierend auf **Domain-Driven Design (D
 * **Hexagonal Isolation:** Die `domain`-Packages dürfen **keine** Framework-Abhängigkeiten haben (kein `@Inject`, kein `@Entity`, kein Jackson).
 * **No Shared State:** Keine Cross-Domain DB-Zugriffe. Kommunikation erfolgt zu 95% via Kafka.
 * **Transactional Outbox:** Jeder Kafka-Event muss über die Outbox-Tabelle laufen, um Konsistenz zwischen DB und Message Broker zu garantieren.
-* **REST Exceptions:** Synchroner REST-Call nur für `Coverage Check` (Claims -> Policy) mit Mandatory Circuit Breaker.
+* **Synchrone Ausnahmen (ADR-010):** gRPC-Calls sind erlaubt für reine Query-/Berechnungs-Use-Cases mit mandatorischem Circuit Breaker, Timeout und Graceful Degradation. Aktuell: Prämienberechnung (Policy → Product). REST nur für IAM (Keycloak).
 
 ### 3. Data Mesh & Contracts
 * Jedes Kafka-Topic benötigt einen **Open Data Contract (ODC)**.
@@ -65,7 +75,7 @@ Eine moderne Sachversicherungs-Plattform basierend auf **Domain-Driven Design (D
 
 ```text
 {domain}/
-├── src/main/java/ch/css/{domain}/
+├── src/main/java/ch/yuno/{domain}/
 │   ├── domain/                <-- PURE JAVA (No Frameworks)
 │   │   ├── model/             <-- Aggregates, Entities, Value Objects
 │   │   ├── service/           <-- Domain Services (Business Logic)
@@ -73,6 +83,7 @@ Eine moderne Sachversicherungs-Plattform basierend auf **Domain-Driven Design (D
 │   ├── infrastructure/        <-- ADAPTERS (Framework Dependent)
 │   │   ├── persistence/       <-- JPA/Hibernate, Repositories
 │   │   ├── messaging/         <-- Kafka Consumer/Producer (SmallRye)
+│   │   ├── grpc/              <-- gRPC Server/Client Adapters (ADR-010)
 │   │   └── web/               <-- JAX-RS Resources, Qute Controller, htmx
 │   └── application/           <-- Orchestration & Use Cases
 └── src/main/resources/
@@ -92,6 +103,8 @@ Eine moderne Sachversicherungs-Plattform basierend auf **Domain-Driven Design (D
 | **Prämie** | `Premium` | Kosten für den Versicherungsschutz |
 | **Partner / Kunde** | `Partner` | Natürliche oder juristische Person |
 | **Selbstbehalt** | `Deductible` | Eigenanteil des Kunden im Schadenfall |
+| **Prämienberechnung** | `PremiumCalculation` | Berechnung der risikobasierten Prämie (gRPC, ADR-010) |
+| **Risikoprofil** | `RiskProfile` | Alter, PLZ, Kanton des Versicherungsnehmers |
 
 ---
 

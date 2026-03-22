@@ -7,7 +7,7 @@ info:
   description: Published when an insurance product's details are changed.
   owner: Product Management Team
   contact:
-    email: team-product@css.ch
+    email: team-product@yuno.ch
   domain: product
   outputPort: kafka
   sla:

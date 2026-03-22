@@ -108,7 +108,7 @@ services:
     ports:
       - "8180:8080"
     volumes:
-      - ./infra/keycloak/css-realm.json:/opt/keycloak/data/import/css-realm.json:ro
+      - ./infra/keycloak/yuno-realm.json:/opt/keycloak/data/import/yuno-realm.json:ro
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q '200 OK'"]
       interval: 10s
@@ -204,8 +204,7 @@ services:
           --config cleanup.policy=compact \
           --config min.cleanable.dirty.ratio=0.01 \
           --config segment.ms=10000 \
-          && echo 'product.v1.state topic created.'
-        # ── Reserved topic namespaces (planned, not yet implemented) ──────────
+          && echo 'product.v1.state topic created.' \
         && kafka-topics --bootstrap-server kafka:29092 \
           --create --if-not-exists \
           --topic billing.v1.invoice-created \
@@ -310,6 +309,9 @@ services:
       KAFKA_HEAP_OPTS: "-Xms256M -Xmx768M"
       CONNECT_CONFIG_PROVIDERS: env
       CONNECT_CONFIG_PROVIDERS_ENV_CLASS: org.apache.kafka.common.config.provider.EnvVarConfigProvider
+      # OpenLineage integration — emit CDC/Iceberg lineage events to Marquez
+      OPENLINEAGE_URL: http://marquez:5050
+      OPENLINEAGE_NAMESPACE: kafka-connect
       PARTNER_DB_PASSWORD: ${PARTNER_DB_PASSWORD}
       PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD}
       POLICY_DB_PASSWORD: ${POLICY_DB_PASSWORD}
@@ -425,7 +427,7 @@ services:
           memory: 256M
 
   partner-service:
-    image: ${IMAGE_REGISTRY:-css}/partner-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-yuno}/partner-service:${IMAGE_TAG:-latest}
     pull_policy: never
     depends_on:
       kafka:
@@ -433,6 +435,8 @@ services:
       partner-db:
         condition: service_healthy
       keycloak:
+        condition: service_healthy
+      vault:
         condition: service_healthy
     ports:
       - "9080:9080"
@@ -445,6 +449,8 @@ services:
       DATABASE_PASSWORD: ${PARTNER_DB_PASSWORD}
       KEYCLOAK_URL: http://keycloak:8080
       OIDC_CLIENT_SECRET: secret
+      VAULT_URL: http://vault:8200
+      VAULT_TOKEN: dev-root-token
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
     networks:
       - backend
@@ -456,7 +462,7 @@ services:
           memory: 512M
 
   product-service:
-    image: ${IMAGE_REGISTRY:-css}/product-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-yuno}/product-service:${IMAGE_TAG:-latest}
     pull_policy: never
     depends_on:
       kafka:
@@ -467,6 +473,7 @@ services:
         condition: service_healthy
     ports:
       - "9081:9081"
+      - "9181:9181"
       - "5006:5006"
     environment:
       QUARKUS_PROFILE: prod
@@ -487,7 +494,7 @@ services:
           memory: 512M
 
   policy-service:
-    image: ${IMAGE_REGISTRY:-css}/policy-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-yuno}/policy-service:${IMAGE_TAG:-latest}
     pull_policy: never
     restart: unless-stopped
     depends_on:
@@ -511,6 +518,8 @@ services:
       DATABASE_PASSWORD: ${POLICY_DB_PASSWORD}
       KEYCLOAK_URL: http://keycloak:8080
       OIDC_CLIENT_SECRET: secret
+      GRPC_PREMIUM_HOST: product-service
+      GRPC_PREMIUM_PORT: "9181"
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5007"
     networks:
       - backend
@@ -522,7 +531,7 @@ services:
           memory: 512M
 
   claims-service:
-    image: ${IMAGE_REGISTRY:-css}/claims-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-yuno}/claims-service:${IMAGE_TAG:-latest}
     pull_policy: never
     restart: unless-stopped
     depends_on:
@@ -606,7 +615,7 @@ services:
           memory: 256M
 
   billing-service:
-    image: ${IMAGE_REGISTRY:-css}/billing-service:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-yuno}/billing-service:${IMAGE_TAG:-latest}
     pull_policy: never
     restart: unless-stopped
     depends_on:
@@ -678,262 +687,173 @@ services:
           cpus: '0.5'
           memory: 256M
 
-  # ── Platform Database (Analytics Layer) ──────────────────────────────────────
+  # ══════════════════════════════════════════════════════════════════════════════
+  # ── Phase 1: Lakehouse Foundation ───────────────────────────────────────────
+  # ══════════════════════════════════════════════════════════════════════════════
 
-  platform-db:
-    image: postgres:16
+  # ── MinIO (S3-compatible Object Store for Iceberg Parquet files) ────────────
+
+  minio:
+    image: minio/minio
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: platform_db
-      POSTGRES_USER: platform_user
-      POSTGRES_PASSWORD: ${PLATFORM_DB_PASSWORD:-platform_pass}
+    command: server /data --console-address ":9001"
     ports:
-      - "5435:5432"
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U platform_user -d platform_db"]
-      interval: 5s
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
       timeout: 5s
-      retries: 20
-    volumes:
-      - platform-db-data:/var/lib/postgresql/data
-      - ./infra/platform/init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - backend
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-
-  platform-consumer:
-    build:
-      context: infra/platform
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    depends_on:
-      kafka:
-        condition: service_healthy
-      platform-db:
-        condition: service_healthy
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      CONSUMER_GROUP_ID: platform-consumer
-      PLATFORM_DB_URL: postgresql://platform_user:${PLATFORM_DB_PASSWORD:-platform_pass}@platform-db:5432/platform_db
-    networks:
-      - backend
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-
-  # ── Apache Spark Data Platform ───────────────────────────────────────────────
-
-  spark-streaming:
-    build:
-      context: infra/spark
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    depends_on:
-      kafka:
-        condition: service_healthy
-    environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      SPARK_WAREHOUSE: /spark-warehouse
-    volumes:
-      - spark-warehouse:/spark-warehouse
-      - spark-ivy2:/root/.ivy2
-    networks:
-      - backend
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-
-  dbt:
-    build:
-      context: infra/dbt
-      dockerfile: Dockerfile
-    restart: "no"
-    profiles:
-      - tools
-    depends_on:
-      platform-db:
-        condition: service_healthy
-    environment:
-      PLATFORM_DB_HOST: platform-db
-      PLATFORM_DB_USER: platform_user
-      PLATFORM_DB_PASSWORD: ${PLATFORM_DB_PASSWORD:-platform_pass}
-      PLATFORM_DB_NAME: platform_db
-    command: ["python3", "run_dbt.py"]
-    networks:
-      - backend
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
-
-  # ── Governance Layer ──────────────────────────────────────────────────────────
-
-  governance:
-    build:
-      context: infra/governance
-      dockerfile: Dockerfile
-    restart: "no"
-    depends_on:
-      schema-registry:
-        condition: service_healthy
-    environment:
-      SCHEMA_REGISTRY_URL: http://schema-registry:8081
-    volumes:
-      - ./partner/src/main/resources/contracts:/contracts/partner:ro
-      - ./policy/src/main/resources/contracts:/contracts/policy:ro
-      - ./product/src/main/resources/contracts:/contracts/product:ro
-      - ./billing/src/main/resources/contracts:/contracts/billing:ro
-      - ./claims/src/main/resources/contracts:/contracts/claims:ro
-      - ./partner/src/main/resources/contracts:/avro/partner:ro
-      - ./policy/src/main/resources/contracts:/avro/policy:ro
-      - ./product/src/main/resources/contracts:/avro/product:ro
-    command: >
-      sh -c "python lint-contracts.py && bash schema-compat-check.sh && python check-freshness.py"
-    networks:
-      - backend
-
-  # ── Data Product Portal ───────────────────────────────────────────────────────
-
-  portal:
-    build:
-      context: infra/portal
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    depends_on:
-      schema-registry:
-        condition: service_started
-      platform-db:
-        condition: service_healthy
-    ports:
-      - "8090:8090"
-    environment:
-      SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      PLATFORM_DB_URL: postgresql://platform_user:${PLATFORM_DB_PASSWORD:-platform_pass}@platform-db:5432/platform_db
-    volumes:
-      - ./partner/src/main/resources/contracts:/contracts/partner:ro
-      - ./policy/src/main/resources/contracts:/contracts/policy:ro
-      - ./product/src/main/resources/contracts:/contracts/product:ro
-      - ./billing/src/main/resources/contracts:/contracts/billing:ro
+      retries: 15
+      start_period: 10s
     networks:
       - backend
       - frontend
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-
-  # ── Apache Airflow ───────────────────────────────────────────────────────────
-
-  airflow-db:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: airflow
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:-airflow_pass}
-    volumes:
-      - airflow-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    networks:
-      - backend
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-
-  airflow-init:
-    build:
-      context: infra/airflow
-      dockerfile: Dockerfile
-    depends_on:
-      airflow-db:
-        condition: service_healthy
-    environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow_pass}@airflow-db:5432/airflow
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    command:
-      - bash
-      - -c
-      - |
-        airflow db migrate
-        airflow users create \
-          --username admin \
-          --password admin \
-          --firstname Admin \
-          --lastname User \
-          --role Admin \
-          --email admin@css.ch 2>/dev/null || true
-    networks:
-      - backend
-
-  airflow-scheduler:
-    build:
-      context: infra/airflow
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    depends_on:
-      airflow-init:
-        condition: service_completed_successfully
-      platform-db:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow_pass}@airflow-db:5432/airflow
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      PLATFORM_DB_URL: postgresql://platform_user:${PLATFORM_DB_PASSWORD:-platform_pass}@platform-db:5432/platform_db
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      SCHEMA_REGISTRY_URL: http://schema-registry:8081
-    volumes:
-      - ./infra/airflow/dags:/opt/airflow/dags
-      - ./infra/dbt:/opt/dbt
-      - ./partner/src/main/resources/contracts:/contracts/partner:ro
-      - ./policy/src/main/resources/contracts:/contracts/policy:ro
-      - ./product/src/main/resources/contracts:/contracts/product:ro
-      - ./billing/src/main/resources/contracts:/contracts/billing:ro
-    command: ["airflow", "scheduler"]
-    networks:
-      - backend
     deploy:
       resources:
         limits:
           cpus: '1.0'
           memory: 512M
 
-  airflow-webserver:
-    build:
-      context: infra/airflow
-      dockerfile: Dockerfile
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        mc alias set local http://minio:9000 minioadmin minioadmin
+        mc mb local/warehouse --ignore-existing
+        echo "MinIO bucket 'warehouse' ready."
+    networks:
+      - backend
+
+  # ── Nessie (Git-like Iceberg Catalog) ──────────────────────────────────────
+
+  nessie:
+    image: projectnessie/nessie:0.76.0
+    restart: unless-stopped
+    ports:
+      - "19120:19120"
+    environment:
+      NESSIE_VERSION_STORE_TYPE: IN_MEMORY
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:19120/api/v2/config || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ── Trino (Distributed SQL Query Engine on Iceberg) ────────────────────────
+
+  trino:
+    image: trinodb/trino
     restart: unless-stopped
     depends_on:
-      airflow-init:
-        condition: service_completed_successfully
-    environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD:-airflow_pass}@airflow-db:5432/airflow
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
-      AIRFLOW__WEBSERVER__WORKERS: "2"
-    volumes:
-      - ./infra/airflow/dags:/opt/airflow/dags
-    command: ["airflow", "webserver", "--port", "8091"]
+      minio:
+        condition: service_healthy
+      nessie:
+        condition: service_healthy
     ports:
-      - "8091:8091"
+      - "8086:8086"
+    volumes:
+      - ./infra/trino/etc/config.properties:/etc/trino/config.properties:ro
+      - ./infra/trino/etc/jvm.config:/etc/trino/jvm.config:ro
+      - ./infra/trino/etc/node.properties:/etc/trino/node.properties:ro
+      - ./infra/trino/etc/log.properties:/etc/trino/log.properties:ro
+      - ./infra/trino/catalog/iceberg.properties:/etc/trino/catalog/iceberg.properties:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8086/v1/info || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+
+  # ── Apache Superset (Self-Service BI on Trino) ─────────────────────────────
+
+  superset-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: superset
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: superset
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset -d superset"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - superset-db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  superset-init:
+    image: apache/superset
+    depends_on:
+      superset-db:
+        condition: service_healthy
+      trino:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      SUPERSET_SECRET_KEY: datamesh-dev-secret-change-in-prod
+      SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://superset:superset@superset-db:5432/superset"
+    volumes:
+      - ./infra/superset/superset_config.py:/app/superset_config.py:ro
+      - ./infra/superset/superset-init.sh:/init.sh:ro
+    command: >
+      bash -c "pip install psycopg2-binary sqlalchemy-trino --quiet && bash /init.sh"
+    networks:
+      - backend
+
+  superset:
+    image: apache/superset
+    restart: unless-stopped
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    ports:
+      - "8088:8088"
+    environment:
+      SUPERSET_SECRET_KEY: datamesh-dev-secret-change-in-prod
+      SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://superset:superset@superset-db:5432/superset"
+    command: >
+      bash -c "pip install psycopg2-binary sqlalchemy-trino --quiet && superset run -h 0.0.0.0 -p 8088"
+    volumes:
+      - ./infra/superset/superset_config.py:/app/superset_config.py:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8088/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
     networks:
       - backend
       - frontend
@@ -943,39 +863,102 @@ services:
           cpus: '1.0'
           memory: 1G
 
-  # ── DataHub Metadata Platform ─────────────────────────────────────────────
-  # Reuses the existing kafka:29092 and schema-registry:8081 — no extra Kafka/ZooKeeper needed.
+  # ── Iceberg Sink Connectors (registered via debezium-init) ─────────────────
+  # The Iceberg Sink Connector plugin is installed in the debezium-connect
+  # Dockerfile. Connector configs are registered by iceberg-init below.
 
-  datahub-mysql:
-    image: mysql:8.2
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=mysql_native_password
-    environment:
-      MYSQL_DATABASE: datahub
-      MYSQL_USER: datahub
-      MYSQL_PASSWORD: datahub
-      MYSQL_ROOT_PASSWORD: datahub
-      MYSQL_ROOT_HOST: '%'
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u datahub --password=datahub"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 30s
+  iceberg-init:
+    image: curlimages/curl:latest
+    depends_on:
+      debezium-connect:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      nessie:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until curl -sf http://debezium-connect:8083/connectors; do
+          echo 'Debezium not ready yet, retrying in 3s...'
+          sleep 3
+        done
+        for domain in partner product policy billing claims; do
+          curl -f -X POST http://debezium-connect:8083/connectors \
+            -H 'Content-Type: application/json' \
+            -d @/config/iceberg-sink-$${domain}.json \
+            && echo "$${domain} Iceberg sink registered." \
+            || echo "$${domain} Iceberg sink registration failed (may already exist)."
+        done
     volumes:
-      - datahub-mysql-data:/var/lib/mysql
+      - ./infra/debezium/iceberg-sink-partner.json:/config/iceberg-sink-partner.json:ro
+      - ./infra/debezium/iceberg-sink-product.json:/config/iceberg-sink-product.json:ro
+      - ./infra/debezium/iceberg-sink-policy.json:/config/iceberg-sink-policy.json:ro
+      - ./infra/debezium/iceberg-sink-billing.json:/config/iceberg-sink-billing.json:ro
+      - ./infra/debezium/iceberg-sink-claims.json:/config/iceberg-sink-claims.json:ro
+    networks:
+      - backend
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # ── Phase 2: Transformation Layer (SQLMesh) ────────────────────────────────
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  sqlmesh:
+    build:
+      context: infra/sqlmesh
+      dockerfile: Dockerfile
+    restart: "no"
+    profiles:
+      - tools
+    depends_on:
+      trino:
+        condition: service_healthy
+    volumes:
+      - ./infra/sqlmesh/config.yaml:/sqlmesh/config.yaml:ro
+      - ./infra/sqlmesh/models:/sqlmesh/models:ro
     networks:
       - backend
     deploy:
       resources:
         limits:
-          memory: 768M
+          cpus: '1.0'
+          memory: 1G
 
-  datahub-elasticsearch:
-    image: elasticsearch:7.10.1
+  # ══════════════════════════════════════════════════════════════════════════════
+  # ── Phase 3: Governance & Compliance ───────────────────────────────────────
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  # ── OpenMetadata (Unified Metadata Catalog) ────────────────────────────────
+
+  openmetadata-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: openmetadata
+      POSTGRES_USER: openmetadata
+      POSTGRES_PASSWORD: openmetadata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U openmetadata -d openmetadata"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - openmetadata-db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  openmetadata-elasticsearch:
+    image: opensearchproject/opensearch:2.11.1
     environment:
       - discovery.type=single-node
-      - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms512m -Xmx1g -Dlog4j2.formatMsgNoLookups=true
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - DISABLE_INSTALL_DEMO_CONFIG=true
     healthcheck:
       test: ["CMD-SHELL", "curl -sf 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1"]
       interval: 10s
@@ -985,192 +968,254 @@ services:
     ports:
       - "9200:9200"
     volumes:
-      - datahub-esdata:/usr/share/elasticsearch/data
+      - openmetadata-esdata:/usr/share/elasticsearch/data
     networks:
       - backend
     deploy:
       resources:
         limits:
-          memory: 1536M
+          memory: 1G
 
-  datahub-kafka-setup:
-    image: acryldata/datahub-kafka-setup:head
-    restart: "no"
+  openmetadata-migrate:
+    image: openmetadata/server:1.6.13
     depends_on:
+      openmetadata-db:
+        condition: service_healthy
+      openmetadata-elasticsearch:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        /opt/openmetadata/bootstrap/openmetadata-ops.sh migrate
+    environment:
+      OPENMETADATA_CLUSTER_NAME: datamesh
+      SEARCH_TYPE: opensearch
+      DB_DRIVER_CLASS: org.postgresql.Driver
+      DB_SCHEME: postgresql
+      DB_HOST: openmetadata-db
+      DB_PORT: "5432"
+      DB_USER: openmetadata
+      DB_USER_PASSWORD: openmetadata
+      OM_DATABASE: openmetadata
+      ELASTICSEARCH_HOST: openmetadata-elasticsearch
+      ELASTICSEARCH_PORT: "9200"
+      ELASTICSEARCH_SCHEME: http
+    networks:
+      - backend
+
+  openmetadata-server:
+    image: openmetadata/server:1.6.13
+    restart: unless-stopped
+    depends_on:
+      openmetadata-db:
+        condition: service_healthy
+      openmetadata-elasticsearch:
+        condition: service_healthy
+      openmetadata-migrate:
+        condition: service_completed_successfully
       kafka:
         condition: service_healthy
-      schema-registry:
-        condition: service_healthy
+    ports:
+      - "8585:8585"
     environment:
-      KAFKA_BOOTSTRAP_SERVER: kafka:29092
-      KAFKA_SCHEMAREGISTRY_URL: http://schema-registry:8081
-      DATAHUB_PRECREATE_TOPICS: "true"
-    networks:
-      - backend
-
-  datahub-upgrade:
-    image: acryldata/datahub-upgrade:head
-    command: ["-u", "SystemUpdate"]
-    restart: "no"
-    depends_on:
-      datahub-elasticsearch:
-        condition: service_healthy
-      datahub-kafka-setup:
-        condition: service_completed_successfully
-      datahub-mysql:
-        condition: service_healthy
-    environment:
-      DATAHUB_SQL_SETUP_ENABLED: "true"
-      EBEAN_DATASOURCE_USERNAME: datahub
-      EBEAN_DATASOURCE_PASSWORD: datahub
-      EBEAN_DATASOURCE_HOST: datahub-mysql:3306
-      EBEAN_DATASOURCE_URL: "jdbc:mysql://datahub-mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8"
-      EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
-      KAFKA_BOOTSTRAP_SERVER: kafka:29092
-      KAFKA_SCHEMAREGISTRY_URL: http://schema-registry:8081
-      ELASTICSEARCH_HOST: datahub-elasticsearch
+      OPENMETADATA_CLUSTER_NAME: datamesh
+      SEARCH_TYPE: opensearch
+      DB_DRIVER_CLASS: org.postgresql.Driver
+      DB_SCHEME: postgresql
+      DB_HOST: openmetadata-db
+      DB_PORT: "5432"
+      DB_USER: openmetadata
+      DB_USER_PASSWORD: openmetadata
+      OM_DATABASE: openmetadata
+      ELASTICSEARCH_HOST: openmetadata-elasticsearch
       ELASTICSEARCH_PORT: "9200"
-      ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: "true"
-      ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: "true"
-      ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES: "false"
-      GRAPH_SERVICE_IMPL: elasticsearch
-      DATAHUB_GMS_HOST: datahub-gms
-      DATAHUB_GMS_PORT: "8080"
-      ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
-      BACKFILL_BROWSE_PATHS_V2: "true"
-      REPROCESS_DEFAULT_BROWSE_PATHS_V2: "false"
-      AUTHENTICATION_TOKEN_SERVICE_SIGNING_KEY: or/VSQweIyaf4TzKiUvv9ya3i27SHn4U0abFJEn/Btg=
-      AUTHENTICATION_TOKEN_SERVICE_SALT: G9DoHS3OefFgdwqyLm82QevjXlJ0jW+gTgmOW6ZHvOc=
-    networks:
-      - backend
-
-  datahub-gms:
-    image: acryldata/datahub-gms:head
-    restart: unless-stopped
-    depends_on:
-      datahub-upgrade:
-        condition: service_completed_successfully
-    environment:
-      DATAHUB_SERVER_TYPE: quickstart
-      DATAHUB_TELEMETRY_ENABLED: "false"
-      DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID: generic-duhe-consumer-job-client-gms
-      EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
-      EBEAN_DATASOURCE_HOST: datahub-mysql:3306
-      EBEAN_DATASOURCE_PASSWORD: datahub
-      EBEAN_DATASOURCE_URL: "jdbc:mysql://datahub-mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8"
-      EBEAN_DATASOURCE_USERNAME: datahub
-      ELASTICSEARCH_HOST: datahub-elasticsearch
-      ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: "true"
-      ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: "true"
-      ELASTICSEARCH_PORT: "9200"
-      ENTITY_REGISTRY_CONFIG_PATH: /datahub/datahub-gms/resources/entity-registry.yml
-      ENTITY_SERVICE_ENABLE_RETENTION: "true"
-      ES_BULK_REFRESH_POLICY: WAIT_UNTIL
-      GRAPH_SERVICE_DIFF_MODE_ENABLED: "true"
-      GRAPH_SERVICE_IMPL: elasticsearch
-      JAVA_OPTS: "-Xms512m -Xmx1g"
-      KAFKA_BOOTSTRAP_SERVER: kafka:29092
-      KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR: "true"
-      KAFKA_SCHEMAREGISTRY_URL: http://schema-registry:8081
-      MAE_CONSUMER_ENABLED: "true"
-      MCE_CONSUMER_ENABLED: "true"
-      METADATA_SERVICE_AUTH_ENABLED: "false"
-      PE_CONSUMER_ENABLED: "true"
-      THEME_V2_DEFAULT: "true"
-      UI_INGESTION_ENABLED: "true"
-      AUTHENTICATION_TOKEN_SERVICE_SIGNING_KEY: or/VSQweIyaf4TzKiUvv9ya3i27SHn4U0abFJEn/Btg=
-      AUTHENTICATION_TOKEN_SERVICE_SALT: G9DoHS3OefFgdwqyLm82QevjXlJ0jW+gTgmOW6ZHvOc=
+      ELASTICSEARCH_SCHEME: http
+      PIPELINE_SERVICE_CLIENT_ENDPOINT: http://openmetadata-ingestion:8080
+      SERVER_HOST_API_URL: http://openmetadata-server:8585/api
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8586/healthcheck || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
       start_period: 120s
-    ports:
-      - "8080:8080"
-    networks:
-      - backend
-    deploy:
-      resources:
-        limits:
-          memory: 1280M
-
-  datahub-frontend:
-    image: acryldata/datahub-frontend-react:head
-    restart: unless-stopped
-    depends_on:
-      datahub-gms:
-        condition: service_healthy
-    environment:
-      DATAHUB_GMS_HOST: datahub-gms
-      DATAHUB_GMS_PORT: "8080"
-      DATAHUB_SECRET: YouKnowNothing
-      DATAHUB_APP_VERSION: "1.0"
-      DATAHUB_PLAY_MEM_BUFFER_SIZE: 10MB
-      JAVA_OPTS: "-Xms256m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null"
-      KAFKA_BOOTSTRAP_SERVER: kafka:29092
-      DATAHUB_TRACKING_TOPIC: DataHubUsageEvent_v1
-      ELASTIC_CLIENT_HOST: datahub-elasticsearch
-      ELASTIC_CLIENT_PORT: "9200"
-    ports:
-      - "9002:9002"
     networks:
       - backend
       - frontend
     deploy:
       resources:
         limits:
-          memory: 768M
+          cpus: '1.0'
+          memory: 1G
 
-  datahub-actions:
-    image: acryldata/datahub-actions:head-slim
+  openmetadata-ingestion:
+    image: openmetadata/ingestion:1.6.13
     restart: unless-stopped
     depends_on:
-      datahub-gms:
+      openmetadata-server:
         condition: service_healthy
     environment:
-      DATAHUB_GMS_HOST: datahub-gms
-      DATAHUB_GMS_PORT: "8080"
-      DATAHUB_GMS_PROTOCOL: http
-      DATAHUB_SYSTEM_CLIENT_ID: __datahub_system
-      DATAHUB_SYSTEM_CLIENT_SECRET: JohnSnowKnowsNothing
-      KAFKA_BOOTSTRAP_SERVER: kafka:29092
-      KAFKA_PROPERTIES_SECURITY_PROTOCOL: PLAINTEXT
-      METADATA_AUDIT_EVENT_NAME: MetadataAuditEvent_v4
-      METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME: MetadataChangeLog_Versioned_v1
-      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://openmetadata:openmetadata@openmetadata-db:5432/openmetadata"
+    volumes:
+      - ./infra/openmetadata/kafka-ingestion.json:/config/kafka-ingestion.json:ro
+      - ./infra/openmetadata/trino-ingestion.json:/config/trino-ingestion.json:ro
+      - ./infra/openmetadata/pii-classification.json:/config/pii-classification.json:ro
+      - ./infra/openmetadata/odc-ingestion.json:/config/odc-ingestion.json:ro
+      - ./infra/openmetadata/marquez-lineage.json:/config/marquez-lineage.json:ro
+      - ./partner/src/main/resources/contracts:/contracts/partner:ro
+      - ./product/src/main/resources/contracts:/contracts/product:ro
+      - ./policy/src/main/resources/contracts:/contracts/policy:ro
+      - ./billing/src/main/resources/contracts:/contracts/billing:ro
+      - ./claims/src/main/resources/contracts:/contracts/claims:ro
     networks:
       - backend
     deploy:
       resources:
         limits:
+          cpus: '1.0'
+          memory: 512M
+
+  # ── Marquez / OpenLineage (Lineage Tracking) ───────────────────────────────
+
+  marquez-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: marquez
+      POSTGRES_USER: marquez
+      POSTGRES_PASSWORD: marquez
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marquez -d marquez"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - marquez-db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
           memory: 256M
 
-  datahub-ingest:
-    build:
-      context: infra/datahub
-      dockerfile: Dockerfile
-    restart: "no"
+  marquez:
+    image: marquezproject/marquez
+    restart: unless-stopped
     depends_on:
-      datahub-gms:
+      marquez-db:
         condition: service_healthy
-      schema-registry:
-        condition: service_healthy
+    ports:
+      - "5050:5050"
+      - "5051:5051"
     environment:
-      DATAHUB_GMS_URL: http://datahub-gms:8080
-      KAFKA_BOOTSTRAP_SERVER: kafka:29092
-      SCHEMA_REGISTRY_URL: http://schema-registry:8081
-      CONTRACTS_ROOT: /contracts
-    volumes:
-      - ./partner/src/main/resources/contracts:/contracts/partner:ro
-      - ./policy/src/main/resources/contracts:/contracts/policy:ro
-      - ./product/src/main/resources/contracts:/contracts/product:ro
-      - ./billing/src/main/resources/contracts:/contracts/billing:ro
+      MARQUEZ_PORT: "5050"
+      MARQUEZ_ADMIN_PORT: "5051"
+      POSTGRES_HOST: marquez-db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: marquez
+      POSTGRES_USER: marquez
+      POSTGRES_PASSWORD: marquez
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5050/api/v1/namespaces || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
     networks:
       - backend
     deploy:
       resources:
         limits:
+          cpus: '0.5'
+          memory: 512M
+
+  marquez-web:
+    image: marquezproject/marquez-web
+    restart: unless-stopped
+    depends_on:
+      marquez:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+    environment:
+      MARQUEZ_HOST: marquez
+      MARQUEZ_PORT: "5050"
+      WEB_PORT: "3000"
+    networks:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # ── HashiCorp Vault (Crypto-Shredding / ADR-009) ───────────────────────────
+
+  vault:
+    image: hashicorp/vault
+    restart: unless-stopped
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: dev-root-token
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    healthcheck:
+      test: ["CMD-SHELL", "vault status -address=http://127.0.0.1:8200 2>/dev/null || wget -qO- http://127.0.0.1:8200/v1/sys/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  vault-init:
+    image: hashicorp/vault
+    depends_on:
+      vault:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: dev-root-token
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        vault secrets enable transit 2>/dev/null || echo 'Transit engine already enabled.'
+        echo 'Vault Transit engine ready for crypto-shredding (ADR-009).'
+    networks:
+      - backend
+
+  # ── Soda Core (Data Quality / Contract Testing) ────────────────────────────
+
+  soda-core:
+    build:
+      context: infra/soda
+      dockerfile: Dockerfile
+    restart: "no"
+    profiles:
+      - tools
+    depends_on:
+      trino:
+        condition: service_healthy
+    volumes:
+      - ./infra/soda/configuration.yml:/soda/configuration.yml:ro
+      - ./infra/soda/checks:/soda/checks:ro
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
           memory: 256M
 
 volumes:
@@ -1179,12 +1224,11 @@ volumes:
   policy-db-data:
   claims-db-data:
   billing-db-data:
-  platform-db-data:
-  spark-warehouse:
-  spark-ivy2:
-  airflow-db-data:
-  datahub-mysql-data:
-  datahub-esdata:
+  minio-data:
+  superset-db-data:
+  openmetadata-db-data:
+  openmetadata-esdata:
+  marquez-db-data:
 
 networks:
   backend:

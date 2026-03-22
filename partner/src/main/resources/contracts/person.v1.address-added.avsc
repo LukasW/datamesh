@@ -1,5 +1,5 @@
 {
-  "namespace": "ch.css.partner.events",
+  "namespace": "ch.yuno.partner.events",
   "type": "record",
   "name": "AddressAdded",
   "doc": "Published when an address is added to a person. Derived from ODC person.v1.address-added v1.1.0",

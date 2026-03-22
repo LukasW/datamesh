@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "DunningInitiated",
-  "namespace": "ch.css.billing.events",
+  "namespace": "ch.yuno.billing.events",
   "doc": "Emitted when a dunning process is started or escalated for an overdue invoice.",
   "fields": [
     {"name": "eventId",        "type": "string"},

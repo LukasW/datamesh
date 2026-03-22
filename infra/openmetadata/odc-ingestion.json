@@ -1,0 +1,23 @@
+{
+  "name": "odc-contract-ingestion",
+  "displayName": "Open Data Contracts (ODC)",
+  "description": "Ingests ODC YAML contract metadata as custom properties on Kafka topics and Iceberg tables",
+  "serviceType": "metadata",
+  "config": {
+    "contractPaths": [
+      "/contracts/partner",
+      "/contracts/product",
+      "/contracts/policy",
+      "/contracts/billing",
+      "/contracts/claims"
+    ],
+    "mappingRules": {
+      "topicName": "$.dataProduct.outputPort.topic",
+      "description": "$.description",
+      "owner": "$.dataProduct.owner",
+      "sla": "$.dataProduct.sla",
+      "quality": "$.dataProduct.quality",
+      "tags": "$.dataProduct.tags"
+    }
+  }
+}

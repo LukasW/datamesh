@@ -1,0 +1,9 @@
+checks for billing_raw.billing_events:
+  - row_count > 0:
+      name: Billing events exist
+  - duplicate_count(event_id) = 0:
+      name: No duplicate billing event IDs
+  - missing_count(invoice_id) = 0:
+      name: No null invoice_id
+  - freshness(consumed_at) < 24h:
+      name: Billing events are fresh (< 24h)

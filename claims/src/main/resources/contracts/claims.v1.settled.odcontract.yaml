@@ -32,7 +32,7 @@ schema:
     {
       "type": "record",
       "name": "ClaimSettled",
-      "namespace": "ch.css.claims.events",
+      "namespace": "ch.yuno.claims.events",
       "fields": [
         {
           "name": "eventId",

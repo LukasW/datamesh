@@ -52,7 +52,7 @@ spec:
               columns: [eventId]
 
 dataProduct:
-  owner: team-policy@css.ch
+  owner: team-policy@yuno.ch
   domain: policy
   outputPort: kafka
   sla:

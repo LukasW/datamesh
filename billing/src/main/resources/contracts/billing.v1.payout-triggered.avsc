@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "PayoutTriggered",
-  "namespace": "ch.css.billing.events",
+  "namespace": "ch.yuno.billing.events",
   "doc": "Emitted when a claim settlement triggers a payout to the policyholder.",
   "fields": [
     {"name": "eventId",          "type": "string"},

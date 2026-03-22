@@ -1,4 +1,4 @@
-# CSS Sachversicherung – Data Mesh Platform
+# Yuno Sachversicherung – Data Mesh Platform
 
 A property insurance platform built on **Domain-Driven Design**, **Hexagonal Architecture**, and **Data Mesh** principles. Three autonomous Quarkus services publish domain events to Kafka; an analytics platform layer consumes those events for cross-domain reporting and governance.
 
@@ -43,6 +43,7 @@ Full architecture documentation: [specs/arc42.md](specs/arc42.md)
 | --- | --- | --- | --- |
 | Partner (Person Management) | http://localhost:9080 | http://localhost:9080/swagger-ui | 5005 |
 | Product (Insurance Products) | http://localhost:9081 | http://localhost:9081/swagger-ui | 5006 |
+| Product gRPC (Premium Calculation) | grpc://localhost:9181 | — | — |
 | Policy (Contract Lifecycle) | http://localhost:9082 | http://localhost:9082/swagger-ui | 5007 |
 | Billing & Collection | <http://localhost:9084> | <http://localhost:9084/swagger-ui> | 5009 |
 
@@ -246,11 +247,13 @@ datamesh/
 | --- | --- |
 | ADR-001 | Kafka is the only cross-domain integration channel; no direct DB access |
 | ADR-002 | Every Kafka topic has an ODC; breaking changes require a new topic version |
-| ADR-003 | REST only for synchronous exceptions (Claims→Policy coverage check, IAM auth) |
+| ADR-003 | REST only for IAM authentication (Keycloak); domain queries via Kafka read models |
 | ADR-004 | Shared Nothing – no cross-domain DB joins; read models from Kafka events |
 | ADR-005 | Code in English; UI strings in German; technical docs in English |
 | ADR-006 | Transactional Outbox Pattern via Debezium CDC for at-least-once delivery |
 | ADR-007 | Event-Carried State Transfer via `person.v1.state` (compacted topic) |
+| ADR-008 | Coverage check via local policy snapshot (no REST) – Claims fully autonomous |
+| ADR-010 | gRPC for synchronous calculations (Policy→Product premium) with mandatory Circuit Breaker |
 
 Full ADR details: [specs/arc42.md](specs/arc42.md#9-architekturentscheidungen-adrs)
 
@@ -303,6 +306,8 @@ Each domain service (partner, product, policy) requires its own `DATABASE_URL`, 
 | Runtime | Java 21 (Virtual Threads) |
 | Framework | Quarkus 3.32.3 |
 | Async Messaging | Apache Kafka (KRaft, Confluent 7.5.0) |
+| Sync Communication | gRPC (Quarkus gRPC, Protobuf) – ADR-010 |
+| Fault Tolerance | MicroProfile Fault Tolerance (SmallRye) |
 | Schema Registry | Confluent Schema Registry (Avro) |
 | CDC | Debezium PostgreSQL connector |
 | Persistence | PostgreSQL 16 (one DB per domain) |

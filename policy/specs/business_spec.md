@@ -40,6 +40,7 @@ The **Policy Service** is the **system of record for insurance contracts** (Poli
 | **Partner & product read models** | Materialize local read models from Kafka to avoid cross-service queries |
 | **Event publication** | Publish domain events to Kafka for downstream consumers |
 | **Coverage query (REST)** | Serve synchronous coverage queries from the Claims Service (ADR-003) |
+| **Premium calculation (gRPC, outbound)** | Request risk-adjusted premium from Product Service via gRPC before saving a policy (ADR-010) |
 | **Audit trail** | Full audit log of all mutations via Hibernate Envers |
 
 ---
@@ -183,11 +184,33 @@ ODC contracts: `src/main/resources/contracts/`
 
 ---
 
-## 8. Synchronous REST Dependency (ADR-003)
+## 8. Synchronous Dependencies
+
+### 8.1 Coverage Query (REST, ADR-003) – Inbound
 
 The Policy Service exposes a **coverage-check endpoint** for synchronous queries from the Claims Service during FNOL (First Notice of Loss). This is the only inbound synchronous dependency and is permitted per ADR-003.
 
 Claims Service queries: `GET /api/policen/{id}` → returns current coverage scope and deductible.
+
+### 8.2 Premium Calculation (gRPC, ADR-010) – Outbound
+
+The Policy Service calls the Product Service's gRPC endpoint to calculate the risk-adjusted premium before creating or updating a policy.
+
+**Call flow:** Policy Service → `product-service:9181` → `PremiumCalculation.CalculatePremium`
+
+**Input:** product ID, product line, policyholder age, postal code, selected coverage types.
+
+**Output:** premium breakdown (base, risk surcharge, coverage surcharge, discount, total) and a calculation ID for audit.
+
+**Fault tolerance:**
+- `@CircuitBreaker(requestVolumeThreshold=4, failureRatio=0.5, delay=10s)`
+- `@Timeout(2000ms)`
+- `@Retry(maxRetries=2, delay=500ms)`
+
+**Graceful degradation:** If the Product Service is unreachable, the policy creation/update is aborted with a user-facing error message:
+> «Die Prämienberechnung ist momentan nicht verfügbar. Bitte versuchen Sie es später erneut.»
+
+**Data flow (Lineage):** This synchronous call is tracked in OpenLineage/Marquez as a direct dependency edge between the Policy and Product domains.
 
 ---
 

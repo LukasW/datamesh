@@ -1,5 +1,5 @@
 {
-  "namespace": "ch.css.partner.events",
+  "namespace": "ch.yuno.partner.events",
   "type": "record",
   "name": "PersonState",
   "doc": "Full person state snapshot for the compacted topic. Implements Event-Carried State Transfer.",

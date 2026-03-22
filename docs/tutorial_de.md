@@ -51,7 +51,7 @@
 
 ## 1. Was ist diese Plattform?
 
-Die **CSS Sachversicherung Datamesh Platform** ist ein modernes Versicherungssystem, das zeigt, wie ein mittelgrosses Versicherungsunternehmen seine IT-Landschaft auf der Basis aktueller Software-Engineering-Prinzipien gestalten kann.
+Die **Yuno Sachversicherung Datamesh Platform** ist ein modernes Versicherungssystem, das zeigt, wie ein mittelgrosses Versicherungsunternehmen seine IT-Landschaft auf der Basis aktueller Software-Engineering-Prinzipien gestalten kann.
 
 ### Das Geschäftsproblem
 
@@ -327,7 +327,7 @@ Ein Avro-Schema für `person.v1.created` sieht so aus:
 {
   "type": "record",
   "name": "PersonCreated",
-  "namespace": "ch.css.partner",
+  "namespace": "ch.yuno.partner",
   "fields": [
     { "name": "personId",   "type": "string" },
     { "name": "firstName",  "type": "string" },

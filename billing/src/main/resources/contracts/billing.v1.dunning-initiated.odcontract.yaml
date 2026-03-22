@@ -3,7 +3,7 @@ info:
   title: billing.v1.dunning-initiated
   version: "1.0.0"
   description: Emitted when a dunning process is started or escalated for an overdue invoice.
-  owner: team-billing@css.ch
+  owner: team-billing@yuno.ch
   domain: billing
 
 servers:
@@ -41,7 +41,7 @@ quality:
           columns: [eventId]
 
 dataProduct:
-  owner: team-billing@css.ch
+  owner: team-billing@yuno.ch
   domain: billing
   tags: [financial, dunning, pii]
   sla:

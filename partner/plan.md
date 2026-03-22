@@ -25,7 +25,7 @@
 
 ### 1.1 Partner-Aggregate aktualisieren
 
-**Datei:** `src/main/java/ch/css/partner/domain/model/Partner.java`
+**Datei:** `src/main/java/ch/yuno/partner/domain/model/Partner.java`
 
 Änderungen:
 - Feld `name` → `firmenname`
@@ -34,7 +34,7 @@
 - `email` und `phone` werden auf `Kontaktperson` verschoben (bleiben optional im Aggregate für Rückwärtskompatibilität bis v2)
 - Methoden: `updateDetails()`, `activate()`, `setInactive()`, `addToLead()`
 
-**Datei:** `src/main/java/ch/css/partner/domain/model/PartnerType.java`
+**Datei:** `src/main/java/ch/yuno/partner/domain/model/PartnerType.java`
 
 Neue Enum-Werte (ersetzen bisherige):
 ```
@@ -45,7 +45,7 @@ TECHNOLOGIEPARTNER // Technologiepartner / Technology Partner
 > **Breaking Change:** `PartnerType` ändert sich von `CUSTOMER/BROKER/AGENT/SUPPLIER` zu neuen Werten.
 > Kafka-Topic wechselt von `partner.v1.created` zu `partner.v2.created`.
 
-**Datei:** `src/main/java/ch/css/partner/domain/model/PartnerStatus.java`
+**Datei:** `src/main/java/ch/yuno/partner/domain/model/PartnerStatus.java`
 
 Neue Enum-Werte:
 ```
@@ -56,7 +56,7 @@ INAKTIV  // Deaktivierter Partner
 
 ### 1.2 Neue Entität: Kontaktperson
 
-**Datei:** `src/main/java/ch/css/partner/domain/model/Kontaktperson.java`
+**Datei:** `src/main/java/ch/yuno/partner/domain/model/Kontaktperson.java`
 
 ```java
 // Felder
@@ -75,7 +75,7 @@ update(vorname, nachname, rolle, email, telefon)
 
 ### 1.3 Neue Entität: Vertrag
 
-**Datei:** `src/main/java/ch/css/partner/domain/model/Vertrag.java`
+**Datei:** `src/main/java/ch/yuno/partner/domain/model/Vertrag.java`
 
 ```java
 // Felder
@@ -98,7 +98,7 @@ ablaufen()
 
 ### 1.4 Neue Entität: Interaktion
 
-**Datei:** `src/main/java/ch/css/partner/domain/model/Interaktion.java`
+**Datei:** `src/main/java/ch/yuno/partner/domain/model/Interaktion.java`
 
 ```java
 // Felder
@@ -208,18 +208,18 @@ CREATE INDEX idx_partner_audit_partner   ON partner_audit(partner_id);
 
 **Neue Dateien:**
 
-- `src/main/java/ch/css/partner/domain/port/out/KontaktpersonRepository.java`
+- `src/main/java/ch/yuno/partner/domain/port/out/KontaktpersonRepository.java`
   - `save(Kontaktperson)`, `findById(id)`, `findByPartnerId(partnerId)`, `delete(id)`
 
-- `src/main/java/ch/css/partner/domain/port/out/VertragRepository.java`
+- `src/main/java/ch/yuno/partner/domain/port/out/VertragRepository.java`
   - `save(Vertrag)`, `findById(id)`, `findByPartnerId(partnerId)`, `delete(id)`
 
-- `src/main/java/ch/css/partner/domain/port/out/InteraktionRepository.java`
+- `src/main/java/ch/yuno/partner/domain/port/out/InteraktionRepository.java`
   - `save(Interaktion)`, `findById(id)`, `findByPartnerId(partnerId)`, `delete(id)`
 
 ### 3.2 PartnerEventPublisher erweitern
 
-**Datei:** `src/main/java/ch/css/partner/domain/port/out/PartnerEventPublisher.java`
+**Datei:** `src/main/java/ch/yuno/partner/domain/port/out/PartnerEventPublisher.java`
 
 Neue Methoden:
 ```java
@@ -231,7 +231,7 @@ void publishInteraktionProtokolliert(String partnerId, String interaktionsId, In
 
 ### 3.3 PartnerApplicationService erweitern
 
-**Datei:** `src/main/java/ch/css/partner/domain/service/PartnerApplicationService.java`
+**Datei:** `src/main/java/ch/yuno/partner/domain/service/PartnerApplicationService.java`
 
 Neue Use Cases:
 ```java
@@ -272,9 +272,9 @@ List<Interaktion> getInteraktionen(String partnerId);
 ### 4.1 JPA Entities
 
 **Neue Dateien:**
-- `src/main/java/ch/css/partner/infrastructure/persistence/KontaktpersonEntity.java`
-- `src/main/java/ch/css/partner/infrastructure/persistence/VertragEntity.java`
-- `src/main/java/ch/css/partner/infrastructure/persistence/InteraktionEntity.java`
+- `src/main/java/ch/yuno/partner/infrastructure/persistence/KontaktpersonEntity.java`
+- `src/main/java/ch/yuno/partner/infrastructure/persistence/VertragEntity.java`
+- `src/main/java/ch/yuno/partner/infrastructure/persistence/InteraktionEntity.java`
 
 **PartnerEntity.java aktualisieren:**
 - `name` → `firmenname`
@@ -291,7 +291,7 @@ List<Interaktion> getInteraktionen(String partnerId);
 
 ### 4.3 Kafka Adapter erweitern
 
-**Datei:** `src/main/java/ch/css/partner/infrastructure/messaging/PartnerKafkaAdapter.java`
+**Datei:** `src/main/java/ch/yuno/partner/infrastructure/messaging/PartnerKafkaAdapter.java`
 
 Neue Emitter-Channels:
 - `@Channel("partner-created-v2")` – Emitter für partner.v2.created
@@ -301,7 +301,7 @@ Neue Emitter-Channels:
 
 ### 4.4 REST Adapter erweitern
 
-**Datei:** `src/main/java/ch/css/partner/infrastructure/web/PartnerRestAdapter.java`
+**Datei:** `src/main/java/ch/yuno/partner/infrastructure/web/PartnerRestAdapter.java`
 
 Neue Endpoints (für htmx-Fragments):
 
@@ -338,7 +338,7 @@ DELETE /api/partners/{id}/interaktionen/{iid}    → 204
 
 ### 5.1 Qute Web Controller
 
-**Neue Datei:** `src/main/java/ch/css/partner/infrastructure/web/PartnerUiController.java`
+**Neue Datei:** `src/main/java/ch/yuno/partner/infrastructure/web/PartnerUiController.java`
 
 ```java
 // Seitenwechsel (Full-Page)
@@ -469,7 +469,7 @@ mp:
 
 ### 7.1 Unit-Tests (Domain)
 
-**Neue Dateien in `src/test/java/ch/css/partner/domain/`:**
+**Neue Dateien in `src/test/java/ch/yuno/partner/domain/`:**
 - `KontaktpersonTest.java` – Erstellen, Aktualisieren, Validierung
 - `VertragTest.java` – Statusübergänge (unterzeichnen, ablaufen)
 - `InteraktionTest.java` – Erstellen mit verschiedenen Arten
@@ -477,7 +477,7 @@ mp:
 
 ### 7.2 Integration-Tests
 
-**Aktualisieren:** `src/test/java/ch/css/partner/PartnerRestAdapterTest.java`
+**Aktualisieren:** `src/test/java/ch/yuno/partner/PartnerRestAdapterTest.java`
 - Neue Tests für alle CRUD-Endpoints
 - Tests für Sub-Ressourcen (Kontakte, Verträge, Interaktionen)
 

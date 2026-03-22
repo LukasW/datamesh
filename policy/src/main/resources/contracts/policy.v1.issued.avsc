@@ -1,5 +1,5 @@
 {
-  "namespace": "ch.css.policy.events",
+  "namespace": "ch.yuno.policy.events",
   "type": "record",
   "name": "PolicyIssued",
   "doc": "Published when a policy transitions from ENTWURF to AKTIV.",

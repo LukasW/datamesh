@@ -12,7 +12,7 @@ info:
     A message with deleted=true is a semantic tombstone signalling that the person was removed.
   owner: Partner Management Team
   contact:
-    email: team-partner@css.ch
+    email: team-partner@yuno.ch
   domain: partner
   outputPort: kafka
   sla:

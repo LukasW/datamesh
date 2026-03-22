@@ -1,0 +1,28 @@
+{
+  "name": "kafka-ingestion",
+  "displayName": "Kafka Domain Topics",
+  "serviceType": "messagingService",
+  "serviceConnection": {
+    "config": {
+      "type": "Kafka",
+      "bootstrapServers": "kafka:29092",
+      "schemaRegistryURL": "http://schema-registry:8081"
+    }
+  },
+  "sourceConfig": {
+    "config": {
+      "type": "MessagingMetadata",
+      "topicFilterPattern": {
+        "includes": [
+          "person\\.v1\\..*",
+          "product\\.v1\\..*",
+          "policy\\.v1\\..*",
+          "claims\\.v1\\..*",
+          "billing\\.v1\\..*"
+        ]
+      },
+      "generateSampleData": true,
+      "markDeletedTopics": true
+    }
+  }
+}

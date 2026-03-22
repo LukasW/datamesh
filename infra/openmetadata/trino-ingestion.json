@@ -1,0 +1,33 @@
+{
+  "name": "trino-iceberg-ingestion",
+  "displayName": "Iceberg Lakehouse (Trino)",
+  "serviceType": "databaseService",
+  "serviceConnection": {
+    "config": {
+      "type": "Trino",
+      "hostPort": "trino:8086",
+      "username": "openmetadata",
+      "catalog": "iceberg",
+      "databaseSchema": "analytics",
+      "params": {}
+    }
+  },
+  "sourceConfig": {
+    "config": {
+      "type": "DatabaseMetadata",
+      "schemaFilterPattern": {
+        "includes": [
+          "analytics",
+          "partner_raw",
+          "product_raw",
+          "policy_raw",
+          "billing_raw",
+          "claims_raw"
+        ]
+      },
+      "includeViews": true,
+      "markDeletedTables": true,
+      "includeTags": true
+    }
+  }
+}

@@ -202,6 +202,7 @@ SALSVC <--> KAFKA
 
 POLSVC ..> IAMSVC : REST (Auth)
 CLMSVC ..> IAMSVC : REST (Auth)
+POLSVC ..> PRODSVC : gRPC (Prämienberechnung, ADR-010)
 
 @enduml
 ```
@@ -218,8 +219,9 @@ CLMSVC ..> IAMSVC : REST (Auth)
 | **Event-First (Kafka)** | Entkopplung in Raum und Zeit; natürliche Audit-Logs |
 | **Data Mesh** | Domänen publishen Daten als Produkt mit Open Data Contract |
 | **Hexagonal Architecture** | Domänenlogik ist unabhängig von Infrastruktur (DB, Kafka, UI) |
-| **Shared Nothing** | Keine geteilten Datenbanken; kein direkter Service-zu-Service-Aufruf |
+| **Shared Nothing** | Keine geteilten Datenbanken; kein direkter Service-zu-Service-Aufruf (Ausnahme: gRPC-Berechnungen, s. ADR-010) |
 | **REST nur synchron** | Für zeitkritische Queries (z.B. IAM-Auth) als Ausnahme |
+| **gRPC für Spezialfälle** | Synchrone Berechnung (z.B. Prämie) via gRPC mit mandatorischem Circuit Breaker (ADR-010) |
 
 ### 4.2 SCS UI-Integrationskonzept
 
@@ -325,42 +327,41 @@ package "Sachversicherungs-Plattform" {
   database "Schema Registry\n(Avro, :8081)" as SR
   database "AKHQ Kafka UI\n(:8085)" as AKHQ
 
-  package "Analytics & Governance Platform" #LightGrey {
-    [Platform Consumer\n(Kafka → platform_db)] as PC
-    [dbt\n(Staging + Marts)] as DBT
-    [Spark Streaming\n(Delta Lake)] as SPARK
-    [Governance\n(lint + compat + freshness)] as GOV
-    [Data Product Portal\n(FastAPI, :8090)] as PORTAL
-    database "platform_db\n(PostgreSQL, :5435)" as PLTDB
+  package "Lakehouse (Analytical Storage)" #LightGrey {
+    [MinIO / S3\n(:9000)] as MINIO
+    [Nessie Catalog\n(:19120)] as NESSIE
+    [Trino\n(:8086)] as TRINO
+    [SQLMesh\n(Incremental Models)] as SQLMESH
+    [Apache Superset\n(:8088)] as SUPERSET
   }
 
-  package "Metadata Platform" #LightCyan {
-    [DataHub GMS\n(:8080)] as DHGMS
-    [DataHub Frontend\n(:9002)] as DH
-    [DataHub Ingest\n(ODC + Kafka)] as DHINGEST
-    database "datahub-mysql" as DHMYSQL
-    database "Elasticsearch\n(:9200)" as DHES
+  package "Governance & Compliance" #LightCyan {
+    [OpenMetadata\n(:8585)] as OMD
+    [Marquez / OpenLineage\n(:5050)] as MRQ
+    [Soda Core\n(Quality)] as SODA
+    [Vault\n(Crypto-Shredding, :8200)] as VAULT
   }
 }
 
 PM --> KAFKA
 POL --> KAFKA
 PCM --> KAFKA
+CLM --> KAFKA
+BIL --> KAFKA
 
 KAFKA --> SR : Schema\nvalidation
-KAFKA --> PC : konsumiert\nperson/product/policy
-KAFKA --> SPARK : Structured\nStreaming
+KAFKA --> MINIO : Iceberg Sink\nConnector
 
-PC --> PLTDB
-DBT --> PLTDB
-PORTAL ..> KAFKA : Metadaten lesen
-PORTAL ..> PLTDB : Demo-Abfragen
-GOV ..> SR : Schema-Compat\nPrüfung
-DHGMS --> DHMYSQL
-DHGMS --> DHES
-DH --> DHGMS
-DHINGEST ..> SR : Avro-Ingestion
-DHINGEST ..> KAFKA : Schema-Ingestion
+MINIO --> NESSIE : Catalog\nMetadata
+TRINO --> NESSIE : Iceberg\nCatalog
+TRINO --> MINIO : Parquet\nDateien
+SQLMESH --> TRINO : Transform\nModels
+SUPERSET --> TRINO : BI Queries
+
+OMD ..> KAFKA : Topic-Metadaten
+OMD ..> TRINO : Tabellen-Metadaten
+MRQ ..> SQLMESH : Lineage Events
+SODA ..> TRINO : Quality Checks
 
 @enduml
 ```
@@ -393,17 +394,20 @@ package "Policy Management SCS" {
     interface "PolicyRepository\n(Port)" as REPO_PORT
     interface "EventPublisher\n(Port)" as EVENT_PORT
     interface "DocumentPort" as DOC_PORT
+    interface "PremiumCalculationPort\n(Port, ADR-010)" as PREM_PORT
   }
 
   package "Driven Adapters (Output)" #LightGreen {
     [PostgreSQL Adapter\n(JPA/Hibernate)] as DB_ADAPT
     [Kafka Producer\n(PolicyIssued)\n(PolicyCancelled)\n(PolicyChanged)] as KPROD
     [DMS REST Client] as DMS_ADAPT
+    [gRPC Client\n(PremiumCalculation, ADR-010)] as GRPC_ADAPT
   }
 
   database "Policy DB\n(PostgreSQL)" as POLDB
   database "Kafka" as KAFKA
   component "DMS Service" as DMS
+  component "Product Service\n(gRPC :9181)" as PRODSVC
 }
 
 UI --> APP
@@ -416,14 +420,17 @@ APP --> RISK
 APP --> REPO_PORT
 APP --> EVENT_PORT
 APP --> DOC_PORT
+APP --> PREM_PORT
 
 REPO_PORT <|.. DB_ADAPT
 EVENT_PORT <|.. KPROD
 DOC_PORT <|.. DMS_ADAPT
+PREM_PORT <|.. GRPC_ADAPT
 
 DB_ADAPT --> POLDB
 KPROD --> KAFKA
 DMS_ADAPT --> DMS
+GRPC_ADAPT --> PRODSVC
 
 @enduml
 ```
@@ -726,6 +733,25 @@ node "Kubernetes Cluster" {
     artifact "ODC Catalog" as ODC
     KAFKA --> SR
   }
+
+  node "Namespace: lakehouse" {
+    artifact "MinIO (S3)" as MINIO
+    artifact "Nessie (Iceberg Catalog)" as NESSIE
+    artifact "Trino (Query Engine)" as TRINO
+    artifact "SQLMesh (Transforms)" as SQLMESH
+    artifact "Superset (BI)" as SUPERSET
+    TRINO --> NESSIE
+    TRINO --> MINIO
+    SQLMESH --> TRINO
+    SUPERSET --> TRINO
+  }
+
+  node "Namespace: governance" {
+    artifact "OpenMetadata" as OMD
+    artifact "Marquez (Lineage)" as MRQ
+    artifact "Vault (Crypto-Shredding)" as VAULT
+    artifact "Soda Core (Quality)" as SODA
+  }
 }
 
 POL_SVC <--> KAFKA
@@ -735,8 +761,14 @@ PROD_SVC <--> KAFKA
 PCM_SVC <--> KAFKA
 SAL_SVC <--> KAFKA
 
+KAFKA --> MINIO : Iceberg Sink
+SODA --> TRINO : Quality Checks
+OMD --> TRINO : Metadata
+MRQ --> SQLMESH : Lineage
+
 POL_SVC ..> IAM : REST (Auth)
 CLM_SVC ..> DMS : REST (Dokumente)
+POL_SVC ..> PROD_SVC : gRPC (Prämienberechnung)
 
 @enduml
 ```
@@ -781,37 +813,36 @@ node "Localhost" {
     DEBEZIUM --> KAFKA
   }
 
-  node "Analytics Platform" {
-    artifact "platform-consumer\n(Python)" as PC
-    artifact "dbt\n(models + tests)" as DBT
-    artifact "spark\n(Structured Streaming)" as SPARK
-    database "platform_db\n(PostgreSQL :5435)" as PLTDB
-    PC --> PLTDB
-    DBT --> PLTDB
-    artifact "airflow-scheduler" as AIRFLOW_SCH
-    artifact "airflow-webserver\n(:8091)" as AIRFLOW_WEB
-    database "airflow_db\n(PostgreSQL internal)" as AIRFLOWDB
-    AIRFLOW_SCH --> AIRFLOWDB
-    AIRFLOW_WEB --> AIRFLOWDB
+  node "Lakehouse (Analytical Storage)" {
+    artifact "minio\n(S3-compatible :9000/:9001)" as MINIO
+    artifact "nessie\n(Iceberg Catalog :19120)" as NESSIE
+    artifact "trino\n(Query Engine :8086)" as TRINO
+    artifact "sqlmesh\n(Incremental Models)" as SQLMESH
+    artifact "superset\n(BI :8088)" as SUPERSET
+    database "superset-db\n(PostgreSQL)" as SUPERSETDB
+    TRINO --> NESSIE
+    TRINO --> MINIO
+    SQLMESH --> TRINO
+    SUPERSET --> TRINO
+    SUPERSET --> SUPERSETDB
   }
 
-  node "Governance & Portal" {
-    artifact "governance\n(lint + compat + freshness)" as GOV
-    artifact "portal\n(FastAPI :8090)" as PORTAL
-  }
-
-  node "Metadata Platform" {
-    database "datahub-mysql\n(DataHub Store)" as DHMYSQL
-    artifact "datahub-elasticsearch\n(:9200)" as DHES
-    artifact "datahub-gms\n(:8080)" as DHGMS
-    artifact "datahub-frontend\n(:9002)" as DHFE
-    artifact "datahub-actions" as DHACT
-    artifact "datahub-ingest\n(einmalig)" as DHINGEST
-    DHGMS --> DHMYSQL
-    DHGMS --> DHES
-    DHFE --> DHGMS
-    DHACT --> DHGMS
-    DHINGEST --> DHGMS
+  node "Governance & Compliance" {
+    artifact "openmetadata-server\n(:8585)" as OMD
+    artifact "openmetadata-ingestion" as OMDI
+    artifact "openmetadata-elasticsearch\n(:9200)" as OMDES
+    database "openmetadata-db\n(PostgreSQL)" as OMDDB
+    artifact "marquez\n(Lineage :5050)" as MRQ
+    artifact "marquez-web\n(:3001)" as MRQW
+    database "marquez-db\n(PostgreSQL)" as MRQDB
+    artifact "vault\n(Crypto-Shredding :8200)" as VAULT
+    artifact "soda-core\n(Quality)" as SODA
+    OMD --> OMDDB
+    OMD --> OMDES
+    OMDI --> OMD
+    MRQ --> MRQDB
+    MRQW --> MRQ
+    SODA --> TRINO
   }
 }
 
@@ -819,16 +850,12 @@ PARTNER --> DEBEZIUM : outbox table
 PRODUCT --> DEBEZIUM : outbox table
 POLICY --> KAFKA : Outbox\n(in-proc)
 
-PC --> KAFKA : konsumiert\nperson/product/policy.*
-SPARK --> KAFKA : Structured Streaming
+KAFKA --> MINIO : Iceberg Sink\nConnector (Parquet)
+SQLMESH --> TRINO : Transform Models
 
-AIRFLOW_SCH --> PLTDB
-
-PORTAL --> PLTDB
-PORTAL --> SR
-
-DHGMS --> KAFKA : interne Topics\n(MetadataChange*)
-DHINGEST --> SR : Avro-Schema\nIngestion
+OMD ..> KAFKA : Topic-Metadaten
+OMD ..> TRINO : Tabellen-Metadaten
+MRQ ..> SQLMESH : OpenLineage Events
 
 @enduml
 ```
@@ -836,12 +863,16 @@ DHINGEST --> SR : Avro-Schema\nIngestion
 **Startup-Reihenfolge (docker-compose depends_on):**
 
 1. `kafka` → `schema-registry`, `akhq`, `kafka-init`
-2. `partner-db`, `product-db`, `policy-db` → je Domain-Service
-3. `debezium-connect` (depends: kafka, partner-db, product-db) → `debezium-init`
-4. `platform-db` → `platform-consumer`, `dbt`
-5. `airflow-db` → `airflow-init` → `airflow-scheduler`, `airflow-webserver`
-6. `portal`, `governance` (depends: schema-registry healthy, platform-db)
-7. `datahub-mysql`, `datahub-elasticsearch` → `datahub-kafka-setup` → `datahub-upgrade` → `datahub-gms` → `datahub-frontend`, `datahub-actions`, `datahub-ingest`
+2. `partner-db`, `product-db`, `policy-db`, `claims-db`, `billing-db` → je Domain-Service
+3. `debezium-connect` (depends: kafka, alle domain-dbs) → `debezium-init`
+4. `minio` → `minio-init` (creates warehouse bucket)
+5. `nessie`, `minio` → `trino`
+6. `debezium-connect`, `minio-init`, `nessie` → `iceberg-init` (registers Iceberg sink connectors)
+7. `superset-db` → `superset-init` → `superset`
+8. `trino` → `sqlmesh`, `soda-core` (tools profile)
+9. `openmetadata-db`, `openmetadata-elasticsearch` → `openmetadata-server` → `openmetadata-ingestion`
+10. `marquez-db` → `marquez` → `marquez-web`
+11. `vault` (standalone, dev mode)
 
 ---
 
@@ -966,7 +997,7 @@ Reserviert (geplant, noch nicht implementiert):
 
 ```
 {domain}/
-├── src/main/java/ch/css/{domain}/
+├── src/main/java/ch/yuno/{domain}/
 │   ├── domain/                    ← Reine Domänenlogik (kein Framework)
 │   │   ├── model/                 ← Aggregate, Entities, Value Objects
 │   │   ├── service/               ← Application Services
@@ -976,6 +1007,7 @@ Reserviert (geplant, noch nicht implementiert):
 │   └── infrastructure/            ← Adapter-Implementierungen
 │       ├── persistence/           ← JPA/Hibernate Adapter
 │       ├── messaging/             ← Kafka Producer/Consumer (SmallRye)
+│       ├── grpc/                  ← gRPC Server/Client Adapter (ADR-010)
 │       ├── api/                   ← REST Server/Client
 │       └── web/                   ← Qute Templates + REST Controllers
 ├── src/main/resources/
@@ -1250,7 +1282,7 @@ PersonApplicationService
 
 **Status:** Accepted
 
-**Kontext:** Das Projekt richtet sich an eine deutschsprachige Organisation (CSS), die Code jedoch international wartbar halten muss. Ohne klare Regel entstehen Mischsprachen im Codebase.
+**Kontext:** Das Projekt richtet sich an eine deutschsprachige Organisation (Yuno), die Code jedoch international wartbar halten muss. Ohne klare Regel entstehen Mischsprachen im Codebase.
 
 **Entscheidung:** Strikte Trennung nach Schicht:
 
@@ -1333,6 +1365,36 @@ GDPR Erasure Request:
 
 ---
 
+### ADR-010: gRPC für synchrone Domänen-Calls in Spezialfällen
+
+**Status:** Accepted
+
+**Kontext:** Die Prämienberechnung (Policy → Product) erfordert eine synchrone Antwort vor dem Speichern einer Police. Ein asynchrones Pattern (Event → Antwort-Event) ist für diesen Request-Reply-Use-Case überengineered und UX-inakzeptabel (der Benutzer muss die berechnete Prämie sehen, bevor er die Police bestätigt). REST wäre möglich, aber gRPC bietet binäres Protokoll (effizienter), Schema-First-Design (Protobuf) und erstklassigen Quarkus-Support.
+
+**Entscheidung:** gRPC ist als synchrones Kommunikationsprotokoll für Spezialfälle erlaubt, wenn **alle** folgenden Bedingungen erfüllt sind:
+
+1. **Request-Reply-Semantik zwingend** – der Aufrufer benötigt die Antwort vor dem nächsten Verarbeitungsschritt
+2. **Circuit Breaker & Timeout mandatory** – MicroProfile Fault Tolerance (`@CircuitBreaker`, `@Timeout`, `@Retry`) auf jedem gRPC-Client
+3. **Graceful Degradation** – bei Nichterreichbarkeit wird der Use Case mit einer benutzerfreundlichen Fehlermeldung abgebrochen (kein Fallback-Wert)
+4. **Kein Write auf dem Server** – der gRPC-Call ist eine reine Query/Berechnung. Schreibende Operationen laufen weiterhin über Kafka
+5. **Lineage-Registrierung** – jeder gRPC-Call wird als synchrone Datenfluss-Kante in OpenLineage/Marquez erfasst
+
+**Anwendungsfälle:**
+
+| Call | Client → Server | Protokoll | Bedingungen erfüllt |
+|------|----------------|-----------|---------------------|
+| Prämienberechnung | Policy → Product | gRPC | ✅ Query, CB+Timeout, Graceful Degradation |
+| IAM-Authentifizierung | Alle → Keycloak | REST/OIDC | ✅ (ADR-003, bestehend) |
+
+**Konsequenzen:**
+
+- Product-Service exponiert gRPC-Server auf Port 9181 (zusätzlich zu REST auf 9081)
+- Policy-Service hat eine Laufzeit-Abhängigkeit zum Product-Service für Prämienberechnung
+- Bei Product-Service-Ausfall können keine neuen Policen erstellt werden (akzeptabler Tradeoff, Graceful Degradation mit Benutzerhinweis)
+- Proto-Dateien werden in beiden Services gepflegt (kein Shared Module, um SCS-Autonomie zu wahren)
+
+---
+
 ## 10. Qualitätsanforderungen
 
 ### 10.1 Qualitätsbaum
@@ -1403,3 +1465,4 @@ D --> D2
 | R-6 | **🚨 RELEASE BLOCKER: Sprachinkonsistenz Partner-Service** | Deutsche Payload-Felder (`vorname`, `gueltigVon` etc.) sickern in ODC-Verträge ein – Breaking Change nach v1.0-Release schmerzhaft | Refactoring **vor** ODC v1.0-Freigabe zwingend. Details: [`partner/specs/business_spec.md`](../partner/specs/business_spec.md) |
 | R-7 | **🚨 RELEASE BLOCKER: Sprachinkonsistenz Policy-Service** | Deutsche Enums (`ENTWURF`, `AKTIV`) in Kafka-Events brechen ADR-005 direkt an der Schnittstelle | Refactoring **vor** ODC v1.0-Freigabe zwingend. Details: [`policy/specs/business_spec.md`](../policy/specs/business_spec.md) |
 | R-8 | **DSGVO-Compliance: PII in Delta-Events** | Tombstone im State-Topic löscht keine historischen PII-Daten im Delta-Log (7 Jahre Retention) | Crypto-Shredding implementieren (ADR-009): PII-Felder mit partnerindividuellem Schlüssel verschlüsseln; Löschung = Schlüssel-Invalidierung im KMS |
+| R-9 | **Synchrone Abhängigkeit Policy → Product (gRPC)** | Bei Product-Service-Ausfall können keine neuen Policen erstellt werden | Mitigiert durch ADR-010: Circuit Breaker + Timeout + Retry. Graceful Degradation mit Benutzerhinweis «Versuchen Sie es später». Product-Service hat hohe Verfügbarkeit (>99.9%). |

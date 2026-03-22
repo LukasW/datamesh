@@ -1,0 +1,9 @@
+checks for policy_raw.policy_events:
+  - row_count > 0:
+      name: Policy events exist
+  - duplicate_count(event_id) = 0:
+      name: No duplicate policy event IDs
+  - missing_count(policy_id) = 0:
+      name: No null policy_id
+  - freshness(consumed_at) < 24h:
+      name: Policy events are fresh (< 24h)

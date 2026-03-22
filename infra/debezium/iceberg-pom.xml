@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>ch.yuno.datamesh</groupId>
+    <artifactId>iceberg-kafka-connect-deps</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <description>Helper POM to resolve Apache Iceberg Kafka Connect Sink + transitive deps</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-kafka-connect</artifactId>
+            <version>1.7.1</version>
+        </dependency>
+        <!-- S3 FileIO for writing Parquet to MinIO -->
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-aws</artifactId>
+            <version>1.7.1</version>
+        </dependency>
+        <!-- Nessie catalog client -->
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-nessie</artifactId>
+            <version>1.7.1</version>
+        </dependency>
+    </dependencies>
+</project>

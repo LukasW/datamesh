@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "PaymentReceived",
-  "namespace": "ch.css.billing.events",
+  "namespace": "ch.yuno.billing.events",
   "doc": "Emitted when a payment is successfully allocated to an invoice.",
   "fields": [
     {"name": "eventId",       "type": "string"},

@@ -6,7 +6,7 @@ info:
     Emitted when a premium invoice is created for a newly issued policy.
     Downstream consumers (e.g. Document Management, Notification Service) use this
     event to generate the invoice PDF and notify the policyholder.
-  owner: team-billing@css.ch
+  owner: team-billing@yuno.ch
   domain: billing
 
 servers:
@@ -46,7 +46,7 @@ quality:
           valid values: [InvoiceCreated]
 
 dataProduct:
-  owner: team-billing@css.ch
+  owner: team-billing@yuno.ch
   domain: billing
   tags: [financial, invoice, pii]
   sla:

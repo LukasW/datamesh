@@ -32,7 +32,7 @@ schema:
     {
       "type": "record",
       "name": "PartnerCreated",
-      "namespace": "ch.css.partner.events",
+      "namespace": "ch.yuno.partner.events",
       "fields": [
         {
           "name": "eventId",

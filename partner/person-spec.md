@@ -530,7 +530,7 @@ fields:
 | `AdresseGueltigkeitTest` | Überlappungslogik: gleichzeitig gültig, aneinanderliegend, Lücken, unbefristet |
 | `PersonApplicationServiceTest` | Alle Use Cases, inkl. `AdressUeberschneidungException` |
 
-### 11.2 Integration-Tests (`src/test/java/ch/css/partner/`)
+### 11.2 Integration-Tests (`src/test/java/ch/yuno/partner/`)
 
 - `PersonRestAdapterTest` — alle CRUD-Endpoints + Konflikt (409) bei Adress-Überschneidung
 - Kein Mocking von DB oder Kafka; reale PostgreSQL + Kafka via Testcontainers

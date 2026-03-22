@@ -1,5 +1,5 @@
 {
-  "namespace": "ch.css.product.events",
+  "namespace": "ch.yuno.product.events",
   "type": "record",
   "name": "ProductDefined",
   "doc": "Published when a new insurance product is defined. Derived from ODC product.v1.defined v1.0.0",

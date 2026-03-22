@@ -1,0 +1,9 @@
+checks for partner_raw.person_events:
+  - row_count > 0:
+      name: Partner events exist
+  - duplicate_count(event_id) = 0:
+      name: No duplicate partner event IDs
+  - missing_count(person_id) = 0:
+      name: No null person_id
+  - freshness(consumed_at) < 24h:
+      name: Partner events are fresh (< 24h)

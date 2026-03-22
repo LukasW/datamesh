@@ -18,7 +18,7 @@ quarkus:
     info-title: Product Service API
     info-version: 1.0.0
     info-description: REST API für Produktverwaltung (Hexagonal Architecture)
-    info-contact-name: CSS Team
+    info-contact-name: Yuno Team
     path: /openapi
 
   swagger-ui:
@@ -43,13 +43,19 @@ quarkus:
     enabled: true
 
   oidc:
-    auth-server-url: http://localhost:8180/realms/css
+    auth-server-url: http://localhost:8180/realms/yuno
     client-id: product-service
     credentials:
       secret: secret
     application-type: hybrid
     roles:
       role-claim-path: realm_access/roles
+
+  grpc:
+    server:
+      port: 9181
+      health:
+        enabled: true
 
   log:
     level: INFO
@@ -65,7 +71,7 @@ quarkus:
       jdbc:
         url: ${DATABASE_URL}
     oidc:
-      auth-server-url: ${KEYCLOAK_URL}/realms/css
+      auth-server-url: ${KEYCLOAK_URL}/realms/yuno
       client-id: product-service
       credentials:
         secret: ${OIDC_CLIENT_SECRET}

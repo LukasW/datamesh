@@ -40,6 +40,40 @@ In einem dezentralen Mesh muss die Governance "computational" (automatisiert) se
 | **Data Quality** | **Contract Testing:** Validierung der Schemas und Inhalte vor dem Ingest in Iceberg. | Soda Core / ODCS |
 | **AI Act (Art. 10)** | **Data Docs:** Automatisierte Dokumentation der Trainingsdaten-Qualität für KI-Modelle. | Great Expectations |
 
+### 2.1 Lineage-Tracking für synchrone Aufrufe (gRPC, ADR-010)
+
+Neben der asynchronen Lineage (Kafka → Iceberg → SQLMesh) erfasst das Data Mesh auch **synchrone Datenflüsse** zwischen Domänen.
+
+#### Prinzip
+
+Synchrone gRPC-Calls (z.B. Policy → Product für Prämienberechnung) werden als **OpenLineage RunEvents** in Marquez erfasst. Der gRPC-Client im aufrufenden Service emittiert ein OpenLineage-Event bei jedem Call.
+
+#### Erfasste Metadaten
+
+| Feld | Wert (Beispiel) |
+|------|-----------------|
+| **producer** | `policy-service` |
+| **job.name** | `policy.premium_calculation` |
+| **input** | `product-service:grpc:PremiumCalculation.CalculatePremium` |
+| **output** | `policy-service:premium_calculation_result` |
+| **facets** | `grpc.duration_ms`, `grpc.status_code`, `circuit_breaker.state` |
+
+#### Implementierung
+
+1. **Interceptor-basiert:** Ein gRPC-ClientInterceptor im Policy-Service erfasst automatisch jeden gRPC-Call und sendet ein OpenLineage-Event an Marquez.
+2. **Marquez Job:** Der synchrone Call wird als eigener "Job" in Marquez modelliert mit Input-Dataset (Product) und Output (berechnete Prämie).
+3. **Visualisierung:** In der Marquez-Web-UI erscheint der synchrone Call als Kante im Lineage-Graphen (Policy ──gRPC──► Product).
+
+#### Integration mit bestehendem Lineage-Flow
+
+```
+Partner → Kafka → Policy (Read Model)
+Product → Kafka → Policy (Read Model)
+Product ←──gRPC──── Policy (Prämienberechnung)  ← NEU
+Policy  → Kafka → Billing
+Policy  → Kafka → Claims
+```
+
 ---
 
 ## 3. Datenfluss-Szenario: Das Claims-System (Gigabyte-Scale)

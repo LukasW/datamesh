@@ -1,5 +1,5 @@
 {
-  "namespace": "ch.css.policy.events",
+  "namespace": "ch.yuno.policy.events",
   "type": "record",
   "name": "PolicyCancelled",
   "doc": "Published when a policy transitions from AKTIV to GEKUENDIGT.",

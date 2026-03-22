@@ -1,0 +1,26 @@
+package ch.yuno.policy.infrastructure.persistence;
+
+import ch.yuno.policy.domain.port.out.OutboxRepository;
+import ch.yuno.policy.infrastructure.messaging.outbox.OutboxEvent;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+
+@ApplicationScoped
+public class OutboxJpaAdapter implements OutboxRepository {
+
+    @Inject
+    EntityManager em;
+
+    @Override
+    public void save(OutboxEvent event) {
+        OutboxEntity entity = new OutboxEntity();
+        entity.setId(event.getId());
+        entity.setAggregateType(event.getAggregateType());
+        entity.setAggregateId(event.getAggregateId());
+        entity.setEventType(event.getEventType());
+        entity.setTopic(event.getTopic());
+        entity.setPayload(event.getPayload());
+        em.persist(entity);
+    }
+}

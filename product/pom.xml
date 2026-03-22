@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>ch.css</groupId>
+        <groupId>ch.yuno</groupId>
         <artifactId>datamesh-parent</artifactId>
         <version>1.0.0-SNAPSHOT</version>
     </parent>
@@ -79,6 +79,12 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-oidc</artifactId>
+        </dependency>
+
+        <!-- gRPC Server (ADR-010: synchronous premium calculation) -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-grpc</artifactId>
         </dependency>
 
         <!-- Observability (Prometheus metrics) -->

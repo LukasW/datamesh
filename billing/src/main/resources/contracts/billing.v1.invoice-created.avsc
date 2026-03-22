@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "InvoiceCreated",
-  "namespace": "ch.css.billing.events",
+  "namespace": "ch.yuno.billing.events",
   "doc": "Emitted when a premium invoice is created for a policy.",
   "fields": [
     {"name": "eventId",       "type": "string", "doc": "Unique event UUID"},

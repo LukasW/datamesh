@@ -1,5 +1,5 @@
 {
-  "namespace": "ch.css.partner.events",
+  "namespace": "ch.yuno.partner.events",
   "type": "record",
   "name": "PersonUpdated",
   "doc": "Published when a person's personal data is updated. Derived from ODC person.v1.updated v1.0.0",

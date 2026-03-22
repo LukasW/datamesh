@@ -1,5 +1,5 @@
 {
-  "namespace": "ch.css.policy.events",
+  "namespace": "ch.yuno.policy.events",
   "type": "record",
   "name": "CoverageAdded",
   "doc": "Published when a coverage is added to a policy.",

@@ -1,5 +1,5 @@
 {
-  "namespace": "ch.css.partner.events",
+  "namespace": "ch.yuno.partner.events",
   "type": "record",
   "name": "AddressUpdated",
   "doc": "Published when an address validity period is updated. Derived from ODC person.v1.address-updated v1.1.0",

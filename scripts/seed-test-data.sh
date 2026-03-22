@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-# seed-test-data.sh – Seed all CSS Datamesh services with realistic test data.
+# seed-test-data.sh – Seed all Yuno Datamesh services with realistic test data.
 # Intended for local dev / demo environments only.
 set -euo pipefail
 
@@ -51,10 +51,10 @@ print(match['$3'] if match else '')
 }
 
 refresh_token() {
-  # The Host header is spoofed so Keycloak issues tokens with iss=http://keycloak:8080/realms/css,
+  # The Host header is spoofed so Keycloak issues tokens with iss=http://keycloak:8080/realms/yuno,
   # matching what the services (running in the Docker network) validate against.
   TOKEN=$(curl -sf -X POST \
-    "$KEYCLOAK_URL/realms/css/protocol/openid-connect/token" \
+    "$KEYCLOAK_URL/realms/yuno/protocol/openid-connect/token" \
     -H "Host: keycloak:8080" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "grant_type=password&client_id=partner-service&client_secret=secret&username=admin&password=admin" \
@@ -136,7 +136,7 @@ create_policy_with_retry() {
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║          Seeding Test Data – CSS Sachversicherung            ║"
+echo "║          Seeding Test Data – Yuno Sachversicherung            ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 echo "▶ Waiting for services to be ready…"

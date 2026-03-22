@@ -1,0 +1,70 @@
+{
+  "name": "PII",
+  "displayName": "Personally Identifiable Information",
+  "description": "Classification for data containing personally identifiable information subject to nDSG/GDPR",
+  "tags": [
+    {
+      "name": "Sensitive",
+      "description": "PII fields requiring crypto-shredding (ADR-009). Includes: name, firstName, socialSecurityNumber, dateOfBirth, addresses.",
+      "classification": "PII"
+    },
+    {
+      "name": "PersonIdentifier",
+      "description": "Direct person identifiers (personId, AHV number). Key deletion in Vault renders all associated data unreadable.",
+      "classification": "PII"
+    },
+    {
+      "name": "Address",
+      "description": "Physical address data (street, city, postalCode). Subject to right-to-erasure.",
+      "classification": "PII"
+    }
+  ],
+  "retentionPolicies": [
+    {
+      "name": "gdpr-7y-retention",
+      "description": "7 year retention for insurance audit compliance, then crypto-shredding via Vault key deletion",
+      "retentionPeriodDays": 2555
+    }
+  ],
+  "tableTagAssignments": [
+    {
+      "table": "iceberg.partner_raw.person_events",
+      "tags": ["PII.Sensitive", "PII.PersonIdentifier"],
+      "columns": {
+        "family_name": ["PII.Sensitive"],
+        "first_name": ["PII.Sensitive"],
+        "social_security_number": ["PII.PersonIdentifier"],
+        "date_of_birth": ["PII.Sensitive"]
+      }
+    },
+    {
+      "table": "iceberg.analytics.dim_partner",
+      "tags": ["PII.Sensitive", "PII.PersonIdentifier"],
+      "columns": {
+        "family_name": ["PII.Sensitive"],
+        "first_name": ["PII.Sensitive"],
+        "full_name": ["PII.Sensitive"],
+        "social_security_number": ["PII.PersonIdentifier"],
+        "date_of_birth": ["PII.Sensitive"]
+      }
+    }
+  ],
+  "topicTagAssignments": [
+    {
+      "topic": "person.v1.created",
+      "tags": ["PII.Sensitive", "PII.PersonIdentifier"]
+    },
+    {
+      "topic": "person.v1.updated",
+      "tags": ["PII.Sensitive"]
+    },
+    {
+      "topic": "person.v1.state",
+      "tags": ["PII.Sensitive", "PII.PersonIdentifier", "PII.Address"]
+    },
+    {
+      "topic": "person.v1.address-added",
+      "tags": ["PII.Address"]
+    }
+  ]
+}

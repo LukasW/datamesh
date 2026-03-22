@@ -1,0 +1,16 @@
+{
+  "name": "marquez-lineage",
+  "displayName": "Marquez OpenLineage Integration",
+  "description": "Configures OpenMetadata to display lineage from Marquez (OpenLineage server)",
+  "serviceType": "metadata",
+  "config": {
+    "openLineageServerUrl": "http://marquez:5050",
+    "openLineageApiVersion": "v1",
+    "syncInterval": "5m",
+    "enableColumnLevelLineage": true,
+    "namespaceMapping": {
+      "sqlmesh": "analytics",
+      "iceberg-kafka-connect": "raw_ingestion"
+    }
+  }
+}

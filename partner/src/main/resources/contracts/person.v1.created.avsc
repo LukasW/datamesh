@@ -1,5 +1,5 @@
 {
-  "namespace": "ch.css.partner.events",
+  "namespace": "ch.yuno.partner.events",
   "type": "record",
   "name": "PersonCreated",
   "doc": "Published when a new natural person is created. Derived from ODC person.v1.created v1.1.0",

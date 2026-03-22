@@ -5,11 +5,11 @@
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>ch.css</groupId>
+    <groupId>ch.yuno</groupId>
     <artifactId>datamesh-parent</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <description>CSS Data Mesh - Parent POM</description>
+    <description>Yuno Data Mesh - Parent POM</description>
 
     <modules>
         <module>partner</module>
