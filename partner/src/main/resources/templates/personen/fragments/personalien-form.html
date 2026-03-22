@@ -39,6 +39,13 @@
       {/if}
       <small class="text-muted">AHV-Nummer kann nach Ersterstellung nicht geändert werden.</small>
     </div>
+    {#if person.insuredNumber}
+    <div class="mb-3">
+      <label class="form-label">Versichertennummer</label>
+      <input type="text" class="form-control font-monospace" value="{person.insuredNumber.formatted}" readonly>
+      <small class="text-muted">Automatisch vergeben bei Policenaktivierung.</small>
+    </div>
+    {/if}
     <button type="submit" class="btn btn-primary">Speichern</button>
   </form>
 </div>

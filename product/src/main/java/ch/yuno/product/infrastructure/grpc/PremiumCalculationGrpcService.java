@@ -3,6 +3,7 @@ package ch.yuno.product.infrastructure.grpc;
 import ch.yuno.product.domain.model.PremiumCalculation;
 import ch.yuno.product.domain.model.Product;
 import ch.yuno.product.domain.model.RiskProfile;
+import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.port.out.ProductRepository;
 import ch.yuno.product.domain.service.PremiumCalculationService;
 import ch.yuno.product.domain.service.ProductNotFoundException;
@@ -38,7 +39,7 @@ public class PremiumCalculationGrpcService extends PremiumCalculationGrpc.Premiu
 
         try {
             // 1. Look up the product
-            Product product = productRepository.findById(request.getProductId())
+            Product product = productRepository.findById(ProductId.of(request.getProductId()))
                     .orElseThrow(() -> new ProductNotFoundException(request.getProductId()));
 
             if (!product.isActive()) {

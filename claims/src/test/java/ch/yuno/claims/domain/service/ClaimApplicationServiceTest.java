@@ -1,10 +1,12 @@
 package ch.yuno.claims.domain.service;
 
 import ch.yuno.claims.domain.model.Claim;
+import ch.yuno.claims.domain.model.ClaimId;
 import ch.yuno.claims.domain.model.ClaimStatus;
 import ch.yuno.claims.domain.model.PolicySnapshot;
 import ch.yuno.claims.domain.port.out.ClaimRepository;
 import ch.yuno.claims.domain.port.out.OutboxRepository;
+import ch.yuno.claims.domain.port.out.PartnerSearchViewRepository;
 import ch.yuno.claims.domain.port.out.PolicySnapshotRepository;
 import ch.yuno.claims.infrastructure.messaging.outbox.OutboxEvent;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +30,7 @@ class ClaimApplicationServiceTest {
     @Mock ClaimRepository claimRepository;
     @Mock PolicySnapshotRepository policySnapshotRepository;
     @Mock OutboxRepository outboxRepository;
+    @Mock PartnerSearchViewRepository partnerSearchViewRepository;
 
     ClaimApplicationService service;
 
@@ -37,7 +40,8 @@ class ClaimApplicationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ClaimApplicationService(claimRepository, policySnapshotRepository, outboxRepository);
+        service = new ClaimApplicationService(claimRepository, policySnapshotRepository,
+                outboxRepository, partnerSearchViewRepository);
     }
 
     @Test
@@ -96,8 +100,8 @@ class ClaimApplicationServiceTest {
 
     @Test
     void findByIdThrowsForUnknownClaim() {
-        when(claimRepository.findById("unknown")).thenReturn(Optional.empty());
-        assertThrows(ClaimNotFoundException.class, () -> service.findById("unknown"));
+        when(claimRepository.findById(ClaimId.of("unknown"))).thenReturn(Optional.empty());
+        assertThrows(ClaimNotFoundException.class, () -> service.findById(ClaimId.of("unknown")));
     }
 
     @Test

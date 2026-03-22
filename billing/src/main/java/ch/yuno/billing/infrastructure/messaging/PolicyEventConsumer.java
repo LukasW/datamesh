@@ -1,6 +1,7 @@
 package ch.yuno.billing.infrastructure.messaging;
 
 import ch.yuno.billing.domain.model.BillingCycle;
+import ch.yuno.billing.domain.model.InvoiceId;
 import ch.yuno.billing.domain.service.InvoiceCommandService;
 import ch.yuno.billing.infrastructure.messaging.acl.PolicyEventTranslator;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -25,7 +26,7 @@ public class PolicyEventConsumer {
     public void onPolicyIssued(String message) {
         try {
             PolicyEventTranslator.PolicyIssuedData data = PolicyEventTranslator.translateIssued(message);
-            String invoiceId = invoiceCommandService.createInvoiceForPolicy(
+            InvoiceId invoiceId = invoiceCommandService.createInvoiceForPolicy(
                     data.policyId(), data.policyNumber(), data.partnerId(),
                     data.premium(), BillingCycle.ANNUAL);
             log.infof("Invoice created: %s for policy %s", invoiceId, data.policyNumber());

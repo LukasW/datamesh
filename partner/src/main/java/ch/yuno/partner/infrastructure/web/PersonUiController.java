@@ -1,11 +1,13 @@
 package ch.yuno.partner.infrastructure.web;
 
 import ch.yuno.partner.domain.model.Address;
+import ch.yuno.partner.domain.model.AddressId;
 import ch.yuno.partner.domain.model.AddressType;
 import ch.yuno.partner.domain.model.Gender;
 import ch.yuno.partner.domain.model.PageRequest;
 import ch.yuno.partner.domain.model.PageResult;
 import ch.yuno.partner.domain.model.Person;
+import ch.yuno.partner.domain.model.PersonId;
 import ch.yuno.partner.domain.service.AddressOverlapException;
 import ch.yuno.partner.domain.service.AddressNotFoundException;
 import ch.yuno.partner.domain.service.PersonCommandService;
@@ -79,7 +81,7 @@ public class PersonUiController {
     @Path("/{id}/edit")
     public Object getEdit(@PathParam("id") String id) {
         try {
-            Person person = personQueryService.findById(id);
+            Person person = personQueryService.findById(PersonId.of(id));
             return edit.data("person", person);
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity("<p>Person not found: " + id + "</p>").build();
@@ -137,7 +139,7 @@ public class PersonUiController {
             @FormParam("dateOfBirth") String dateOfBirth,
             @FormParam("socialSecurityNumber") String socialSecurityNumber) {
         try {
-            String id = personCommandService.createPerson(
+            PersonId id = personCommandService.createPerson(
                     name, firstName,
                     Gender.valueOf(gender),
                     LocalDate.parse(dateOfBirth),
@@ -185,12 +187,13 @@ public class PersonUiController {
         try {
             LocalDate from = LocalDate.parse(validFrom);
             LocalDate to = isNotBlank(validTo) ? LocalDate.parse(validTo) : null;
-            String addressId = personCommandService.addAddress(
-                    personId, AddressType.valueOf(addressType),
+            PersonId pid = PersonId.of(personId);
+            AddressId addressId = personCommandService.addAddress(
+                    pid, AddressType.valueOf(addressType),
                     street, houseNumber, postalCode, city,
                     isNotBlank(land) ? land : "Schweiz",
                     from, to);
-            Address address = personQueryService.findById(personId).getAddresses().stream()
+            Address address = personQueryService.findById(pid).getAddresses().stream()
                     .filter(a -> a.getAddressId().equals(addressId))
                     .findFirst().orElseThrow();
             return adresseKarte.data("adresse", address).data("personId", personId);
@@ -211,8 +214,10 @@ public class PersonUiController {
     @Path("/fragments/{id}/addresses/{aid}/card")
     public Object getAddressCard(@PathParam("id") String personId, @PathParam("aid") String aid) {
         try {
-            Address address = personQueryService.findById(personId).getAddresses().stream()
-                    .filter(a -> a.getAddressId().equals(aid))
+            PersonId pid = PersonId.of(personId);
+            AddressId addressId = AddressId.of(aid);
+            Address address = personQueryService.findById(pid).getAddresses().stream()
+                    .filter(a -> a.getAddressId().equals(addressId))
                     .findFirst()
                     .orElseThrow(() -> new AddressNotFoundException(aid));
             return adresseKarte.data("adresse", address).data("personId", personId);
@@ -227,8 +232,10 @@ public class PersonUiController {
     public Object getAddressValidityForm(@PathParam("id") String personId,
                                              @PathParam("aid") String aid) {
         try {
-            Address address = personQueryService.findById(personId).getAddresses().stream()
-                    .filter(a -> a.getAddressId().equals(aid))
+            PersonId pid = PersonId.of(personId);
+            AddressId addressId = AddressId.of(aid);
+            Address address = personQueryService.findById(pid).getAddresses().stream()
+                    .filter(a -> a.getAddressId().equals(addressId))
                     .findFirst()
                     .orElseThrow(() -> new AddressNotFoundException(aid));
             return adresseGueltigkeitForm.data("adresse", address).data("personId", personId);
@@ -252,14 +259,18 @@ public class PersonUiController {
         try {
             LocalDate from = LocalDate.parse(validFrom);
             LocalDate to = isNotBlank(validTo) ? LocalDate.parse(validTo) : null;
-            personCommandService.updateAddressValidity(personId, aid, from, to);
-            Address address = personQueryService.findById(personId).getAddresses().stream()
-                    .filter(a -> a.getAddressId().equals(aid))
+            PersonId pid = PersonId.of(personId);
+            AddressId addressId = AddressId.of(aid);
+            personCommandService.updateAddressValidity(pid, addressId, from, to);
+            Address address = personQueryService.findById(pid).getAddresses().stream()
+                    .filter(a -> a.getAddressId().equals(addressId))
                     .findFirst().orElseThrow();
             return adresseKarte.data("adresse", address).data("personId", personId);
         } catch (AddressOverlapException e) {
-            Address address = personQueryService.findById(personId).getAddresses().stream()
-                    .filter(a -> a.getAddressId().equals(aid))
+            PersonId pid = PersonId.of(personId);
+            AddressId addressId = AddressId.of(aid);
+            Address address = personQueryService.findById(pid).getAddresses().stream()
+                    .filter(a -> a.getAddressId().equals(addressId))
                     .findFirst().orElseThrow();
             return adresseGueltigkeitForm
                     .data("adresse", address)
@@ -285,10 +296,11 @@ public class PersonUiController {
             @FormParam("gender") String gender,
             @FormParam("dateOfBirth") String dateOfBirth) {
         try {
-            personCommandService.updatePersonalData(personId, name, firstName,
+            PersonId pid = PersonId.of(personId);
+            personCommandService.updatePersonalData(pid, name, firstName,
                     Gender.valueOf(gender),
                     LocalDate.parse(dateOfBirth));
-            Person person = personQueryService.findById(personId);
+            Person person = personQueryService.findById(pid);
             return personalienForm.data("person", person).data("success", true);
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity("<p>" + escapeHtml(e.getMessage()) + "</p>").build();

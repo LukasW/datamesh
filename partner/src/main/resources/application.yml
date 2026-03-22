@@ -65,6 +65,24 @@ vault:
   url: http://localhost:8200
   token: dev-root-token
 
+# ── Incoming: policy.v1.issued → assign insured number on first policy ────────
+mp:
+  messaging:
+    incoming:
+      policy-issued-in:
+        connector: smallrye-kafka
+        topic: policy.v1.issued
+        value:
+          deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        group:
+          id: partner-service-policy
+        auto:
+          offset:
+            reset: earliest
+        failure-strategy: dead-letter-queue
+        dead-letter-queue:
+          topic: partner-policy-issued-dlq
+
 # Prod: explicit DB connection (env-var driven)
 # Kafka publishing is handled by Debezium CDC reading the outbox table – no Kafka client needed here.
 "%prod":

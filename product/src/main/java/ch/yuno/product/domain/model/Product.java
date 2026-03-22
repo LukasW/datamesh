@@ -1,7 +1,6 @@
 package ch.yuno.product.domain.model;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 /**
  * Aggregate Root: Product.
@@ -10,7 +9,7 @@ import java.util.UUID;
  */
 public class Product {
 
-    private final String productId;
+    private final ProductId productId;
     private String name;
     private String description;
     private ProductLine productLine;
@@ -20,7 +19,7 @@ public class Product {
     /** Constructor for creating a new Product. */
     public Product(String name, String description, ProductLine productLine, BigDecimal basePremium) {
         validate(name, productLine, basePremium);
-        this.productId = UUID.randomUUID().toString();
+        this.productId = ProductId.generate();
         this.name = name;
         this.description = description;
         this.productLine = productLine;
@@ -29,7 +28,7 @@ public class Product {
     }
 
     /** Constructor for reconstructing from persistence. */
-    public Product(String productId, String name, String description,
+    public Product(ProductId productId, String name, String description,
                    ProductLine productLine, BigDecimal basePremium, ProductStatus status) {
         this.productId = productId;
         this.name = name;
@@ -71,7 +70,7 @@ public class Product {
 
     // ── Getters ───────────────────────────────────────────────────────────────
 
-    public String getProductId() { return productId; }
+    public ProductId getProductId() { return productId; }
     public String getName() { return name; }
     public String getDescription() { return description; }
     public ProductLine getProductLine() { return productLine; }

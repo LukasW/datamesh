@@ -39,6 +39,10 @@ spec:
         format: date
         description: ISO-8601 (yyyy-MM-dd)
         nullable: false
+      - name: insuredNumber
+        type: string
+        nullable: true
+        description: "Always null at creation. Insured number (VN-XXXXXXXX) is assigned when first policy is activated."
       - name: timestamp
         type: string
         format: datetime

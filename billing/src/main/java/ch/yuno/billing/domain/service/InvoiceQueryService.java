@@ -1,6 +1,7 @@
 package ch.yuno.billing.domain.service;
 
 import ch.yuno.billing.domain.model.Invoice;
+import ch.yuno.billing.domain.model.InvoiceId;
 import ch.yuno.billing.domain.model.InvoiceStatus;
 import ch.yuno.billing.domain.model.PolicyholderView;
 import ch.yuno.billing.domain.port.out.InvoiceRepository;
@@ -20,9 +21,9 @@ public class InvoiceQueryService {
     @Inject
     PolicyholderViewRepository policyholderViewRepository;
 
-    public Invoice findByIdOrThrow(String invoiceId) {
+    public Invoice findByIdOrThrow(InvoiceId invoiceId) {
         return invoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new InvoiceNotFoundException(invoiceId));
+                .orElseThrow(() -> new InvoiceNotFoundException(invoiceId.value()));
     }
 
     public List<Invoice> listAll(int page, int size) {
@@ -43,5 +44,9 @@ public class InvoiceQueryService {
 
     public Optional<PolicyholderView> findPolicyholder(String partnerId) {
         return policyholderViewRepository.findById(partnerId);
+    }
+
+    public Optional<PolicyholderView> findPolicyholderByInsuredNumber(String insuredNumber) {
+        return policyholderViewRepository.findByInsuredNumber(insuredNumber);
     }
 }

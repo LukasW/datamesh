@@ -1,6 +1,9 @@
 package ch.yuno.partner.domain;
 
 import ch.yuno.partner.domain.model.*;
+import ch.yuno.partner.domain.model.AddressId;
+import ch.yuno.partner.domain.model.PersonId;
+import ch.yuno.partner.domain.port.out.InsuredNumberGenerator;
 import ch.yuno.partner.domain.port.out.OutboxRepository;
 import ch.yuno.partner.domain.port.out.PersonRepository;
 import ch.yuno.partner.domain.port.out.PiiEncryptor;
@@ -38,6 +41,9 @@ class PersonCommandServiceTest {
     @Mock
     PiiEncryptor piiEncryptor;
 
+    @Mock
+    InsuredNumberGenerator insuredNumberGenerator;
+
     @InjectMocks
     PersonCommandService service;
 
@@ -65,7 +71,7 @@ class PersonCommandServiceTest {
         when(personRepository.existsBySocialSecurityNumber(SSN)).thenReturn(false);
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        String id = service.createPerson("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH, SSN_RAW);
+        PersonId id = service.createPerson("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH, SSN_RAW);
 
         assertNotNull(id);
         verify(personRepository).save(any(Person.class));
@@ -74,7 +80,7 @@ class PersonCommandServiceTest {
                 .filter(e -> "PersonCreated".equals(e.getEventType())).findFirst().orElseThrow();
         assertEquals("person.v1.created", event.getTopic());
         assertEquals("person", event.getAggregateType());
-        assertEquals(id, event.getAggregateId());
+        assertEquals(id.value(), event.getAggregateId());
         assertNotNull(event.getPayload());
         assertTrue(event.getPayload().contains("\"eventType\":\"PersonCreated\""));
     }
@@ -96,7 +102,7 @@ class PersonCommandServiceTest {
     void createPerson_withoutAhv_succeeds() {
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        String id = service.createPerson("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH, null);
+        PersonId id = service.createPerson("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH, null);
 
         assertNotNull(id);
         verify(personRepository, never()).existsBySocialSecurityNumber(any());
@@ -134,10 +140,10 @@ class PersonCommandServiceTest {
     @Test
     @DisplayName("updatePersonalData – Person nicht gefunden → PersonNotFoundException")
     void updatePersonalData_notFound_throws() {
-        when(personRepository.findById("unknown")).thenReturn(Optional.empty());
+        when(personRepository.findById(PersonId.of("unknown"))).thenReturn(Optional.empty());
 
         assertThrows(PersonNotFoundException.class,
-                () -> service.updatePersonalData("unknown", "Neuer", "Name",
+                () -> service.updatePersonalData(PersonId.of("unknown"), "Neuer", "Name",
                         Gender.MALE, LocalDate.of(1980, 1, 1)));
     }
 
@@ -156,15 +162,15 @@ class PersonCommandServiceTest {
                 .filter(e -> "PersonDeleted".equals(e.getEventType())).findFirst().orElseThrow();
         assertEquals("person.v1.deleted", event.getTopic());
         // ADR-009: Verify crypto-shredding — Vault key must be deleted
-        verify(piiEncryptor).deleteKey(testPerson.getPersonId());
+        verify(piiEncryptor).deleteKey(testPerson.getPersonId().value());
     }
 
     @Test
     @DisplayName("deletePerson – Person nicht gefunden → PersonNotFoundException")
     void deletePerson_notFound_throws() {
-        when(personRepository.findById("unknown")).thenReturn(Optional.empty());
+        when(personRepository.findById(PersonId.of("unknown"))).thenReturn(Optional.empty());
 
-        assertThrows(PersonNotFoundException.class, () -> service.deletePerson("unknown"));
+        assertThrows(PersonNotFoundException.class, () -> service.deletePerson(PersonId.of("unknown")));
     }
 
     // ── addAddress ────────────────────────────────────────────────────────────
@@ -175,7 +181,7 @@ class PersonCommandServiceTest {
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        String addressId = service.addAddress(
+        AddressId addressId = service.addAddress(
                 testPerson.getPersonId(), AddressType.RESIDENCE,
                 "Musterstr.", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
@@ -215,7 +221,7 @@ class PersonCommandServiceTest {
     void updateAddressValidity_updatesAndWritesOutboxEvent() {
         testPerson.addAddress(AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
-        String addressId = testPerson.getAddresses().get(0).getAddressId();
+        AddressId addressId = testPerson.getAddresses().get(0).getAddressId();
 
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -238,7 +244,7 @@ class PersonCommandServiceTest {
     void deleteAddress_removes() {
         testPerson.addAddress(AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
-        String addressId = testPerson.getAddresses().get(0).getAddressId();
+        AddressId addressId = testPerson.getAddresses().get(0).getAddressId();
 
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -248,5 +254,53 @@ class PersonCommandServiceTest {
         assertTrue(testPerson.getAddresses().isEmpty());
         verify(outboxRepository).save(outboxCaptor.capture());
         assertEquals("PersonState", outboxCaptor.getValue().getEventType());
+    }
+
+    // ── assignInsuredNumberIfAbsent ───────────────────────────────────────────
+
+    @Test
+    @DisplayName("assignInsuredNumberIfAbsent – Person ohne Nummer → Nummer wird zugewiesen, 2 Outbox-Events")
+    void assignInsuredNumber_newAssignment() {
+        when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
+        when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(insuredNumberGenerator.nextInsuredNumber()).thenReturn(InsuredNumber.fromSequence(42));
+
+        boolean assigned = service.assignInsuredNumberIfAbsent(testPerson.getPersonId());
+
+        assertTrue(assigned);
+        assertEquals(new InsuredNumber("VN-00000042"), testPerson.getInsuredNumber());
+        assertTrue(testPerson.isInsured());
+        verify(personRepository).save(testPerson);
+        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
+        var events = outboxCaptor.getAllValues();
+        assertTrue(events.stream().anyMatch(e -> "PersonUpdated".equals(e.getEventType())));
+        assertTrue(events.stream().anyMatch(e -> "PersonState".equals(e.getEventType())));
+        // Verify insuredNumber is in the event payloads
+        OutboxEvent updatedEvent = events.stream()
+                .filter(e -> "PersonUpdated".equals(e.getEventType())).findFirst().orElseThrow();
+        assertTrue(updatedEvent.getPayload().contains("VN-00000042"));
+    }
+
+    @Test
+    @DisplayName("assignInsuredNumberIfAbsent – Person hat bereits Nummer → idempotent, keine Outbox-Events")
+    void assignInsuredNumber_alreadyInsured_skips() {
+        testPerson.assignInsuredNumber(InsuredNumber.fromSequence(1));
+        when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
+
+        boolean assigned = service.assignInsuredNumberIfAbsent(testPerson.getPersonId());
+
+        assertFalse(assigned);
+        verify(personRepository, never()).save(any());
+        verify(outboxRepository, never()).save(any());
+        verify(insuredNumberGenerator, never()).nextInsuredNumber();
+    }
+
+    @Test
+    @DisplayName("assignInsuredNumberIfAbsent – Person nicht gefunden → PersonNotFoundException")
+    void assignInsuredNumber_notFound_throws() {
+        when(personRepository.findById(PersonId.of("unknown"))).thenReturn(Optional.empty());
+
+        assertThrows(PersonNotFoundException.class,
+                () -> service.assignInsuredNumberIfAbsent(PersonId.of("unknown")));
     }
 }

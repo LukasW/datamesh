@@ -1,6 +1,7 @@
 package ch.yuno.partner.domain;
 
 import ch.yuno.partner.domain.model.*;
+import ch.yuno.partner.domain.model.AddressId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -140,7 +141,7 @@ class AddressValidityTest {
     @Test
     @DisplayName("updateAddressValidity mit Überschneidung → andere Adresse wird angepasst")
     void updateGueltigkeit_overlapping_adjustsOther() {
-        String aid1 = person.addAddress(AddressType.RESIDENCE, "Str1", "1", "8001", "Zürich", "Schweiz",
+        AddressId aid1 = person.addAddress(AddressType.RESIDENCE, "Str1", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2015, 1, 1), LocalDate.of(2019, 12, 31));
         person.addAddress(AddressType.RESIDENCE, "Str2", "2", "3000", "Bern", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
@@ -158,7 +159,7 @@ class AddressValidityTest {
     @Test
     @DisplayName("updateAddressValidity ohne Überschneidung → erfolgreich")
     void updateGueltigkeit_noOverlap_succeeds() {
-        String aid1 = person.addAddress(AddressType.RESIDENCE, "Str1", "1", "8001", "Zürich", "Schweiz",
+        AddressId aid1 = person.addAddress(AddressType.RESIDENCE, "Str1", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2015, 1, 1), LocalDate.of(2019, 12, 31));
         person.addAddress(AddressType.RESIDENCE, "Str2", "2", "3000", "Bern", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
@@ -218,7 +219,7 @@ class AddressValidityTest {
     @Test
     @DisplayName("isCurrent: Adresse mit heute im Gültigkeitsbereich → true")
     void isCurrent_currentDate_true() {
-        String addressId = person.addAddress(AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
+        AddressId addressId = person.addAddress(AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
         Address address = person.getAddresses().stream()
                 .filter(a -> a.getAddressId().equals(addressId)).findFirst().orElseThrow();
@@ -228,7 +229,7 @@ class AddressValidityTest {
     @Test
     @DisplayName("isCurrent: Abgelaufene Adresse → false")
     void isCurrent_expired_false() {
-        String addressId = person.addAddress(AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
+        AddressId addressId = person.addAddress(AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2015, 1, 1), LocalDate.of(2019, 12, 31));
         Address address = person.getAddresses().stream()
                 .filter(a -> a.getAddressId().equals(addressId)).findFirst().orElseThrow();

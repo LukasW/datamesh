@@ -42,7 +42,12 @@ class ClaimFormUiTest extends BasePlaywrightTest {
     void formPage_loadsAllRequiredFields() {
         formPage.navigate();
         formPage.assertLoaded();
-        assertThat(page.locator("#policyId")).isVisible();
+        // Partner search tabs visible
+        assertThat(page.locator("button:has-text('Name')")).isVisible();
+        assertThat(page.locator("button:has-text('AHV-Nr.')")).isVisible();
+        assertThat(page.locator("button:has-text('Versichertennr.')")).isVisible();
+        // Hidden policyId field exists
+        assertThat(page.locator("#policyId")).isHidden();
         assertThat(page.locator("#claimDate")).isVisible();
         assertThat(page.locator("#description")).isVisible();
         assertThat(page.locator("button[type=submit]")).isVisible();
@@ -66,6 +71,7 @@ class ClaimFormUiTest extends BasePlaywrightTest {
         formPage.fillClaimDate("2026-03-10");
         formPage.fillDescription("Test Vorausfuellung");
         formPage.submit();
+        // policyId is a hidden input – check its value attribute
         assertThat(page.locator("#policyId")).hasValue(UNKNOWN_POLICY_ID);
         assertThat(page.locator("#description")).hasValue("Test Vorausfuellung");
     }

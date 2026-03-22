@@ -25,6 +25,7 @@ public class PartnerViewJpaAdapter implements PartnerViewRepository {
             entity.setPartnerId(partner.getPartnerId());
         }
         entity.setName(partner.getName());
+        entity.setInsuredNumber(partner.getInsuredNumber());
         em.merge(entity);
     }
 
@@ -48,6 +49,15 @@ public class PartnerViewJpaAdapter implements PartnerViewRepository {
                     .setMaxResults(20)
                     .getResultList().stream().map(this::toDomain).toList();
         }
+        // VN-Suche bei passendem Präfix
+        if (nameQuery.toUpperCase().startsWith("VN-")) {
+            return em.createQuery(
+                    "SELECT p FROM PartnerViewEntity p WHERE p.insuredNumber = :vn",
+                    PartnerViewEntity.class)
+                    .setParameter("vn", nameQuery.toUpperCase())
+                    .setMaxResults(1)
+                    .getResultList().stream().map(this::toDomain).toList();
+        }
         return em.createQuery(
                 "SELECT p FROM PartnerViewEntity p WHERE LOWER(p.name) LIKE :q ORDER BY p.name",
                 PartnerViewEntity.class)
@@ -57,6 +67,6 @@ public class PartnerViewJpaAdapter implements PartnerViewRepository {
     }
 
     private PartnerView toDomain(PartnerViewEntity e) {
-        return new PartnerView(e.getPartnerId(), e.getName());
+        return new PartnerView(e.getPartnerId(), e.getName(), e.getInsuredNumber());
     }
 }

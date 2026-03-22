@@ -24,7 +24,7 @@
       </div>
       <div class="col-md-3">
         <input type="text" id="s-partner" name="partnerId" class="form-control"
-               placeholder="Partner-ID"
+               placeholder="Partner-ID oder VN-Nummer"
                hx-get="/policies/fragments/list"
                hx-include="#s-nummer,#s-partner,#s-status"
                hx-target="#policen-tabelle" hx-swap="innerHTML"
@@ -75,6 +75,9 @@
       <td>
         {#if partnerSichten.get(policy.partnerId)}
           {partnerSichten.get(policy.partnerId).name}
+          {#if partnerSichten.get(policy.partnerId).insuredNumber}
+            <br><span class="badge bg-success badge-sm font-monospace">{partnerSichten.get(policy.partnerId).insuredNumber}</span>
+          {/if}
           <br><small class="text-muted">{policy.partnerId}</small>
         {#else}
           <span class="text-muted small">{policy.partnerId}</span>

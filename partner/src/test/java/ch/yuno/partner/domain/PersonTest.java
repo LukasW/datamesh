@@ -1,6 +1,8 @@
 package ch.yuno.partner.domain;
 
 import ch.yuno.partner.domain.model.*;
+import ch.yuno.partner.domain.model.AddressId;
+import ch.yuno.partner.domain.model.InsuredNumber;
 import ch.yuno.partner.domain.service.AddressNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,7 +29,7 @@ class PersonTest {
     @DisplayName("Neue Person erhält eine UUID als personId")
     void newPerson_hasPersonId() {
         assertNotNull(person.getPersonId());
-        assertFalse(person.getPersonId().isBlank());
+        assertFalse(person.getPersonId().value().isBlank());
     }
 
     @Test
@@ -85,7 +87,7 @@ class PersonTest {
     @Test
     @DisplayName("addAddress fügt Adresse hinzu und gibt addressId zurück")
     void addAddress_returnsId() {
-        String addressId = person.addAddress(
+        AddressId addressId = person.addAddress(
                 AddressType.RESIDENCE, "Musterstr.", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
         assertNotNull(addressId);
@@ -123,7 +125,7 @@ class PersonTest {
     @Test
     @DisplayName("removeAddress entfernt die Adresse aus der Liste")
     void removeAddress_removes() {
-        String addressId = person.addAddress(
+        AddressId addressId = person.addAddress(
                 AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
         person.removeAddress(addressId);
@@ -134,7 +136,7 @@ class PersonTest {
     @DisplayName("removeAddress mit unbekannter ID → AddressNotFoundException")
     void removeAddress_unknownId_throws() {
         assertThrows(AddressNotFoundException.class,
-                () -> person.removeAddress("unknown-id"));
+                () -> person.removeAddress(AddressId.of("unknown-id")));
     }
 
     @Test
@@ -148,6 +150,39 @@ class PersonTest {
         Address current = person.getCurrentAddress(AddressType.RESIDENCE);
         assertNotNull(current);
         assertEquals("Neu", current.getStreet());
+    }
+
+    @Test
+    @DisplayName("Neue Person ist nicht versichert (insuredNumber == null)")
+    void newPerson_notInsured() {
+        assertNull(person.getInsuredNumber());
+        assertFalse(person.isInsured());
+    }
+
+    @Test
+    @DisplayName("assignInsuredNumber – Erstaufruf → true, Nummer gesetzt")
+    void assignInsuredNumber_firstCall_returnsTrue() {
+        InsuredNumber vn = InsuredNumber.fromSequence(42);
+        assertTrue(person.assignInsuredNumber(vn));
+        assertEquals(vn, person.getInsuredNumber());
+        assertTrue(person.isInsured());
+    }
+
+    @Test
+    @DisplayName("assignInsuredNumber – Zweitaufruf → false, Nummer unverändert (idempotent)")
+    void assignInsuredNumber_secondCall_returnsFalse() {
+        InsuredNumber vn1 = InsuredNumber.fromSequence(42);
+        InsuredNumber vn2 = InsuredNumber.fromSequence(99);
+        person.assignInsuredNumber(vn1);
+
+        assertFalse(person.assignInsuredNumber(vn2));
+        assertEquals(vn1, person.getInsuredNumber()); // unchanged
+    }
+
+    @Test
+    @DisplayName("assignInsuredNumber mit null → IllegalArgumentException")
+    void assignInsuredNumber_null_throws() {
+        assertThrows(IllegalArgumentException.class, () -> person.assignInsuredNumber(null));
     }
 
     @Test

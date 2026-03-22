@@ -9,6 +9,7 @@
     {"name": "personId",  "type": "string", "doc": "UUID of the updated person"},
     {"name": "name",      "type": "string"},
     {"name": "firstName", "type": "string"},
+    {"name": "insuredNumber", "type": ["null", "string"], "default": null, "doc": "Insured number (VN-XXXXXXXX) or null if not yet insured."},
     {"name": "timestamp", "type": "string", "doc": "ISO-8601 datetime"}
   ]
 }

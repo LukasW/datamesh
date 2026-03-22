@@ -8,12 +8,12 @@ import java.math.BigDecimal;
  */
 public class Coverage {
 
-    private final String coverageId;
-    private final String policyId;
+    private final CoverageId coverageId;
+    private final PolicyId policyId;
     private final CoverageType coverageType;
     private BigDecimal insuredAmount;
 
-    public Coverage(String coverageId, String policyId, CoverageType coverageType,
+    public Coverage(CoverageId coverageId, PolicyId policyId, CoverageType coverageType,
                     BigDecimal insuredAmount) {
         if (coverageId == null) throw new IllegalArgumentException("coverageId is required");
         if (policyId == null) throw new IllegalArgumentException("policyId is required");
@@ -34,8 +34,8 @@ public class Coverage {
         this.insuredAmount = insuredAmount;
     }
 
-    public String getCoverageId() { return coverageId; }
-    public String getPolicyId() { return policyId; }
+    public CoverageId getCoverageId() { return coverageId; }
+    public PolicyId getPolicyId() { return policyId; }
     public CoverageType getCoverageType() { return coverageType; }
     public BigDecimal getInsuredAmount() { return insuredAmount; }
 }

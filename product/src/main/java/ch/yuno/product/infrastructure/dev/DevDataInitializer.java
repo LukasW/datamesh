@@ -1,5 +1,6 @@
 package ch.yuno.product.infrastructure.dev;
 
+import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.model.ProductLine;
 import ch.yuno.product.domain.service.ProductCommandService;
 import ch.yuno.product.domain.service.ProductQueryService;
@@ -54,7 +55,7 @@ public class DevDataInitializer {
                 ProductLine.LIABILITY,
                 new BigDecimal("95.00"));
 
-        String motorId = productCommandService.defineProduct(
+        productCommandService.defineProduct(
                 "Yuno Motorfahrzeug Classic",
                 "Vollkasko- und Haftpflichtschutz für Personenwagen.",
                 ProductLine.MOTOR_VEHICLE,
@@ -67,7 +68,7 @@ public class DevDataInitializer {
                 new BigDecimal("120.00"));
 
         // Demonstrate deprecated status
-        String oldId = productCommandService.defineProduct(
+        ProductId oldId = productCommandService.defineProduct(
                 "Yuno Motorfahrzeug Legacy",
                 "Älteres Motorfahrzeugprodukt (nicht mehr erhältlich).",
                 ProductLine.MOTOR_VEHICLE,

@@ -1,6 +1,7 @@
 package ch.yuno.partner.integration;
 
 import ch.yuno.partner.domain.model.Gender;
+import ch.yuno.partner.domain.model.PersonId;
 import ch.yuno.partner.domain.service.PersonCommandService;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -25,7 +26,7 @@ class PersonOutboxRoundtripIT {
     @Test
     @DisplayName("Creating a person writes outbox entries to DB")
     void createPerson_writesOutboxEntries() {
-        String personId = service.createPerson("Integration", "Test", Gender.MALE,
+        PersonId personId = service.createPerson("Integration", "Test", Gender.MALE,
                 LocalDate.of(1990, 1, 1), null);
 
         assertNotNull(personId);
@@ -33,7 +34,7 @@ class PersonOutboxRoundtripIT {
         // Check outbox entries were written (PersonCreated + PersonState = 2 entries)
         var outboxEntries = em.createNativeQuery(
             "SELECT COUNT(*) FROM outbox WHERE aggregate_id = :id")
-            .setParameter("id", personId)
+            .setParameter("id", personId.value())
             .getSingleResult();
         assertTrue(((Number) outboxEntries).longValue() >= 2,
             "At least two outbox entries (PersonCreated + PersonState) should exist for the new person");
@@ -42,12 +43,12 @@ class PersonOutboxRoundtripIT {
     @Test
     @DisplayName("Updating a person writes additional outbox entries")
     void updatePerson_writesOutboxEntries() {
-        String personId = service.createPerson("Update", "Test", Gender.FEMALE,
+        PersonId personId = service.createPerson("Update", "Test", Gender.FEMALE,
                 LocalDate.of(1985, 6, 15), null);
 
         long countBefore = ((Number) em.createNativeQuery(
             "SELECT COUNT(*) FROM outbox WHERE aggregate_id = :id")
-            .setParameter("id", personId)
+            .setParameter("id", personId.value())
             .getSingleResult()).longValue();
 
         service.updatePersonalData(personId, "Updated", "Person", Gender.FEMALE,
@@ -55,7 +56,7 @@ class PersonOutboxRoundtripIT {
 
         long countAfter = ((Number) em.createNativeQuery(
             "SELECT COUNT(*) FROM outbox WHERE aggregate_id = :id")
-            .setParameter("id", personId)
+            .setParameter("id", personId.value())
             .getSingleResult()).longValue();
 
         assertTrue(countAfter > countBefore,

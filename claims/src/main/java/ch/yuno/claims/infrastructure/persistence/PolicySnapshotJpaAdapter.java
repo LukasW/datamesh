@@ -6,6 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 
+import java.util.List;
 import java.util.Optional;
 
 @ApplicationScoped
@@ -36,6 +37,16 @@ public class PolicySnapshotJpaAdapter implements PolicySnapshotRepository {
             return Optional.empty();
         }
         return Optional.of(toDomain(entity));
+    }
+
+    @Override
+    public List<PolicySnapshot> findByPartnerId(String partnerId) {
+        return em.createQuery(
+                        "SELECT e FROM PolicySnapshotEntity e WHERE e.partnerId = :pid",
+                        PolicySnapshotEntity.class)
+                .setParameter("pid", partnerId)
+                .getResultList()
+                .stream().map(this::toDomain).toList();
     }
 
     private PolicySnapshot toDomain(PolicySnapshotEntity e) {

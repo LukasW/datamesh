@@ -1,6 +1,7 @@
 package ch.yuno.policy.domain;
 
 import ch.yuno.policy.domain.model.PremiumCalculationResult;
+import ch.yuno.policy.domain.model.PolicyId;
 import ch.yuno.policy.domain.port.out.OutboxRepository;
 import ch.yuno.policy.domain.port.out.PolicyRepository;
 import ch.yuno.policy.domain.port.out.PremiumCalculationPort;
@@ -50,7 +51,7 @@ class PolicyCommandServicePremiumTest {
                 eq("product-1"), eq("HOUSEHOLD_CONTENTS"), eq(25), eq("8001"), any()))
                 .thenReturn(premiumResult);
 
-        String policyId = service.createPolicyWithPremiumCalculation(
+        PolicyId policyId = service.createPolicyWithPremiumCalculation(
                 "partner-1", "product-1", "HOUSEHOLD_CONTENTS", 25, "8001",
                 LocalDate.of(2026, 1, 1), LocalDate.of(2027, 1, 1),
                 new BigDecimal("500.00"), List.of("HOUSEHOLD_CONTENTS"));
@@ -77,7 +78,7 @@ class PolicyCommandServicePremiumTest {
 
     @Test
     void createPolicy_existingMethod_stillWorks() {
-        String policyId = service.createPolicy(
+        PolicyId policyId = service.createPolicy(
                 "partner-1", "product-1",
                 LocalDate.of(2026, 1, 1), null,
                 new BigDecimal("500.00"), BigDecimal.ZERO);

@@ -1,6 +1,7 @@
 package ch.yuno.product.domain;
 
 import ch.yuno.product.domain.model.Product;
+import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.model.ProductLine;
 import ch.yuno.product.domain.model.ProductStatus;
 import ch.yuno.product.domain.port.out.OutboxRepository;
@@ -48,7 +49,7 @@ class ProductCommandServiceTest {
 
     @Test
     void defineProduct_savesAndPublishesEvent() {
-        String id = service.defineProduct("Neues Produkt", "desc", ProductLine.TRAVEL, new BigDecimal("100.00"));
+        ProductId id = service.defineProduct("Neues Produkt", "desc", ProductLine.TRAVEL, new BigDecimal("100.00"));
 
         assertNotNull(id);
         verify(productRepository).save(any(Product.class));
@@ -67,10 +68,10 @@ class ProductCommandServiceTest {
 
     @Test
     void updateProduct_notFound_throws() {
-        when(productRepository.findById("unknown")).thenReturn(Optional.empty());
+        when(productRepository.findById(ProductId.of("unknown"))).thenReturn(Optional.empty());
 
         assertThrows(ProductNotFoundException.class,
-                () -> service.updateProduct("unknown", "x", null, ProductLine.HOUSEHOLD_CONTENTS, BigDecimal.ONE));
+                () -> service.updateProduct(ProductId.of("unknown"), "x", null, ProductLine.HOUSEHOLD_CONTENTS, BigDecimal.ONE));
     }
 
     @Test

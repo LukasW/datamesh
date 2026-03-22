@@ -1,6 +1,7 @@
 package ch.yuno.claims.infrastructure.persistence;
 
 import ch.yuno.claims.domain.model.Claim;
+import ch.yuno.claims.domain.model.ClaimId;
 import ch.yuno.claims.domain.model.ClaimStatus;
 import ch.yuno.claims.domain.port.out.ClaimRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -23,7 +24,7 @@ public class ClaimJpaAdapter implements ClaimRepository {
 
     @Override
     public Claim save(Claim claim) {
-        ClaimEntity entity = em.find(ClaimEntity.class, claim.getClaimId());
+        ClaimEntity entity = em.find(ClaimEntity.class, claim.getClaimId().value());
         if (entity == null) {
             entity = toEntity(claim);
             em.persist(entity);
@@ -36,8 +37,8 @@ public class ClaimJpaAdapter implements ClaimRepository {
     }
 
     @Override
-    public Optional<Claim> findById(String claimId) {
-        ClaimEntity entity = em.find(ClaimEntity.class, claimId);
+    public Optional<Claim> findById(ClaimId claimId) {
+        ClaimEntity entity = em.find(ClaimEntity.class, claimId.value());
         return Optional.ofNullable(entity).map(this::toDomain);
     }
 
@@ -65,7 +66,7 @@ public class ClaimJpaAdapter implements ClaimRepository {
 
     private ClaimEntity toEntity(Claim claim) {
         ClaimEntity e = new ClaimEntity();
-        e.setClaimId(claim.getClaimId());
+        e.setClaimId(claim.getClaimId().value());
         e.setClaimNumber(claim.getClaimNumber());
         e.setPolicyId(claim.getPolicyId());
         e.setDescription(claim.getDescription());
@@ -77,7 +78,7 @@ public class ClaimJpaAdapter implements ClaimRepository {
 
     private Claim toDomain(ClaimEntity e) {
         return Claim.reconstitute(
-                e.getClaimId(), e.getPolicyId(), e.getClaimNumber(),
+                ClaimId.of(e.getClaimId()), e.getPolicyId(), e.getClaimNumber(),
                 e.getDescription(), e.getClaimDate(),
                 ClaimStatus.valueOf(e.getStatus()), e.getCreatedAt());
     }

@@ -2,6 +2,7 @@ package ch.yuno.billing.domain.service;
 
 import ch.yuno.billing.domain.model.BillingCycle;
 import ch.yuno.billing.domain.model.Invoice;
+import ch.yuno.billing.domain.model.InvoiceId;
 import ch.yuno.billing.domain.model.InvoiceStatus;
 import ch.yuno.billing.domain.port.out.DunningCaseRepository;
 import ch.yuno.billing.domain.port.out.InvoiceRepository;
@@ -45,7 +46,7 @@ class InvoiceCommandServiceTest {
     void createInvoiceForPolicySavesInvoiceAndOutboxEvent() {
         when(invoiceRepository.existsByInvoiceNumber(anyString())).thenReturn(false);
 
-        String invoiceId = service.createInvoiceForPolicy(
+        InvoiceId invoiceId = service.createInvoiceForPolicy(
                 "policy-1", "POL-2024-001", "partner-1",
                 new BigDecimal("1200.00"), BillingCycle.ANNUAL);
 
@@ -59,9 +60,9 @@ class InvoiceCommandServiceTest {
         Invoice invoice = new Invoice("INV-001", "policy-1", "POL-001",
                 "partner-1", BillingCycle.ANNUAL, new BigDecimal("1200.00"),
                 LocalDate.now(), LocalDate.now().plusDays(30));
-        when(invoiceRepository.findById("inv-1")).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.findById(InvoiceId.of("inv-1"))).thenReturn(Optional.of(invoice));
 
-        service.recordPayment("inv-1");
+        service.recordPayment(InvoiceId.of("inv-1"));
 
         verify(invoiceRepository).save(invoice);
         verify(outboxRepository).save(any(OutboxEvent.class));

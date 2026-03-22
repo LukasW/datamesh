@@ -3,6 +3,7 @@ package ch.yuno.product.infrastructure.web;
 import ch.yuno.product.domain.model.PageRequest;
 import ch.yuno.product.domain.model.PageResult;
 import ch.yuno.product.domain.model.Product;
+import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.model.ProductLine;
 import ch.yuno.product.domain.service.ProductCommandService;
 import ch.yuno.product.domain.service.ProductNotFoundException;
@@ -36,11 +37,11 @@ public class ProductRestAdapter {
     @POST
     public Response defineProduct(CreateProductRequest req) {
         try {
-            String id = productCommandService.defineProduct(
+            ProductId id = productCommandService.defineProduct(
                     req.name(), req.description(),
                     ProductLine.valueOf(req.productLine()),
                     req.basePremium());
-            return Response.status(201).entity(Map.of("id", id)).build();
+            return Response.status(201).entity(Map.of("id", id.value())).build();
         } catch (IllegalArgumentException e) {
             return Response.status(400).entity(Map.of("message", e.getMessage())).build();
         }
@@ -72,7 +73,7 @@ public class ProductRestAdapter {
     @Path("/{id}")
     public Response getProduct(@PathParam("id") String id) {
         try {
-            return Response.ok(ProductDto.from(productQueryService.findById(id))).build();
+            return Response.ok(ProductDto.from(productQueryService.findById(ProductId.of(id)))).build();
         } catch (ProductNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         }
@@ -83,7 +84,7 @@ public class ProductRestAdapter {
     public Response updateProduct(@PathParam("id") String id, UpdateProductRequest req) {
         try {
             return Response.ok(ProductDto.from(productCommandService.updateProduct(
-                    id, req.name(), req.description(),
+                    ProductId.of(id), req.name(), req.description(),
                     ProductLine.valueOf(req.productLine()), req.basePremium()))).build();
         } catch (ProductNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -96,7 +97,7 @@ public class ProductRestAdapter {
     @Path("/{id}/deprecate")
     public Response deprecateProduct(@PathParam("id") String id) {
         try {
-            return Response.ok(ProductDto.from(productCommandService.deprecateProduct(id))).build();
+            return Response.ok(ProductDto.from(productCommandService.deprecateProduct(ProductId.of(id)))).build();
         } catch (ProductNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalStateException e) {
@@ -108,7 +109,7 @@ public class ProductRestAdapter {
     @Path("/{id}")
     public Response deleteProduct(@PathParam("id") String id) {
         try {
-            productCommandService.deleteProduct(id);
+            productCommandService.deleteProduct(ProductId.of(id));
             return Response.noContent().build();
         } catch (ProductNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -129,7 +130,7 @@ public class ProductRestAdapter {
 
         public static ProductDto from(Product p) {
             return new ProductDto(
-                    p.getProductId(), p.getName(), p.getDescription(),
+                    p.getProductId().value(), p.getName(), p.getDescription(),
                     p.getProductLine().name(), p.getBasePremium(), p.getStatus().name());
         }
     }

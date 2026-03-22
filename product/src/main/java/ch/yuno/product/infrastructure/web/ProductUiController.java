@@ -3,6 +3,7 @@ package ch.yuno.product.infrastructure.web;
 import ch.yuno.product.domain.model.PageRequest;
 import ch.yuno.product.domain.model.PageResult;
 import ch.yuno.product.domain.model.Product;
+import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.model.ProductLine;
 import ch.yuno.product.domain.service.ProductCommandService;
 import ch.yuno.product.domain.service.ProductNotFoundException;
@@ -64,7 +65,7 @@ public class ProductUiController {
     @Path("/{id}/edit")
     public Object getEdit(@PathParam("id") String id) {
         try {
-            Product product = productQueryService.findById(id);
+            Product product = productQueryService.findById(ProductId.of(id));
             return edit.data("product", product)
                        .data("productLines", ProductLine.values());
         } catch (ProductNotFoundException e) {
@@ -122,7 +123,7 @@ public class ProductUiController {
             @FormParam("basePremium") String basePremium) {
         try {
             BigDecimal premium = new BigDecimal(basePremium.replace(",", "."));
-            String id = productCommandService.defineProduct(
+            ProductId id = productCommandService.defineProduct(
                     name, description,
                     ProductLine.valueOf(productLine),
                     premium);
@@ -150,7 +151,7 @@ public class ProductUiController {
             @FormParam("basePremium") String basePremium) {
         try {
             BigDecimal premium = new BigDecimal(basePremium.replace(",", "."));
-            Product product = productCommandService.updateProduct(productId, name, description,
+            Product product = productCommandService.updateProduct(ProductId.of(productId), name, description,
                     ProductLine.valueOf(productLine), premium);
             return productDetailsForm.data("product", product)
                                      .data("productLines", ProductLine.values())
@@ -172,7 +173,7 @@ public class ProductUiController {
     @Path("/fragments/{id}/deprecate")
     public Object deprecateProductFragment(@PathParam("id") String productId) {
         try {
-            Product product = productCommandService.deprecateProduct(productId);
+            Product product = productCommandService.deprecateProduct(ProductId.of(productId));
             return productDetailsForm.data("product", product)
                                      .data("productLines", ProductLine.values())
                                      .data("success", true);

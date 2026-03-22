@@ -12,6 +12,8 @@
     "iceberg.catalog.s3.access-key-id": "minioadmin",
     "iceberg.catalog.s3.secret-access-key": "minioadmin",
     "iceberg.catalog.s3.path-style-access": "true",
+    "iceberg.catalog.io-impl": "org.apache.iceberg.aws.s3.S3FileIO",
+    "iceberg.catalog.s3.region": "us-east-1",
     "iceberg.tables": "billing_raw.billing_events",
     "iceberg.tables.auto-create-enabled": "true",
     "iceberg.tables.evolve-schema-enabled": "true",

@@ -3,6 +3,7 @@ package ch.yuno.product.domain.service;
 import ch.yuno.product.domain.model.PageRequest;
 import ch.yuno.product.domain.model.PageResult;
 import ch.yuno.product.domain.model.Product;
+import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.model.ProductLine;
 import ch.yuno.product.domain.port.out.ProductRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -16,9 +17,9 @@ public class ProductQueryService {
     @Inject
     ProductRepository productRepository;
 
-    public Product findById(String productId) {
+    public Product findById(ProductId productId) {
         return productRepository.findById(productId)
-                .orElseThrow(() -> new ProductNotFoundException(productId));
+                .orElseThrow(() -> new ProductNotFoundException(productId.value()));
     }
 
     public List<Product> listAllProducts() {

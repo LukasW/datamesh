@@ -3,6 +3,7 @@ package ch.yuno.billing.domain.service;
 import ch.yuno.billing.domain.model.BillingCycle;
 import ch.yuno.billing.domain.model.DunningCase;
 import ch.yuno.billing.domain.model.Invoice;
+import ch.yuno.billing.domain.model.InvoiceId;
 import ch.yuno.billing.domain.model.InvoiceLineItem;
 import ch.yuno.billing.domain.model.InvoiceStatus;
 import ch.yuno.billing.domain.port.out.DunningCaseRepository;
@@ -38,7 +39,7 @@ public class InvoiceCommandService {
      * Defaults to ANNUAL billing cycle.
      */
     @Transactional
-    public String createInvoiceForPolicy(String policyId, String policyNumber,
+    public InvoiceId createInvoiceForPolicy(String policyId, String policyNumber,
                                          String partnerId, BigDecimal annualPremium,
                                          BillingCycle billingCycle) {
         String invoiceNumber = generateInvoiceNumber();
@@ -54,7 +55,7 @@ public class InvoiceCommandService {
         invoiceRepository.save(invoice);
 
         outboxRepository.save(new OutboxEvent(
-                UUID.randomUUID(), "billing", invoice.getInvoiceId(), "InvoiceCreated",
+                UUID.randomUUID(), "billing", invoice.getInvoiceId().value(), "InvoiceCreated",
                 BillingEventPayloadBuilder.TOPIC_INVOICE_CREATED,
                 BillingEventPayloadBuilder.buildInvoiceCreated(invoice)));
 
@@ -65,13 +66,13 @@ public class InvoiceCommandService {
      * Records a payment for an invoice. Transitions OPEN/OVERDUE → PAID.
      */
     @Transactional
-    public void recordPayment(String invoiceId) {
+    public void recordPayment(InvoiceId invoiceId) {
         Invoice invoice = findOrThrow(invoiceId);
         invoice.recordPayment();
         invoiceRepository.save(invoice);
 
         outboxRepository.save(new OutboxEvent(
-                UUID.randomUUID(), "billing", invoiceId, "PaymentReceived",
+                UUID.randomUUID(), "billing", invoiceId.value(), "PaymentReceived",
                 BillingEventPayloadBuilder.TOPIC_PAYMENT_RECEIVED,
                 BillingEventPayloadBuilder.buildPaymentReceived(invoice)));
     }
@@ -82,7 +83,7 @@ public class InvoiceCommandService {
      * If one already exists, escalates to the next level.
      */
     @Transactional
-    public String initiateDunning(String invoiceId) {
+    public String initiateDunning(InvoiceId invoiceId) {
         Invoice invoice = findOrThrow(invoiceId);
 
         if (invoice.getStatus() == InvoiceStatus.OPEN) {
@@ -92,17 +93,17 @@ public class InvoiceCommandService {
             throw new IllegalStateException("Dunning can only be initiated for OPEN or OVERDUE invoices");
         }
 
-        DunningCase dunningCase = dunningCaseRepository.findByInvoiceId(invoiceId)
+        DunningCase dunningCase = dunningCaseRepository.findByInvoiceId(invoiceId.value())
                 .map(existing -> {
                     existing.escalate();
                     return existing;
                 })
-                .orElseGet(() -> new DunningCase(invoiceId));
+                .orElseGet(() -> new DunningCase(invoiceId.value()));
 
         dunningCaseRepository.save(dunningCase);
 
         outboxRepository.save(new OutboxEvent(
-                UUID.randomUUID(), "billing", invoiceId, "DunningInitiated",
+                UUID.randomUUID(), "billing", invoiceId.value(), "DunningInitiated",
                 BillingEventPayloadBuilder.TOPIC_DUNNING_INITIATED,
                 BillingEventPayloadBuilder.buildDunningInitiated(invoice, dunningCase)));
 
@@ -137,9 +138,9 @@ public class InvoiceCommandService {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private Invoice findOrThrow(String invoiceId) {
+    private Invoice findOrThrow(InvoiceId invoiceId) {
         return invoiceRepository.findById(invoiceId)
-                .orElseThrow(() -> new InvoiceNotFoundException(invoiceId));
+                .orElseThrow(() -> new InvoiceNotFoundException(invoiceId.value()));
     }
 
     private String generateInvoiceNumber() {

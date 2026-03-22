@@ -6,7 +6,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Aggregate Root: Policy (insurance contract).
@@ -14,7 +13,7 @@ import java.util.UUID;
  */
 public class Policy {
 
-    private final String policyId;
+    private final PolicyId policyId;
     private final String policyNumber;
     private final String partnerId;
     private String productId;
@@ -33,7 +32,7 @@ public class Policy {
         if (coverageEndDate != null && coverageStartDate.isAfter(coverageEndDate)) {
             throw new IllegalArgumentException("coverageStartDate must not be after coverageEndDate");
         }
-        this.policyId = UUID.randomUUID().toString();
+        this.policyId = PolicyId.generate();
         this.policyNumber = policyNumber;
         this.partnerId = partnerId;
         this.productId = productId;
@@ -46,7 +45,7 @@ public class Policy {
     }
 
     /** Constructor for reconstructing from persistence. */
-    public Policy(String policyId, String policyNumber, String partnerId, String productId,
+    public Policy(PolicyId policyId, String policyNumber, String partnerId, String productId,
                   PolicyStatus status, LocalDate coverageStartDate, LocalDate coverageEndDate,
                   BigDecimal premium, BigDecimal deductible) {
         this.policyId = policyId;
@@ -104,7 +103,7 @@ public class Policy {
      * Each CoverageType may only appear once per policy.
      * @return the new coverageId
      */
-    public String addCoverage(CoverageType coverageType, BigDecimal insuredAmount) {
+    public CoverageId addCoverage(CoverageType coverageType, BigDecimal insuredAmount) {
         if (status == PolicyStatus.CANCELLED || status == PolicyStatus.EXPIRED) {
             throw new IllegalStateException("Coverages cannot be added to this policy");
         }
@@ -112,24 +111,24 @@ public class Policy {
         if (exists) {
             throw new IllegalArgumentException("Coverage type " + coverageType + " already exists");
         }
-        String coverageId = UUID.randomUUID().toString();
+        CoverageId coverageId = CoverageId.generate();
         coverages.add(new Coverage(coverageId, policyId, coverageType, insuredAmount));
         return coverageId;
     }
 
     /** Removes a coverage by ID. */
-    public void removeCoverage(String coverageId) {
+    public void removeCoverage(CoverageId coverageId) {
         findCoverage(coverageId); // throws CoverageNotFoundException if not found
         coverages.removeIf(c -> c.getCoverageId().equals(coverageId));
     }
 
     // ── Private Helpers ───────────────────────────────────────────────────────
 
-    private Coverage findCoverage(String coverageId) {
+    private Coverage findCoverage(CoverageId coverageId) {
         return coverages.stream()
                 .filter(c -> c.getCoverageId().equals(coverageId))
                 .findFirst()
-                .orElseThrow(() -> new CoverageNotFoundException(coverageId));
+                .orElseThrow(() -> new CoverageNotFoundException(coverageId.value()));
     }
 
     private static void validate(String policyNumber, String partnerId, String productId,
@@ -144,7 +143,7 @@ public class Policy {
 
     // ── Getters ───────────────────────────────────────────────────────────────
 
-    public String getPolicyId() { return policyId; }
+    public PolicyId getPolicyId() { return policyId; }
     public String getPolicyNumber() { return policyNumber; }
     public String getPartnerId() { return partnerId; }
     public String getProductId() { return productId; }

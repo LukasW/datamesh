@@ -1,9 +1,12 @@
 package ch.yuno.partner.infrastructure.persistence;
 
 import ch.yuno.partner.domain.model.Address;
+import ch.yuno.partner.domain.model.AddressId;
 import ch.yuno.partner.domain.model.AddressType;
+import ch.yuno.partner.domain.model.InsuredNumber;
 import ch.yuno.partner.domain.model.PageRequest;
 import ch.yuno.partner.domain.model.PageResult;
+import ch.yuno.partner.domain.model.PersonId;
 import ch.yuno.partner.domain.model.SocialSecurityNumber;
 import ch.yuno.partner.domain.model.Gender;
 import ch.yuno.partner.domain.model.Person;
@@ -28,7 +31,7 @@ public class PersonJpaAdapter implements PersonRepository {
     @Override
     @Transactional
     public Person save(Person person) {
-        PersonEntity entity = em.find(PersonEntity.class, person.getPersonId());
+        PersonEntity entity = em.find(PersonEntity.class, person.getPersonId().value());
         if (entity == null) {
             entity = toEntity(person);
             em.persist(entity);
@@ -39,11 +42,11 @@ public class PersonJpaAdapter implements PersonRepository {
     }
 
     @Override
-    public Optional<Person> findById(String personId) {
+    public Optional<Person> findById(PersonId personId) {
         List<PersonEntity> results = em.createQuery(
                 "SELECT DISTINCT p FROM PersonEntity p LEFT JOIN FETCH p.addresses WHERE p.personId = :id",
                 PersonEntity.class)
-                .setParameter("id", personId)
+                .setParameter("id", personId.value())
                 .getResultList();
         return results.isEmpty() ? Optional.empty() : Optional.of(toDomain(results.get(0)));
     }
@@ -114,8 +117,8 @@ public class PersonJpaAdapter implements PersonRepository {
 
     @Override
     @Transactional
-    public void delete(String personId) {
-        PersonEntity entity = em.find(PersonEntity.class, personId);
+    public void delete(PersonId personId) {
+        PersonEntity entity = em.find(PersonEntity.class, personId.value());
         if (entity != null) {
             em.remove(entity);
         }
@@ -134,12 +137,13 @@ public class PersonJpaAdapter implements PersonRepository {
 
     private PersonEntity toEntity(Person person) {
         PersonEntity e = new PersonEntity();
-        e.setPersonId(person.getPersonId());
+        e.setPersonId(person.getPersonId().value());
         e.setName(person.getName());
         e.setFirstName(person.getFirstName());
         e.setGender(person.getGender().name());
         e.setDateOfBirth(person.getDateOfBirth());
         e.setSocialSecurityNumber(person.getSocialSecurityNumber() != null ? person.getSocialSecurityNumber().getValue() : null);
+        e.setInsuredNumber(person.getInsuredNumber() != null ? person.getInsuredNumber().value() : null);
         for (Address a : person.getAddresses()) {
             AddressEntity ae = toAddressEntity(a, e);
             e.getAddresses().add(ae);
@@ -152,13 +156,14 @@ public class PersonJpaAdapter implements PersonRepository {
         e.setFirstName(person.getFirstName());
         e.setGender(person.getGender().name());
         e.setDateOfBirth(person.getDateOfBirth());
+        e.setInsuredNumber(person.getInsuredNumber() != null ? person.getInsuredNumber().value() : null);
 
         // sync addresses: remove deleted, update existing, add new
         e.getAddresses().removeIf(ae ->
-                person.getAddresses().stream().noneMatch(a -> a.getAddressId().equals(ae.getAddressId())));
+                person.getAddresses().stream().noneMatch(a -> a.getAddressId().value().equals(ae.getAddressId())));
         for (Address a : person.getAddresses()) {
             AddressEntity existing = e.getAddresses().stream()
-                    .filter(ae -> ae.getAddressId().equals(a.getAddressId()))
+                    .filter(ae -> ae.getAddressId().equals(a.getAddressId().value()))
                     .findFirst().orElse(null);
             if (existing != null) {
                 existing.setValidFrom(a.getValidFrom());
@@ -176,7 +181,7 @@ public class PersonJpaAdapter implements PersonRepository {
 
     private AddressEntity toAddressEntity(Address a, PersonEntity personEntity) {
         AddressEntity ae = new AddressEntity();
-        ae.setAddressId(a.getAddressId());
+        ae.setAddressId(a.getAddressId().value());
         ae.setPerson(personEntity);
         ae.setAddressType(a.getAddressType().name());
         ae.setStreet(a.getStreet());
@@ -191,18 +196,19 @@ public class PersonJpaAdapter implements PersonRepository {
 
     private Person toDomain(PersonEntity e) {
         Person person = new Person(
-                e.getPersonId(),
+                PersonId.of(e.getPersonId()),
                 e.getName(),
                 e.getFirstName(),
                 Gender.valueOf(e.getGender()),
                 e.getDateOfBirth(),
-                e.getSocialSecurityNumber() != null ? new SocialSecurityNumber(e.getSocialSecurityNumber()) : null
+                e.getSocialSecurityNumber() != null ? new SocialSecurityNumber(e.getSocialSecurityNumber()) : null,
+                e.getInsuredNumber() != null ? new InsuredNumber(e.getInsuredNumber()) : null
         );
         List<Address> addresses = new ArrayList<>();
         for (AddressEntity ae : e.getAddresses()) {
             addresses.add(new Address(
-                    ae.getAddressId(),
-                    e.getPersonId(),
+                    AddressId.of(ae.getAddressId()),
+                    PersonId.of(e.getPersonId()),
                     AddressType.valueOf(ae.getAddressType()),
                     ae.getStreet(),
                     ae.getHouseNumber(),

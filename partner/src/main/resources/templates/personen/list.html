@@ -55,6 +55,7 @@
       <th>Vorname</th>
       <th>Geburtsdatum</th>
       <th>AHV-Nummer</th>
+      <th>Versichertennr.</th>
       <th>Aktionen</th>
     </tr>
   </thead>
@@ -67,6 +68,7 @@
         <td>{person.firstName}</td>
         <td>{person.dateOfBirth}</td>
         <td>{#if person.socialSecurityNumber}{person.socialSecurityNumber.formatted()}{#else}–{/if}</td>
+        <td>{#if person.insuredNumber}<span class="badge bg-success">VN</span> {person.insuredNumber.formatted}{#else}<span class="text-muted">–</span>{/if}</td>
         <td>
           <a href="/persons/{person.personId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
           <button class="btn btn-sm btn-outline-danger"
@@ -80,14 +82,14 @@
       </tr>
       {/for}
       {#if personen.isEmpty()}
-      <tr><td colspan="5" class="text-muted text-center">Keine Personen gefunden</td></tr>
+      <tr><td colspan="6" class="text-muted text-center">Keine Personen gefunden</td></tr>
       {/if}
     {#else}
-      <tr><td colspan="5" class="text-muted text-center">Bitte Suchbegriff eingeben</td></tr>
+      <tr><td colspan="6" class="text-muted text-center">Bitte Suchbegriff eingeben</td></tr>
     {/if}
     {#if totalPages?? && totalPages > 1}
     <tr>
-      <td colspan="5">
+      <td colspan="6">
         <nav aria-label="Seitennavigation" class="mt-2">
           <div class="d-flex justify-content-between align-items-center">
             <small class="text-muted">{totalElements} Ergebnisse</small>

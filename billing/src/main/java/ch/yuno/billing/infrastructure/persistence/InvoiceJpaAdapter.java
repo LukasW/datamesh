@@ -2,8 +2,10 @@ package ch.yuno.billing.infrastructure.persistence;
 
 import ch.yuno.billing.domain.model.BillingCycle;
 import ch.yuno.billing.domain.model.Invoice;
+import ch.yuno.billing.domain.model.InvoiceId;
 import ch.yuno.billing.domain.model.InvoiceLineItem;
 import ch.yuno.billing.domain.model.InvoiceStatus;
+import ch.yuno.billing.domain.model.LineItemId;
 import ch.yuno.billing.domain.port.out.InvoiceRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -22,7 +24,7 @@ public class InvoiceJpaAdapter implements InvoiceRepository {
 
     @Override
     public void save(Invoice invoice) {
-        InvoiceEntity entity = em.find(InvoiceEntity.class, invoice.getInvoiceId());
+        InvoiceEntity entity = em.find(InvoiceEntity.class, invoice.getInvoiceId().value());
         if (entity == null) {
             entity = toEntity(invoice);
             syncLineItems(entity, invoice);
@@ -37,8 +39,8 @@ public class InvoiceJpaAdapter implements InvoiceRepository {
     }
 
     @Override
-    public Optional<Invoice> findById(String invoiceId) {
-        InvoiceEntity entity = em.find(InvoiceEntity.class, invoiceId);
+    public Optional<Invoice> findById(InvoiceId invoiceId) {
+        InvoiceEntity entity = em.find(InvoiceEntity.class, invoiceId.value());
         return Optional.ofNullable(entity).map(this::toDomain);
     }
 
@@ -115,7 +117,7 @@ public class InvoiceJpaAdapter implements InvoiceRepository {
 
     private InvoiceEntity toEntity(Invoice invoice) {
         InvoiceEntity e = new InvoiceEntity();
-        e.setInvoiceId(invoice.getInvoiceId());
+        e.setInvoiceId(invoice.getInvoiceId().value());
         e.setInvoiceNumber(invoice.getInvoiceNumber());
         e.setPolicyId(invoice.getPolicyId());
         e.setPolicyNumber(invoice.getPolicyNumber());
@@ -134,7 +136,7 @@ public class InvoiceJpaAdapter implements InvoiceRepository {
         entity.getLineItems().clear();
         for (InvoiceLineItem item : invoice.getLineItems()) {
             InvoiceLineItemEntity ile = new InvoiceLineItemEntity();
-            ile.setLineItemId(item.getLineItemId());
+            ile.setLineItemId(item.getLineItemId().value());
             ile.setInvoice(entity);
             ile.setDescription(item.getDescription());
             ile.setAmount(item.getAmount());
@@ -144,13 +146,13 @@ public class InvoiceJpaAdapter implements InvoiceRepository {
 
     private Invoice toDomain(InvoiceEntity e) {
         Invoice invoice = new Invoice(
-                e.getInvoiceId(), e.getInvoiceNumber(), e.getPolicyId(), e.getPolicyNumber(),
+                InvoiceId.of(e.getInvoiceId()), e.getInvoiceNumber(), e.getPolicyId(), e.getPolicyNumber(),
                 e.getPartnerId(), InvoiceStatus.valueOf(e.getStatus()),
                 BillingCycle.valueOf(e.getBillingCycle()), e.getTotalAmount(),
                 e.getInvoiceDate(), e.getDueDate(), e.getPaidAt(), e.getCancelledAt());
 
         List<InvoiceLineItem> items = e.getLineItems().stream()
-                .map(ile -> new InvoiceLineItem(ile.getLineItemId(), ile.getDescription(), ile.getAmount()))
+                .map(ile -> new InvoiceLineItem(LineItemId.of(ile.getLineItemId()), ile.getDescription(), ile.getAmount()))
                 .toList();
         invoice.setLineItems(new ArrayList<>(items));
         return invoice;

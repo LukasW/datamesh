@@ -29,8 +29,13 @@
                         data-partner-name="{p.name}">
                         <div class="d-flex justify-content-between align-items-baseline">
                             <strong class="small">{p.name}</strong>
-                            <span class="badge bg-secondary ms-2"
-                                  style="font-size:.65rem;font-weight:400;">{p.partnerId}</span>
+                            <span>
+                                {#if p.insuredNumber}
+                                    <span class="badge bg-success ms-1" style="font-size:.6rem;">{p.insuredNumber}</span>
+                                {/if}
+                                <span class="badge bg-secondary ms-1"
+                                      style="font-size:.65rem;font-weight:400;">{p.partnerId}</span>
+                            </span>
                         </div>
                     </li>
                 {/for}

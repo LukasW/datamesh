@@ -67,9 +67,9 @@ mvn clean package \
 
 echo "▶ Restarting Compose…"
 
-${=COMPOSE_CMD} down $([[ "$DELETE_VOLUMES" == true ]] && echo "-v") 2>/dev/null || true
-${=COMPOSE_CMD} build
-${=COMPOSE_CMD} up $([[ "$DAEMON_MODE" == true ]] && echo "-d")
+${=COMPOSE_CMD} --profile tools down $([[ "$DELETE_VOLUMES" == true ]] && echo "-v") 2>/dev/null || true
+${=COMPOSE_CMD} --profile tools build
+${=COMPOSE_CMD} --profile tools up $([[ "$DAEMON_MODE" == true ]] && echo "-d")
 
 if [[ "$DAEMON_MODE" == true ]]; then
   echo "▶ Waiting for Debezium Connect to be ready…"

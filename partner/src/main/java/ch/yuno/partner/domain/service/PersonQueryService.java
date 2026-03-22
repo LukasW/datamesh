@@ -4,6 +4,7 @@ import ch.yuno.partner.domain.model.Address;
 import ch.yuno.partner.domain.model.PageRequest;
 import ch.yuno.partner.domain.model.PageResult;
 import ch.yuno.partner.domain.model.Person;
+import ch.yuno.partner.domain.model.PersonId;
 import ch.yuno.partner.domain.model.SocialSecurityNumber;
 import ch.yuno.partner.domain.port.out.PersonRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -18,9 +19,9 @@ public class PersonQueryService {
     @Inject
     PersonRepository personRepository;
 
-    public Person findById(String personId) {
+    public Person findById(PersonId personId) {
         return personRepository.findById(personId)
-                .orElseThrow(() -> new PersonNotFoundException(personId));
+                .orElseThrow(() -> new PersonNotFoundException(personId.value()));
     }
 
     public List<Person> listAllPersons() {
@@ -46,7 +47,7 @@ public class PersonQueryService {
         return personRepository.search(name, firstName, socialSecurityNumber, dateOfBirth, pageRequest);
     }
 
-    public List<Address> getAddresses(String personId) {
+    public List<Address> getAddresses(PersonId personId) {
         return findById(personId).getAddresses();
     }
 }

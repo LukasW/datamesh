@@ -75,6 +75,12 @@ schema:
       type: string
       required: false
       description: Formatted Swiss AHV number (756.XXXX.XXXX.XX). Null if not recorded.
+    - name: insuredNumber
+      type: string
+      required: false
+      description: >
+        Unique insured number (format: VN-XXXXXXXX), assigned when the person's first
+        policy is activated. Null for persons without an active insurance relationship.
     - name: addresses
       type: array
       required: false

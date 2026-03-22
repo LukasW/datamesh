@@ -32,6 +32,9 @@ public class PersonEntity {
     @Column(name = "social_security_number", nullable = true, unique = true, length = 16)
     private String socialSecurityNumber;
 
+    @Column(name = "insured_number", unique = true, length = 11)
+    private String insuredNumber;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -66,6 +69,8 @@ public class PersonEntity {
     public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
     public String getSocialSecurityNumber() { return socialSecurityNumber; }
     public void setSocialSecurityNumber(String socialSecurityNumber) { this.socialSecurityNumber = socialSecurityNumber; }
+    public String getInsuredNumber() { return insuredNumber; }
+    public void setInsuredNumber(String insuredNumber) { this.insuredNumber = insuredNumber; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public List<AddressEntity> getAddresses() { return addresses; }

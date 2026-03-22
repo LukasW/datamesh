@@ -30,6 +30,10 @@ spec:
       - name: firstName
         type: string
         nullable: false
+      - name: insuredNumber
+        type: string
+        nullable: true
+        description: "Insured number (VN-XXXXXXXX) or null if not yet insured."
       - name: timestamp
         type: string
         format: datetime

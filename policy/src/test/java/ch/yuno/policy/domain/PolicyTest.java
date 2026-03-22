@@ -1,8 +1,10 @@
 package ch.yuno.policy.domain;
 
 import ch.yuno.policy.domain.model.Coverage;
+import ch.yuno.policy.domain.model.CoverageId;
 import ch.yuno.policy.domain.model.CoverageType;
 import ch.yuno.policy.domain.model.Policy;
+import ch.yuno.policy.domain.model.PolicyId;
 import ch.yuno.policy.domain.model.PolicyStatus;
 import ch.yuno.policy.domain.service.CoverageNotFoundException;
 import org.junit.jupiter.api.DisplayName;
@@ -107,7 +109,7 @@ class PolicyTest {
     @Test
     void addCoverage_addsToList() {
         Policy policy = newDraft();
-        String id = policy.addCoverage(CoverageType.LIABILITY, new BigDecimal("50000"));
+        CoverageId id = policy.addCoverage(CoverageType.LIABILITY, new BigDecimal("50000"));
         assertNotNull(id);
         assertEquals(1, policy.getCoverages().size());
         assertEquals(CoverageType.LIABILITY, policy.getCoverages().get(0).getCoverageType());
@@ -133,7 +135,7 @@ class PolicyTest {
     @Test
     void removeCoverage_removesByid() {
         Policy policy = newDraft();
-        String id = policy.addCoverage(CoverageType.LIABILITY, new BigDecimal("50000"));
+        CoverageId id = policy.addCoverage(CoverageType.LIABILITY, new BigDecimal("50000"));
         policy.removeCoverage(id);
         assertTrue(policy.getCoverages().isEmpty());
     }
@@ -141,7 +143,7 @@ class PolicyTest {
     @Test
     void removeCoverage_throwsForUnknownId() {
         Policy policy = newDraft();
-        assertThrows(CoverageNotFoundException.class, () -> policy.removeCoverage("unknown-id"));
+        assertThrows(CoverageNotFoundException.class, () -> policy.removeCoverage(CoverageId.of("unknown-id")));
     }
 
     // ── Coverage Value Object ─────────────────────────────────────────────────
@@ -149,12 +151,12 @@ class PolicyTest {
     @Test
     void coverage_rejectsZeroInsuredAmount() {
         assertThrows(IllegalArgumentException.class, () ->
-                new Coverage("id", "policyId", CoverageType.LIABILITY, BigDecimal.ZERO));
+                new Coverage(CoverageId.of("id"), PolicyId.of("policyId"), CoverageType.LIABILITY, BigDecimal.ZERO));
     }
 
     @Test
     void coverage_updateInsuredAmount() {
-        Coverage coverage = new Coverage("id", "policyId", CoverageType.LIABILITY, new BigDecimal("50000"));
+        Coverage coverage = new Coverage(CoverageId.of("id"), PolicyId.of("policyId"), CoverageType.LIABILITY, new BigDecimal("50000"));
         coverage.updateInsuredAmount(new BigDecimal("75000"));
         assertEquals(new BigDecimal("75000"), coverage.getInsuredAmount());
     }

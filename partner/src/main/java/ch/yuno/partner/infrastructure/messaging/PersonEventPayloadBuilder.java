@@ -2,6 +2,7 @@ package ch.yuno.partner.infrastructure.messaging;
 
 import ch.yuno.partner.domain.model.Address;
 import ch.yuno.partner.domain.model.AddressType;
+import ch.yuno.partner.domain.model.InsuredNumber;
 import ch.yuno.partner.domain.model.Person;
 import ch.yuno.partner.domain.model.SocialSecurityNumber;
 import ch.yuno.partner.domain.port.out.PiiEncryptor;
@@ -35,17 +36,24 @@ public final class PersonEventPayloadBuilder {
         return String.format(
                 "{\"eventId\":\"%s\",\"eventType\":\"PersonCreated\",\"personId\":\"%s\"," +
                 "\"name\":\"%s\",\"firstName\":\"%s\",\"socialSecurityNumber\":%s," +
-                "\"dateOfBirth\":\"%s\",\"timestamp\":\"%s\"}",
+                "\"dateOfBirth\":\"%s\",\"insuredNumber\":null,\"timestamp\":\"%s\"}",
                 UUID.randomUUID(), personId, name, firstName,
                 ssnStr != null ? "\"" + ssnStr + "\"" : "null",
                 dateOfBirth, Instant.now());
     }
 
     public static String buildPersonUpdated(String personId, String name, String firstName) {
+        return buildPersonUpdated(personId, name, firstName, (InsuredNumber) null);
+    }
+
+    public static String buildPersonUpdated(String personId, String name, String firstName,
+                                            InsuredNumber insuredNumber) {
+        String insuredNumberStr = insuredNumber != null
+                ? ",\"insuredNumber\":\"" + insuredNumber.value() + "\"" : ",\"insuredNumber\":null";
         return String.format(
                 "{\"eventId\":\"%s\",\"eventType\":\"PersonUpdated\",\"personId\":\"%s\"," +
-                "\"name\":\"%s\",\"firstName\":\"%s\",\"timestamp\":\"%s\"}",
-                UUID.randomUUID(), personId, name, firstName, Instant.now());
+                "\"name\":\"%s\",\"firstName\":\"%s\"%s,\"timestamp\":\"%s\"}",
+                UUID.randomUUID(), personId, name, firstName, insuredNumberStr, Instant.now());
     }
 
     public static String buildPersonDeleted(String personId) {
@@ -89,6 +97,8 @@ public final class PersonEventPayloadBuilder {
     public static String buildPersonState(Person person) {
         SocialSecurityNumber ssn = person.getSocialSecurityNumber();
         String ssnStr = ssn != null ? "\"" + ssn.formatted() + "\"" : "null";
+        InsuredNumber insuredNumber = person.getInsuredNumber();
+        String insuredNumberStr = insuredNumber != null ? "\"" + insuredNumber.value() + "\"" : "null";
 
         StringBuilder addresses = new StringBuilder("[");
         List<Address> addressList = person.getAddresses();
@@ -109,9 +119,11 @@ public final class PersonEventPayloadBuilder {
         return String.format(
                 "{\"eventType\":\"PersonState\",\"personId\":\"%s\",\"name\":\"%s\",\"firstName\":\"%s\"," +
                 "\"gender\":\"%s\",\"dateOfBirth\":\"%s\",\"socialSecurityNumber\":%s," +
+                "\"insuredNumber\":%s," +
                 "\"deleted\":false,\"addresses\":%s,\"timestamp\":\"%s\"}",
                 person.getPersonId(), escape(person.getName()), escape(person.getFirstName()),
                 person.getGender().name(), person.getDateOfBirth(), ssnStr,
+                insuredNumberStr,
                 addresses, Instant.now());
     }
 
@@ -141,7 +153,7 @@ public final class PersonEventPayloadBuilder {
         return String.format(
                 "{\"eventId\":\"%s\",\"eventType\":\"PersonCreated\",\"personId\":\"%s\"," +
                 "\"name\":\"%s\",\"firstName\":\"%s\",\"socialSecurityNumber\":%s," +
-                "\"dateOfBirth\":\"%s\",\"encrypted\":true,\"timestamp\":\"%s\"}",
+                "\"dateOfBirth\":\"%s\",\"insuredNumber\":null,\"encrypted\":true,\"timestamp\":\"%s\"}",
                 UUID.randomUUID(), personId, escape(encName), escape(encFirstName),
                 encSsn != null ? "\"" + escape(encSsn) + "\"" : "null",
                 escape(encDob), Instant.now());
@@ -149,12 +161,21 @@ public final class PersonEventPayloadBuilder {
 
     public static String buildPersonUpdated(String personId, String name, String firstName,
                                             PiiEncryptor encryptor) {
+        return buildPersonUpdated(personId, name, firstName, null, encryptor);
+    }
+
+    public static String buildPersonUpdated(String personId, String name, String firstName,
+                                            InsuredNumber insuredNumber, PiiEncryptor encryptor) {
         String encName = encryptor.encrypt(personId, name);
         String encFirstName = encryptor.encrypt(personId, firstName);
+        // insuredNumber is NOT PII – written in cleartext
+        String insuredNumberStr = insuredNumber != null
+                ? ",\"insuredNumber\":\"" + insuredNumber.value() + "\"" : ",\"insuredNumber\":null";
         return String.format(
                 "{\"eventId\":\"%s\",\"eventType\":\"PersonUpdated\",\"personId\":\"%s\"," +
-                "\"name\":\"%s\",\"firstName\":\"%s\",\"encrypted\":true,\"timestamp\":\"%s\"}",
-                UUID.randomUUID(), personId, escape(encName), escape(encFirstName), Instant.now());
+                "\"name\":\"%s\",\"firstName\":\"%s\"%s,\"encrypted\":true,\"timestamp\":\"%s\"}",
+                UUID.randomUUID(), personId, escape(encName), escape(encFirstName),
+                insuredNumberStr, Instant.now());
     }
 
     public static String buildAddressAdded(String personId, String addressId,
@@ -180,10 +201,12 @@ public final class PersonEventPayloadBuilder {
     }
 
     public static String buildPersonState(Person person, PiiEncryptor encryptor) {
-        String pid = person.getPersonId();
+        String pid = person.getPersonId().value();
         SocialSecurityNumber ssn = person.getSocialSecurityNumber();
         String encSsn = ssn != null
                 ? "\"" + escape(encryptor.encrypt(pid, ssn.formatted())) + "\"" : "null";
+        InsuredNumber insuredNumber = person.getInsuredNumber();
+        String insuredNumberStr = insuredNumber != null ? "\"" + insuredNumber.value() + "\"" : "null";
 
         StringBuilder addresses = new StringBuilder("[");
         List<Address> addressList = person.getAddresses();
@@ -209,6 +232,7 @@ public final class PersonEventPayloadBuilder {
         return String.format(
                 "{\"eventType\":\"PersonState\",\"personId\":\"%s\",\"name\":\"%s\",\"firstName\":\"%s\"," +
                 "\"gender\":\"%s\",\"dateOfBirth\":\"%s\",\"socialSecurityNumber\":%s," +
+                "\"insuredNumber\":%s," +
                 "\"deleted\":false,\"encrypted\":true,\"addresses\":%s,\"timestamp\":\"%s\"}",
                 pid,
                 escape(encryptor.encrypt(pid, person.getName())),
@@ -216,6 +240,7 @@ public final class PersonEventPayloadBuilder {
                 person.getGender().name(),
                 escape(encryptor.encrypt(pid, person.getDateOfBirth().toString())),
                 encSsn,
+                insuredNumberStr,
                 addresses, Instant.now());
     }
 

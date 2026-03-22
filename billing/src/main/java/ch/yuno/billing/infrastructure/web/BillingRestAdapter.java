@@ -1,6 +1,7 @@
 package ch.yuno.billing.infrastructure.web;
 
 import ch.yuno.billing.domain.model.Invoice;
+import ch.yuno.billing.domain.model.InvoiceId;
 import ch.yuno.billing.domain.model.InvoiceStatus;
 import ch.yuno.billing.domain.service.InvoiceCommandService;
 import ch.yuno.billing.domain.service.InvoiceNotFoundException;
@@ -50,7 +51,7 @@ public class BillingRestAdapter {
     @Operation(summary = "Get a single invoice")
     public Response getById(@PathParam("id") String id) {
         try {
-            Invoice invoice = queryService.findByIdOrThrow(id);
+            Invoice invoice = queryService.findByIdOrThrow(InvoiceId.of(id));
             return Response.ok(toDto(invoice)).build();
         } catch (InvoiceNotFoundException e) {
             return Response.status(Response.Status.NOT_FOUND).entity(Map.of("error", e.getMessage())).build();
@@ -62,8 +63,9 @@ public class BillingRestAdapter {
     @Operation(summary = "Record payment for an invoice")
     public Response recordPayment(@PathParam("id") String id) {
         try {
-            commandService.recordPayment(id);
-            Invoice invoice = queryService.findByIdOrThrow(id);
+            InvoiceId invoiceId = InvoiceId.of(id);
+            commandService.recordPayment(invoiceId);
+            Invoice invoice = queryService.findByIdOrThrow(invoiceId);
             return Response.ok(toDto(invoice)).build();
         } catch (InvoiceNotFoundException e) {
             return Response.status(Response.Status.NOT_FOUND).entity(Map.of("error", e.getMessage())).build();
@@ -77,7 +79,7 @@ public class BillingRestAdapter {
     @Operation(summary = "Initiate or escalate dunning for an overdue invoice")
     public Response initiateDunning(@PathParam("id") String id) {
         try {
-            String dunningCaseId = commandService.initiateDunning(id);
+            String dunningCaseId = commandService.initiateDunning(InvoiceId.of(id));
             return Response.ok(Map.of("dunningCaseId", dunningCaseId)).build();
         } catch (InvoiceNotFoundException e) {
             return Response.status(Response.Status.NOT_FOUND).entity(Map.of("error", e.getMessage())).build();
@@ -90,7 +92,7 @@ public class BillingRestAdapter {
 
     private Map<String, Object> toDto(Invoice i) {
         return Map.of(
-                "invoiceId",     i.getInvoiceId(),
+                "invoiceId",     i.getInvoiceId().value(),
                 "invoiceNumber", i.getInvoiceNumber(),
                 "policyId",      i.getPolicyId(),
                 "policyNumber",  i.getPolicyNumber(),

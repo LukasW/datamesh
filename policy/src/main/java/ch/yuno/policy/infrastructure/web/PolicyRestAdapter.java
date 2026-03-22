@@ -1,10 +1,12 @@
 package ch.yuno.policy.infrastructure.web;
 
 import ch.yuno.policy.domain.model.Coverage;
+import ch.yuno.policy.domain.model.CoverageId;
 import ch.yuno.policy.domain.model.CoverageType;
 import ch.yuno.policy.domain.model.PageRequest;
 import ch.yuno.policy.domain.model.PageResult;
 import ch.yuno.policy.domain.model.Policy;
+import ch.yuno.policy.domain.model.PolicyId;
 import ch.yuno.policy.domain.model.PolicyStatus;
 import ch.yuno.policy.domain.service.CoverageNotFoundException;
 import ch.yuno.policy.domain.service.PolicyCommandService;
@@ -39,11 +41,11 @@ public class PolicyRestAdapter {
     @POST
     public Response createPolicy(CreatePolicyRequest req) {
         try {
-            String id = policyCommandService.createPolicy(
+            PolicyId id = policyCommandService.createPolicy(
                     req.partnerId(), req.productId(),
                     req.coverageStartDate(), req.coverageEndDate(),
                     req.premium(), req.deductible() != null ? req.deductible() : BigDecimal.ZERO);
-            return Response.status(201).entity(Map.of("id", id)).build();
+            return Response.status(201).entity(Map.of("id", id.value())).build();
         } catch (IllegalArgumentException e) {
             return Response.status(400).entity(Map.of("message", e.getMessage())).build();
         }
@@ -74,7 +76,7 @@ public class PolicyRestAdapter {
     @Path("/{id}")
     public Response getPolicy(@PathParam("id") String id) {
         try {
-            return Response.ok(PolicyDto.from(policyQueryService.findById(id))).build();
+            return Response.ok(PolicyDto.from(policyQueryService.findById(PolicyId.of(id)))).build();
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         }
@@ -84,10 +86,11 @@ public class PolicyRestAdapter {
     @Path("/{id}")
     public Response updatePolicy(@PathParam("id") String id, UpdatePolicyRequest req) {
         try {
-            policyCommandService.updatePolicyDetails(id, req.productId(),
+            PolicyId pid = PolicyId.of(id);
+            policyCommandService.updatePolicyDetails(pid, req.productId(),
                     req.coverageStartDate(), req.coverageEndDate(),
                     req.premium(), req.deductible() != null ? req.deductible() : BigDecimal.ZERO);
-            return Response.ok(PolicyDto.from(policyQueryService.findById(id))).build();
+            return Response.ok(PolicyDto.from(policyQueryService.findById(pid))).build();
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalArgumentException | IllegalStateException e) {
@@ -99,8 +102,9 @@ public class PolicyRestAdapter {
     @Path("/{id}/activate")
     public Response activatePolicy(@PathParam("id") String id) {
         try {
-            policyCommandService.activatePolicy(id);
-            return Response.ok(PolicyDto.from(policyQueryService.findById(id))).build();
+            PolicyId pid = PolicyId.of(id);
+            policyCommandService.activatePolicy(pid);
+            return Response.ok(PolicyDto.from(policyQueryService.findById(pid))).build();
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalStateException e) {
@@ -112,8 +116,9 @@ public class PolicyRestAdapter {
     @Path("/{id}/cancel")
     public Response cancelPolicy(@PathParam("id") String id) {
         try {
-            policyCommandService.cancelPolicy(id);
-            return Response.ok(PolicyDto.from(policyQueryService.findById(id))).build();
+            PolicyId pid = PolicyId.of(id);
+            policyCommandService.cancelPolicy(pid);
+            return Response.ok(PolicyDto.from(policyQueryService.findById(pid))).build();
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalStateException e) {
@@ -125,14 +130,11 @@ public class PolicyRestAdapter {
     @Path("/{id}")
     public Response deletePolicy(@PathParam("id") String id) {
         try {
-            policyQueryService.findById(id); // throws if not found
-            // deletion only allowed for DRAFT policies - check status
-            Policy policy = policyQueryService.findById(id);
+            PolicyId pid = PolicyId.of(id);
+            Policy policy = policyQueryService.findById(pid);
             if (policy.getStatus() != PolicyStatus.DRAFT) {
                 return Response.status(409).entity(Map.of("message", "Only DRAFT policies can be deleted")).build();
             }
-            // direct delete via repository not exposed, use a workaround: cancel + flag
-            // For now, throw 405 for non-DRAFT; DRAFT can be deleted
             return Response.status(405).entity(Map.of("message", "Delete not supported – use cancel")).build();
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -145,7 +147,7 @@ public class PolicyRestAdapter {
     @Path("/{id}/coverages")
     public Response getCoverages(@PathParam("id") String id) {
         try {
-            List<CoverageDto> result = policyQueryService.findById(id)
+            List<CoverageDto> result = policyQueryService.findById(PolicyId.of(id))
                     .getCoverages().stream().map(CoverageDto::from).toList();
             return Response.ok(result).build();
         } catch (PolicyNotFoundException e) {
@@ -157,9 +159,10 @@ public class PolicyRestAdapter {
     @Path("/{id}/coverages")
     public Response addCoverage(@PathParam("id") String id, AddCoverageRequest req) {
         try {
-            String coverageId = policyCommandService.addCoverage(
-                    id, CoverageType.valueOf(req.coverageType()), req.insuredAmount());
-            Coverage coverage = policyQueryService.findById(id).getCoverages().stream()
+            PolicyId pid = PolicyId.of(id);
+            CoverageId coverageId = policyCommandService.addCoverage(
+                    pid, CoverageType.valueOf(req.coverageType()), req.insuredAmount());
+            Coverage coverage = policyQueryService.findById(pid).getCoverages().stream()
                     .filter(c -> c.getCoverageId().equals(coverageId))
                     .findFirst().orElseThrow();
             return Response.status(201).entity(CoverageDto.from(coverage)).build();
@@ -174,7 +177,7 @@ public class PolicyRestAdapter {
     @Path("/{id}/coverages/{did}")
     public Response removeCoverage(@PathParam("id") String id, @PathParam("did") String did) {
         try {
-            policyCommandService.removeCoverage(id, did);
+            policyCommandService.removeCoverage(PolicyId.of(id), CoverageId.of(did));
             return Response.noContent().build();
         } catch (PolicyNotFoundException | CoverageNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -203,7 +206,7 @@ public class PolicyRestAdapter {
 
         public static PolicyDto from(Policy p) {
             return new PolicyDto(
-                    p.getPolicyId(), p.getPolicyNumber(), p.getPartnerId(), p.getProductId(),
+                    p.getPolicyId().value(), p.getPolicyNumber(), p.getPartnerId(), p.getProductId(),
                     p.getStatus().name(), p.getCoverageStartDate(), p.getCoverageEndDate(),
                     p.getPremium(), p.getDeductible(),
                     p.getCoverages().stream().map(CoverageDto::from).toList());
@@ -214,7 +217,7 @@ public class PolicyRestAdapter {
             String coverageId, String policyId, String coverageType, BigDecimal insuredAmount) {
 
         public static CoverageDto from(Coverage c) {
-            return new CoverageDto(c.getCoverageId(), c.getPolicyId(),
+            return new CoverageDto(c.getCoverageId().value(), c.getPolicyId().value(),
                     c.getCoverageType().name(), c.getInsuredAmount());
         }
     }

@@ -5,7 +5,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Aggregate Root: Invoice (Rechnung).
@@ -14,7 +13,7 @@ import java.util.UUID;
  */
 public class Invoice {
 
-    private final String invoiceId;
+    private final InvoiceId invoiceId;
     private final String invoiceNumber;
     private final String policyId;
     private final String policyNumber;
@@ -41,7 +40,7 @@ public class Invoice {
         if (invoiceDate == null) throw new IllegalArgumentException("invoiceDate is required");
         if (dueDate == null) throw new IllegalArgumentException("dueDate is required");
 
-        this.invoiceId = UUID.randomUUID().toString();
+        this.invoiceId = InvoiceId.generate();
         this.invoiceNumber = invoiceNumber;
         this.policyId = policyId;
         this.policyNumber = policyNumber;
@@ -55,7 +54,7 @@ public class Invoice {
     }
 
     /** Constructor for reconstructing from persistence. */
-    public Invoice(String invoiceId, String invoiceNumber, String policyId, String policyNumber,
+    public Invoice(InvoiceId invoiceId, String invoiceNumber, String policyId, String policyNumber,
                    String partnerId, InvoiceStatus status, BillingCycle billingCycle,
                    BigDecimal totalAmount, LocalDate invoiceDate, LocalDate dueDate,
                    LocalDate paidAt, LocalDate cancelledAt) {
@@ -119,7 +118,7 @@ public class Invoice {
 
     // ── Getters ───────────────────────────────────────────────────────────────
 
-    public String getInvoiceId() { return invoiceId; }
+    public InvoiceId getInvoiceId() { return invoiceId; }
     public String getInvoiceNumber() { return invoiceNumber; }
     public String getPolicyId() { return policyId; }
     public String getPolicyNumber() { return policyNumber; }

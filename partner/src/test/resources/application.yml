@@ -31,3 +31,11 @@ quarkus:
 
   log:
     level: INFO
+
+# Disable Kafka channels in unit/integration tests
+mp:
+  messaging:
+    incoming:
+      policy-issued-in:
+        enabled: false
+

@@ -13,6 +13,7 @@ SELECT
     json_extract_scalar(payload, '$.name')                      AS family_name,
     json_extract_scalar(payload, '$.firstName')                 AS first_name,
     json_extract_scalar(payload, '$.socialSecurityNumber')      AS social_security_number,
+    json_extract_scalar(payload, '$.insuredNumber')             AS insured_number,
     CAST(json_extract_scalar(payload, '$.dateOfBirth') AS DATE) AS date_of_birth,
     CAST(json_extract_scalar(payload, '$.timestamp') AS TIMESTAMP) AS event_at,
     consumed_at

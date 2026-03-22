@@ -2,6 +2,7 @@ package ch.yuno.policy.infrastructure.dev;
 
 import ch.yuno.policy.domain.model.CoverageType;
 import ch.yuno.policy.domain.model.PartnerView;
+import ch.yuno.policy.domain.model.PolicyId;
 import ch.yuno.policy.domain.model.ProductView;
 import ch.yuno.policy.domain.port.out.PartnerViewRepository;
 import ch.yuno.policy.domain.port.out.ProductViewRepository;
@@ -80,7 +81,7 @@ public class DevDataInitializer {
 
     /** Household contents policy – ACTIVE, with coverages */
     private void seedHouseholdContentsSample() {
-        String id = policyCommandService.createPolicy(
+        PolicyId id = policyCommandService.createPolicy(
                 PARTNER_MUSTER, PRODUCT_HOUSEHOLD_CONTENTS_ID,
                 LocalDate.of(2024, 1, 1), null,
                 new BigDecimal("320.00"), new BigDecimal("200.00"));
@@ -92,7 +93,7 @@ public class DevDataInitializer {
 
     /** Building policy – ACTIVE, open-ended */
     private void seedBuildingActive() {
-        String id = policyCommandService.createPolicy(
+        PolicyId id = policyCommandService.createPolicy(
                 PARTNER_MUELLER, PRODUCT_BUILDING_ID,
                 LocalDate.of(2023, 3, 1), null,
                 new BigDecimal("1250.00"), new BigDecimal("500.00"));
@@ -103,7 +104,7 @@ public class DevDataInitializer {
 
     /** Liability – DRAFT, not yet activated */
     private void seedLiabilityDraft() {
-        String id = policyCommandService.createPolicy(
+        PolicyId id = policyCommandService.createPolicy(
                 PARTNER_MEIER, PRODUCT_LIABILITY_ID,
                 LocalDate.of(2026, 4, 1), null,
                 new BigDecimal("180.00"), new BigDecimal("0.00"));
@@ -112,7 +113,7 @@ public class DevDataInitializer {
 
     /** Cancelled policy */
     private void seedCancelled() {
-        String id = policyCommandService.createPolicy(
+        PolicyId id = policyCommandService.createPolicy(
                 PARTNER_MUSTER, PRODUCT_HOUSEHOLD_CONTENTS_ID,
                 LocalDate.of(2022, 1, 1), LocalDate.of(2024, 12, 31),
                 new BigDecimal("280.00"), new BigDecimal("150.00"));

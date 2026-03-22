@@ -4,6 +4,7 @@ import ch.yuno.policy.domain.model.PageRequest;
 import ch.yuno.policy.domain.model.PageResult;
 import ch.yuno.policy.domain.model.PartnerView;
 import ch.yuno.policy.domain.model.Policy;
+import ch.yuno.policy.domain.model.PolicyId;
 import ch.yuno.policy.domain.model.PolicyStatus;
 import ch.yuno.policy.domain.model.ProductView;
 import ch.yuno.policy.domain.port.out.PartnerViewRepository;
@@ -29,9 +30,9 @@ public class PolicyQueryService {
     @Inject
     ProductViewRepository productViewRepository;
 
-    public Policy findById(String policyId) {
+    public Policy findById(PolicyId policyId) {
         return policyRepository.findById(policyId)
-                .orElseThrow(() -> new PolicyNotFoundException(policyId));
+                .orElseThrow(() -> new PolicyNotFoundException(policyId.value()));
     }
 
     public Policy findByPolicyNumber(String policyNumber) {

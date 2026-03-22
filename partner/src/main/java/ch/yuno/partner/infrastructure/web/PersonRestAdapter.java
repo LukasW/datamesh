@@ -1,11 +1,13 @@
 package ch.yuno.partner.infrastructure.web;
 
 import ch.yuno.partner.domain.model.Address;
+import ch.yuno.partner.domain.model.AddressId;
 import ch.yuno.partner.domain.model.AddressType;
 import ch.yuno.partner.domain.model.Gender;
 import ch.yuno.partner.domain.model.PageRequest;
 import ch.yuno.partner.domain.model.PageResult;
 import ch.yuno.partner.domain.model.Person;
+import ch.yuno.partner.domain.model.PersonId;
 import ch.yuno.partner.domain.service.AddressOverlapException;
 import ch.yuno.partner.domain.service.AddressNotFoundException;
 import ch.yuno.partner.domain.service.PersonCommandService;
@@ -44,11 +46,11 @@ public class PersonRestAdapter {
     @POST
     public Response createPerson(CreatePersonRequest req) {
         try {
-            String id = personCommandService.createPerson(
+            PersonId id = personCommandService.createPerson(
                     req.name(), req.firstName(),
                     Gender.valueOf(req.gender()),
                     req.dateOfBirth(), req.socialSecurityNumber());
-            return Response.status(201).entity(Map.of("id", id)).build();
+            return Response.status(201).entity(Map.of("id", id.value())).build();
         } catch (IllegalArgumentException e) {
             return Response.status(400).entity(Map.of("message", e.getMessage())).build();
         }
@@ -86,7 +88,7 @@ public class PersonRestAdapter {
     @Path("/{id}")
     public Response getPerson(@PathParam("id") String id) {
         try {
-            return Response.ok(PersonDto.from(personQueryService.findById(id))).build();
+            return Response.ok(PersonDto.from(personQueryService.findById(PersonId.of(id)))).build();
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         }
@@ -96,9 +98,10 @@ public class PersonRestAdapter {
     @Path("/{id}")
     public Response updatePerson(@PathParam("id") String id, UpdatePersonRequest req) {
         try {
-            personCommandService.updatePersonalData(id, req.name(), req.firstName(),
+            PersonId personId = PersonId.of(id);
+            personCommandService.updatePersonalData(personId, req.name(), req.firstName(),
                     Gender.valueOf(req.gender()), req.dateOfBirth());
-            return Response.ok(PersonDto.from(personQueryService.findById(id))).build();
+            return Response.ok(PersonDto.from(personQueryService.findById(personId))).build();
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
         } catch (IllegalArgumentException e) {
@@ -110,7 +113,7 @@ public class PersonRestAdapter {
     @Path("/{id}")
     public Response deletePerson(@PathParam("id") String id) {
         try {
-            personCommandService.deletePerson(id);
+            personCommandService.deletePerson(PersonId.of(id));
             return Response.noContent().build();
         } catch (PersonNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -125,7 +128,7 @@ public class PersonRestAdapter {
                                   @QueryParam("typ") String typ,
                                   @QueryParam("current") Boolean current) {
         try {
-            List<Address> addresses = personQueryService.getAddresses(id);
+            List<Address> addresses = personQueryService.getAddresses(PersonId.of(id));
             if (isNotBlank(typ)) {
                 AddressType addressType = AddressType.valueOf(typ);
                 addresses = addresses.stream().filter(a -> a.getAddressType() == addressType).toList();
@@ -145,13 +148,14 @@ public class PersonRestAdapter {
     @Path("/{id}/addresses")
     public Response addAddress(@PathParam("id") String id, AddAddressRequest req) {
         try {
-            String addressId = personCommandService.addAddress(
-                    id,
+            PersonId personId = PersonId.of(id);
+            AddressId addressId = personCommandService.addAddress(
+                    personId,
                     AddressType.valueOf(req.addressType()),
                     req.street(), req.houseNumber(), req.postalCode(), req.city(),
                     req.land() != null ? req.land() : "Schweiz",
                     req.validFrom(), req.validTo());
-            Address address = personQueryService.findById(id).getAddresses().stream()
+            Address address = personQueryService.findById(personId).getAddresses().stream()
                     .filter(a -> a.getAddressId().equals(addressId))
                     .findFirst().orElseThrow();
             return Response.status(201).entity(AddressDto.from(address)).build();
@@ -170,9 +174,11 @@ public class PersonRestAdapter {
                                           @PathParam("aid") String aid,
                                           UpdateAddressRequest req) {
         try {
-            personCommandService.updateAddressValidity(id, aid, req.validFrom(), req.validTo());
-            Address address = personQueryService.findById(id).getAddresses().stream()
-                    .filter(a -> a.getAddressId().equals(aid))
+            PersonId personId = PersonId.of(id);
+            AddressId addressId = AddressId.of(aid);
+            personCommandService.updateAddressValidity(personId, addressId, req.validFrom(), req.validTo());
+            Address address = personQueryService.findById(personId).getAddresses().stream()
+                    .filter(a -> a.getAddressId().equals(addressId))
                     .findFirst().orElseThrow();
             return Response.ok(AddressDto.from(address)).build();
         } catch (AddressOverlapException e) {
@@ -188,7 +194,7 @@ public class PersonRestAdapter {
     @Path("/{id}/addresses/{aid}")
     public Response deleteAddress(@PathParam("id") String id, @PathParam("aid") String aid) {
         try {
-            personCommandService.deleteAddress(id, aid);
+            personCommandService.deleteAddress(PersonId.of(id), AddressId.of(aid));
             return Response.noContent().build();
         } catch (PersonNotFoundException | AddressNotFoundException e) {
             return Response.status(404).entity(Map.of("message", e.getMessage())).build();
@@ -231,7 +237,7 @@ public class PersonRestAdapter {
 
         public static PersonDto from(Person p) {
             return new PersonDto(
-                    p.getPersonId(), p.getName(), p.getFirstName(),
+                    p.getPersonId().value(), p.getName(), p.getFirstName(),
                     p.getGender().name(), p.getDateOfBirth(),
                     p.getSocialSecurityNumber() != null ? p.getSocialSecurityNumber().formatted() : null,
                     p.getAddresses().stream().map(AddressDto::from).toList());
@@ -245,7 +251,7 @@ public class PersonRestAdapter {
 
         public static AddressDto from(Address a) {
             return new AddressDto(
-                    a.getAddressId(), a.getPersonId(), a.getAddressType().name(),
+                    a.getAddressId().value(), a.getPersonId().value(), a.getAddressType().name(),
                     a.getStreet(), a.getHouseNumber(), a.getPostalCode(), a.getCity(), a.getLand(),
                     a.getValidFrom(), a.getValidTo(), a.isCurrent());
         }

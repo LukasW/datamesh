@@ -3,6 +3,7 @@ package ch.yuno.product.infrastructure.persistence;
 import ch.yuno.product.domain.model.PageRequest;
 import ch.yuno.product.domain.model.PageResult;
 import ch.yuno.product.domain.model.Product;
+import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.model.ProductLine;
 import ch.yuno.product.domain.model.ProductStatus;
 import ch.yuno.product.domain.port.out.ProductRepository;
@@ -24,7 +25,7 @@ public class ProductJpaAdapter implements ProductRepository {
     @Override
     @Transactional
     public Product save(Product product) {
-        ProductEntity entity = em.find(ProductEntity.class, product.getProductId());
+        ProductEntity entity = em.find(ProductEntity.class, product.getProductId().value());
         if (entity == null) {
             entity = toEntity(product);
             em.persist(entity);
@@ -35,8 +36,8 @@ public class ProductJpaAdapter implements ProductRepository {
     }
 
     @Override
-    public Optional<Product> findById(String productId) {
-        ProductEntity entity = em.find(ProductEntity.class, productId);
+    public Optional<Product> findById(ProductId productId) {
+        ProductEntity entity = em.find(ProductEntity.class, productId.value());
         return Optional.ofNullable(entity).map(this::toDomain);
     }
 
@@ -97,8 +98,8 @@ public class ProductJpaAdapter implements ProductRepository {
 
     @Override
     @Transactional
-    public void delete(String productId) {
-        ProductEntity entity = em.find(ProductEntity.class, productId);
+    public void delete(ProductId productId) {
+        ProductEntity entity = em.find(ProductEntity.class, productId.value());
         if (entity != null) {
             em.remove(entity);
         }
@@ -108,7 +109,7 @@ public class ProductJpaAdapter implements ProductRepository {
 
     private ProductEntity toEntity(Product product) {
         ProductEntity e = new ProductEntity();
-        e.setProductId(product.getProductId());
+        e.setProductId(product.getProductId().value());
         updateEntity(e, product);
         return e;
     }
@@ -123,7 +124,7 @@ public class ProductJpaAdapter implements ProductRepository {
 
     private Product toDomain(ProductEntity e) {
         return new Product(
-                e.getProductId(),
+                ProductId.of(e.getProductId()),
                 e.getName(),
                 e.getDescription(),
                 ProductLine.valueOf(e.getProductLine()),

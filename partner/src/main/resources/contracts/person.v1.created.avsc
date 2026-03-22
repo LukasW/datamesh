@@ -11,6 +11,7 @@
     {"name": "firstName",            "type": "string"},
     {"name": "socialSecurityNumber", "type": ["null", "string"], "default": null, "doc": "Swiss AHV number 756.XXXX.XXXX.XX or null"},
     {"name": "dateOfBirth",          "type": "string",                          "doc": "ISO-8601 date yyyy-MM-dd"},
+    {"name": "insuredNumber",        "type": ["null", "string"], "default": null, "doc": "Always null at creation. Assigned when first policy is activated."},
     {"name": "timestamp",            "type": "string",                          "doc": "ISO-8601 datetime"}
   ]
 }

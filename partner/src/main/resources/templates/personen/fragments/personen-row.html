@@ -4,6 +4,13 @@
   <td>{person.dateOfBirth}</td>
   <td>{#if person.socialSecurityNumber}{person.socialSecurityNumber.formatted()}{#else}–{/if}</td>
   <td>
+    {#if person.insuredNumber}
+      <span class="badge bg-success">VN</span> {person.insuredNumber.formatted}
+    {#else}
+      <span class="text-muted">–</span>
+    {/if}
+  </td>
+  <td>
     <a href="/persons/{person.personId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
     <button class="btn btn-sm btn-outline-danger"
             hx-delete="/api/persons/{person.personId}"

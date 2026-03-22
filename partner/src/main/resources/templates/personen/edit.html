@@ -13,6 +13,21 @@
         {#include personen/fragments/personalien-form person=person success=false /}
       </div>
     </div>
+
+    <!-- Versicherungsstatus -->
+    <div class="card mt-3">
+      <div class="card-header fw-bold">Versicherungsstatus</div>
+      <div class="card-body">
+        {#if person.insuredNumber}
+          <div class="d-flex align-items-center">
+            <span class="badge bg-success me-2">Versichert</span>
+            <span class="fw-bold font-monospace">{person.insuredNumber.formatted}</span>
+          </div>
+        {#else}
+          <span class="text-muted">Keine aktive Police (Status: Interessent/Partner)</span>
+        {/if}
+      </div>
+    </div>
   </div>
 
   <!-- Adressen -->

@@ -1,6 +1,8 @@
 package ch.yuno.policy.integration;
 
+import ch.yuno.policy.domain.model.CoverageId;
 import ch.yuno.policy.domain.model.CoverageType;
+import ch.yuno.policy.domain.model.PolicyId;
 import ch.yuno.policy.domain.service.PolicyCommandService;
 import ch.yuno.policy.domain.service.PolicyQueryService;
 import io.quarkus.test.junit.QuarkusTest;
@@ -31,7 +33,7 @@ class PolicyActivationIT {
     @DisplayName("Creating and activating a policy writes PolicyIssued outbox entry")
     void activatePolicy_writesOutboxEntry() {
         // Create a DRAFT policy
-        String policyId = commandService.createPolicy(
+        PolicyId policyId = commandService.createPolicy(
                 "partner-123", "product-456",
                 LocalDate.now(), LocalDate.now().plusYears(1),
                 new BigDecimal("500.00"), new BigDecimal("200.00"));
@@ -48,7 +50,7 @@ class PolicyActivationIT {
         // Verify outbox entry for PolicyIssued was written
         var outboxEntries = em.createNativeQuery(
             "SELECT COUNT(*) FROM outbox WHERE aggregate_id = :id AND event_type = 'PolicyIssued'")
-            .setParameter("id", policyId)
+            .setParameter("id", policyId.value())
             .getSingleResult();
         assertEquals(1L, ((Number) outboxEntries).longValue(),
             "Exactly one PolicyIssued outbox entry should exist");
@@ -57,12 +59,12 @@ class PolicyActivationIT {
     @Test
     @DisplayName("Adding coverages to a policy persists them correctly")
     void addCoverage_persistsCorrectly() {
-        String policyId = commandService.createPolicy(
+        PolicyId policyId = commandService.createPolicy(
                 "partner-789", "product-abc",
                 LocalDate.now(), null,
                 new BigDecimal("300.00"), BigDecimal.ZERO);
 
-        String coverageId = commandService.addCoverage(
+        CoverageId coverageId = commandService.addCoverage(
                 policyId, CoverageType.LIABILITY, new BigDecimal("100000.00"));
 
         assertNotNull(coverageId);
@@ -76,7 +78,7 @@ class PolicyActivationIT {
     @Test
     @DisplayName("Cancelling a policy writes PolicyCancelled outbox entry")
     void cancelPolicy_writesOutboxEntry() {
-        String policyId = commandService.createPolicy(
+        PolicyId policyId = commandService.createPolicy(
                 "partner-cancel", "product-cancel",
                 LocalDate.now(), LocalDate.now().plusYears(1),
                 new BigDecimal("400.00"), new BigDecimal("100.00"));
@@ -91,7 +93,7 @@ class PolicyActivationIT {
         // Verify outbox entry for PolicyCancelled was written
         var outboxEntries = em.createNativeQuery(
             "SELECT COUNT(*) FROM outbox WHERE aggregate_id = :id AND event_type = 'PolicyCancelled'")
-            .setParameter("id", policyId)
+            .setParameter("id", policyId.value())
             .getSingleResult();
         assertEquals(1L, ((Number) outboxEntries).longValue(),
             "Exactly one PolicyCancelled outbox entry should exist");

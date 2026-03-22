@@ -2,6 +2,7 @@ package ch.yuno.partner.infrastructure.dev;
 
 import ch.yuno.partner.domain.model.AddressType;
 import ch.yuno.partner.domain.model.Gender;
+import ch.yuno.partner.domain.model.PersonId;
 import ch.yuno.partner.domain.service.PersonCommandService;
 import ch.yuno.partner.domain.service.PersonQueryService;
 import io.quarkus.arc.profile.IfBuildProfile;
@@ -50,7 +51,7 @@ public class DevDataInitializer {
      * Max Muster – zwei aktuelle Adresstypen (RESIDENCE + CORRESPONDENCE).
      */
     private void seedMaxMuster() {
-        String id = personCommandService.createPerson(
+        PersonId id = personCommandService.createPerson(
                 "Muster", "Max", Gender.MALE,
                 LocalDate.of(1978, 5, 12), "756.1234.5678.97");
         personCommandService.addAddress(id, AddressType.RESIDENCE,
@@ -65,7 +66,7 @@ public class DevDataInitializer {
      * Anna Müller – Adressverlauf: historische Wohnadresse (abgelaufen) + aktuelle.
      */
     private void seedAnnaMueller() {
-        String id = personCommandService.createPerson(
+        PersonId id = personCommandService.createPerson(
                 "Müller", "Anna", Gender.FEMALE,
                 LocalDate.of(1990, 9, 3), "756.5432.1987.61");
         // historisch zuerst einfügen, damit keine auto-Anpassung nötig
@@ -82,7 +83,7 @@ public class DevDataInitializer {
      * Die aktuelle wird automatisch auf 2026-05-31 zugeschnitten.
      */
     private void seedHansMeier() {
-        String id = personCommandService.createPerson(
+        PersonId id = personCommandService.createPerson(
                 "Meier", "Hans", Gender.MALE,
                 LocalDate.of(1965, 3, 22), "756.7654.3219.89");
         // aktuelle zuerst – wird beim Hinzufügen der vorerfassten automatisch geclippt
@@ -102,7 +103,7 @@ public class DevDataInitializer {
      * Maria Braun – einfache aktuelle Wohnadresse ohne Geschichte.
      */
     private void seedMariaBraun() {
-        String id = personCommandService.createPerson(
+        PersonId id = personCommandService.createPerson(
                 "Braun", "Maria", Gender.FEMALE,
                 LocalDate.of(1985, 11, 8), "756.8765.4321.51");
         personCommandService.addAddress(id, AddressType.RESIDENCE,
@@ -114,7 +115,7 @@ public class DevDataInitializer {
      * Peter Schmid – RESIDENCE aktuell + CORRESPONDENCE mit Verlauf (abgelaufen → aktuell).
      */
     private void seedPeterSchmid() {
-        String id = personCommandService.createPerson(
+        PersonId id = personCommandService.createPerson(
                 "Schmid", "Peter", Gender.MALE,
                 LocalDate.of(2000, 7, 15), "756.9876.5432.00");
         personCommandService.addAddress(id, AddressType.RESIDENCE,

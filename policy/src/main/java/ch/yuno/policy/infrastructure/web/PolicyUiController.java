@@ -1,11 +1,13 @@
 package ch.yuno.policy.infrastructure.web;
 
 import ch.yuno.policy.domain.model.Coverage;
+import ch.yuno.policy.domain.model.CoverageId;
 import ch.yuno.policy.domain.model.CoverageType;
 import ch.yuno.policy.domain.model.PageRequest;
 import ch.yuno.policy.domain.model.PageResult;
 import ch.yuno.policy.domain.model.PartnerView;
 import ch.yuno.policy.domain.model.Policy;
+import ch.yuno.policy.domain.model.PolicyId;
 import ch.yuno.policy.domain.service.CoverageNotFoundException;
 import ch.yuno.policy.domain.service.PolicyCommandService;
 import ch.yuno.policy.domain.service.PolicyNotFoundException;
@@ -86,7 +88,7 @@ public class PolicyUiController {
     @Path("/{id}/edit")
     public Object getEdit(@PathParam("id") String id) {
         try {
-            Policy policy = policyQueryService.findById(id);
+            Policy policy = policyQueryService.findById(PolicyId.of(id));
             return edit.data("policy", policy)
                        .data("activeProdukte", policyQueryService.getActiveProducts())
                        .data("partnerSichten", policyQueryService.getPartnerViewsMap())
@@ -157,7 +159,7 @@ public class PolicyUiController {
             LocalDate ende = isNotBlank(coverageEndDate) ? LocalDate.parse(coverageEndDate) : null;
             BigDecimal p = new BigDecimal(premium);
             BigDecimal sb = isNotBlank(deductible) ? new BigDecimal(deductible) : BigDecimal.ZERO;
-            String id = policyCommandService.createPolicy(partnerId, productId, beginn, ende, p, sb);
+            PolicyId id = policyCommandService.createPolicy(partnerId, productId, beginn, ende, p, sb);
             Policy policy = policyQueryService.findById(id);
             return policenRow.data("policy", policy)
                              .data("partnerSichten", policyQueryService.getPartnerViewsMap())
@@ -180,7 +182,7 @@ public class PolicyUiController {
     @Path("/fragments/{id}/details-form")
     public Object getDetailsForm(@PathParam("id") String id) {
         try {
-            Policy policy = policyQueryService.findById(id);
+            Policy policy = policyQueryService.findById(PolicyId.of(id));
             return renderPolicyDetailsForm(policy, false, null);
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity("<p>" + escapeHtml(e.getMessage()) + "</p>").build();
@@ -205,14 +207,15 @@ public class PolicyUiController {
             LocalDate ende = isNotBlank(coverageEndDate) ? LocalDate.parse(coverageEndDate) : null;
             BigDecimal p = new BigDecimal(premium);
             BigDecimal sb = isNotBlank(deductible) ? new BigDecimal(deductible) : BigDecimal.ZERO;
-            policyCommandService.updatePolicyDetails(policyId, productId, beginn, ende, p, sb);
-            Policy policy = policyQueryService.findById(policyId);
+            PolicyId pid = PolicyId.of(policyId);
+            policyCommandService.updatePolicyDetails(pid, productId, beginn, ende, p, sb);
+            Policy policy = policyQueryService.findById(pid);
             return renderPolicyDetailsForm(policy, true, null);
         } catch (PolicyNotFoundException e) {
             return Response.status(404).entity("<p>" + escapeHtml(e.getMessage()) + "</p>").build();
         } catch (PremiumCalculationUnavailableException e) {
             try {
-                Policy policy = policyQueryService.findById(policyId);
+                Policy policy = policyQueryService.findById(PolicyId.of(policyId));
                 return renderPolicyDetailsForm(policy, false,
                         "<div class=\"alert alert-warning\">"
                         + "Die Prämienberechnung ist momentan nicht verfügbar. "
@@ -226,7 +229,7 @@ public class PolicyUiController {
             }
         } catch (Exception e) {
             try {
-                Policy policy = policyQueryService.findById(policyId);
+                Policy policy = policyQueryService.findById(PolicyId.of(policyId));
                 return renderPolicyDetailsForm(policy, false,
                         "<div class=\"alert alert-danger\">" + escapeHtml(e.getMessage()) + "</div>");
             } catch (Exception ex) {
@@ -242,8 +245,9 @@ public class PolicyUiController {
     @Path("/fragments/{id}/activate")
     public Object activateFragment(@PathParam("id") String id) {
         try {
-            policyCommandService.activatePolicy(id);
-            Policy policy = policyQueryService.findById(id);
+            PolicyId pid = PolicyId.of(id);
+            policyCommandService.activatePolicy(pid);
+            Policy policy = policyQueryService.findById(pid);
             return policenRow.data("policy", policy)
                              .data("partnerSichten", policyQueryService.getPartnerViewsMap())
                              .data("produktSichten", policyQueryService.getProductViewsMap());
@@ -261,8 +265,9 @@ public class PolicyUiController {
     @Path("/fragments/{id}/cancel")
     public Object cancelFragment(@PathParam("id") String id) {
         try {
-            policyCommandService.cancelPolicy(id);
-            Policy policy = policyQueryService.findById(id);
+            PolicyId pid = PolicyId.of(id);
+            policyCommandService.cancelPolicy(pid);
+            Policy policy = policyQueryService.findById(pid);
             return policenRow.data("policy", policy)
                              .data("partnerSichten", policyQueryService.getPartnerViewsMap())
                              .data("produktSichten", policyQueryService.getProductViewsMap());
@@ -301,12 +306,13 @@ public class PolicyUiController {
             @FormParam("coverageType") String coverageType,
             @FormParam("insuredAmount") String insuredAmount) {
         try {
+            PolicyId pid = PolicyId.of(policyId);
             BigDecimal amount = new BigDecimal(insuredAmount);
-            String coverageId = policyCommandService.addCoverage(policyId, CoverageType.valueOf(coverageType), amount);
-            Coverage coverage = policyQueryService.findById(policyId).getCoverages().stream()
+            CoverageId coverageId = policyCommandService.addCoverage(pid, CoverageType.valueOf(coverageType), amount);
+            Coverage coverage = policyQueryService.findById(pid).getCoverages().stream()
                     .filter(c -> c.getCoverageId().equals(coverageId))
                     .findFirst().orElseThrow();
-            Policy policy = policyQueryService.findById(policyId);
+            Policy policy = policyQueryService.findById(pid);
             return coverageCard
                     .data("coverage", coverage)
                     .data("policyId", policyId)
@@ -325,11 +331,13 @@ public class PolicyUiController {
     @Path("/fragments/{id}/coverages/{did}/card")
     public Object getCoverageCard(@PathParam("id") String policyId, @PathParam("did") String did) {
         try {
-            Coverage coverage = policyQueryService.findById(policyId).getCoverages().stream()
-                    .filter(c -> c.getCoverageId().equals(did))
+            PolicyId pid = PolicyId.of(policyId);
+            CoverageId cid = CoverageId.of(did);
+            Coverage coverage = policyQueryService.findById(pid).getCoverages().stream()
+                    .filter(c -> c.getCoverageId().equals(cid))
                     .findFirst()
                     .orElseThrow(() -> new CoverageNotFoundException(did));
-            Policy policy = policyQueryService.findById(policyId);
+            Policy policy = policyQueryService.findById(pid);
             return coverageCard
                     .data("coverage", coverage)
                     .data("policyId", policyId)

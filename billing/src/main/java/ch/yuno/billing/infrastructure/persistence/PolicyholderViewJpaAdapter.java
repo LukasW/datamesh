@@ -6,6 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 
+import java.util.List;
 import java.util.Optional;
 
 @ApplicationScoped
@@ -22,6 +23,7 @@ public class PolicyholderViewJpaAdapter implements PolicyholderViewRepository {
             entity.setPartnerId(view.partnerId());
         }
         entity.setName(view.name());
+        entity.setInsuredNumber(view.insuredNumber());
         em.merge(entity);
     }
 
@@ -29,6 +31,21 @@ public class PolicyholderViewJpaAdapter implements PolicyholderViewRepository {
     public Optional<PolicyholderView> findById(String partnerId) {
         PolicyholderViewEntity entity = em.find(PolicyholderViewEntity.class, partnerId);
         if (entity == null) return Optional.empty();
-        return Optional.of(new PolicyholderView(entity.getPartnerId(), entity.getName()));
+        return Optional.of(toDomain(entity));
+    }
+
+    @Override
+    public Optional<PolicyholderView> findByInsuredNumber(String insuredNumber) {
+        List<PolicyholderViewEntity> results = em.createQuery(
+                "SELECT e FROM PolicyholderViewEntity e WHERE e.insuredNumber = :vn",
+                PolicyholderViewEntity.class)
+                .setParameter("vn", insuredNumber)
+                .setMaxResults(1)
+                .getResultList();
+        return results.stream().findFirst().map(this::toDomain);
+    }
+
+    private PolicyholderView toDomain(PolicyholderViewEntity entity) {
+        return new PolicyholderView(entity.getPartnerId(), entity.getName(), entity.getInsuredNumber());
     }
 }

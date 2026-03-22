@@ -42,8 +42,10 @@ public class PartnerStateConsumer {
             String fullName  = (firstName + " " + lastName).trim();
             if (fullName.isBlank()) fullName = personId;
 
-            policyholderViewRepository.upsert(new PolicyholderView(personId, fullName));
-            log.infof("Upserted PolicyholderView: %s → %s", personId, fullName);
+            String insuredNumber = node.path("insuredNumber").asText(null);
+
+            policyholderViewRepository.upsert(new PolicyholderView(personId, fullName, insuredNumber));
+            log.infof("Upserted PolicyholderView: %s → %s (VN: %s)", personId, fullName, insuredNumber);
         } catch (Exception e) {
             log.errorf("Failed to process person.v1.state: %s", e.getMessage());
         }

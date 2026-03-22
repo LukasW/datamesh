@@ -10,8 +10,8 @@ import java.time.LocalDate;
  */
 public class Address {
 
-    private final String addressId;
-    private final String personId;
+    private final AddressId addressId;
+    private final PersonId personId;
     private final AddressType addressType;
     private String street;
     private String houseNumber;
@@ -21,7 +21,7 @@ public class Address {
     private LocalDate validFrom;
     private LocalDate validTo; // null = open-ended
 
-    public Address(String addressId, String personId, AddressType addressType,
+    public Address(AddressId addressId, PersonId personId, AddressType addressType,
                    String street, String houseNumber, String postalCode, String city, String land,
                    LocalDate validFrom, LocalDate validTo) {
         if (addressId == null) throw new IllegalArgumentException("addressId is required");
@@ -77,8 +77,8 @@ public class Address {
 
     // ── Getters ───────────────────────────────────────────────────────────────
 
-    public String getAddressId() { return addressId; }
-    public String getPersonId() { return personId; }
+    public AddressId getAddressId() { return addressId; }
+    public PersonId getPersonId() { return personId; }
     public AddressType getAddressType() { return addressType; }
     public String getStreet() { return street; }
     public String getHouseNumber() { return houseNumber; }

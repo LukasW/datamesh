@@ -59,6 +59,6 @@ public class TestDataHelper {
     public String insertOpenClaim(String policyId, String description, LocalDate claimDate) {
         Claim claim = Claim.openNew(policyId, description, claimDate);
         claimJpaAdapter.save(claim);
-        return claim.getClaimId();
+        return claim.getClaimId().value();
     }
 }

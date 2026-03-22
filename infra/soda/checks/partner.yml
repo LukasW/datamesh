@@ -7,3 +7,14 @@ checks for partner_raw.person_events:
       name: No null person_id
   - freshness(consumed_at) < 24h:
       name: Partner events are fresh (< 24h)
+
+checks for analytics.dim_partner:
+  - row_count > 0:
+      name: dim_partner is not empty
+  - duplicate_count(person_id) = 0:
+      name: No duplicate person_id in dim_partner
+  - invalid_count(insured_number) = 0:
+      name: insured_number matches VN-XXXXXXXX format
+      valid regex: "VN-\\d{8}"
+      filter: insured_number IS NOT NULL
+

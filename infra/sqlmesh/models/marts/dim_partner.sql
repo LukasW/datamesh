@@ -12,6 +12,7 @@ WITH ranked AS (
         first_name,
         TRIM(first_name || ' ' || family_name)  AS full_name,
         social_security_number,
+        insured_number,
         date_of_birth,
         event_at                                AS last_event_at,
         ROW_NUMBER() OVER (
@@ -27,6 +28,8 @@ SELECT
     first_name,
     full_name,
     social_security_number,
+    insured_number,
+    CASE WHEN insured_number IS NOT NULL THEN 'INSURED' ELSE 'PROSPECT' END AS insurance_status,
     date_of_birth,
     last_event_at
 FROM ranked

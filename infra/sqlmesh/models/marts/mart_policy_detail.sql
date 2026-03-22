@@ -11,6 +11,8 @@ SELECT
     f.policy_status,
     dp.full_name                                AS partner_name,
     dp.person_id                                AS partner_id,
+    dp.insured_number,
+    dp.insurance_status,
     pr.product_name,
     pr.product_line,
     f.coverage_start_date,

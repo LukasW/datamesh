@@ -1,6 +1,7 @@
 package ch.yuno.claims.infrastructure.web;
 
 import ch.yuno.claims.domain.model.Claim;
+import ch.yuno.claims.domain.model.ClaimId;
 import ch.yuno.claims.domain.service.ClaimApplicationService;
 import ch.yuno.claims.domain.service.ClaimNotFoundException;
 import ch.yuno.claims.domain.service.CoverageCheckFailedException;
@@ -38,7 +39,7 @@ public class ClaimRestAdapter {
         LOG.infof("Received FNOL for policy %s", request.policyId());
         try {
             Claim claim = claimService.openClaim(request.policyId(), request.description(), request.claimDate());
-            return Response.created(URI.create("/api/claims/" + claim.getClaimId()))
+            return Response.created(URI.create("/api/claims/" + claim.getClaimId().value()))
                     .entity(toResponse(claim)).build();
         } catch (CoverageCheckFailedException e) {
             LOG.warnf("Coverage check failed: %s", e.getMessage());
@@ -53,7 +54,7 @@ public class ClaimRestAdapter {
     @Operation(summary = "Get a single claim by ID")
     public Response findById(@PathParam("claimId") String claimId) {
         try {
-            return Response.ok(toResponse(claimService.findById(claimId))).build();
+            return Response.ok(toResponse(claimService.findById(ClaimId.of(claimId)))).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(Response.Status.NOT_FOUND).entity(new ErrorResponse(e.getMessage())).build();
         }
@@ -75,7 +76,7 @@ public class ClaimRestAdapter {
     @Operation(summary = "Start review of an open claim (OPEN → IN_REVIEW)")
     public Response startReview(@PathParam("claimId") String claimId) {
         try {
-            return Response.ok(toResponse(claimService.startReview(claimId))).build();
+            return Response.ok(toResponse(claimService.startReview(ClaimId.of(claimId)))).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(Response.Status.NOT_FOUND).entity(new ErrorResponse(e.getMessage())).build();
         } catch (IllegalStateException e) {
@@ -88,7 +89,7 @@ public class ClaimRestAdapter {
     @Operation(summary = "Settle a claim under review (IN_REVIEW → SETTLED)")
     public Response settle(@PathParam("claimId") String claimId) {
         try {
-            return Response.ok(toResponse(claimService.settle(claimId))).build();
+            return Response.ok(toResponse(claimService.settle(ClaimId.of(claimId)))).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(Response.Status.NOT_FOUND).entity(new ErrorResponse(e.getMessage())).build();
         } catch (IllegalStateException e) {
@@ -101,7 +102,7 @@ public class ClaimRestAdapter {
     @Operation(summary = "Reject a claim (OPEN or IN_REVIEW → REJECTED)")
     public Response reject(@PathParam("claimId") String claimId) {
         try {
-            return Response.ok(toResponse(claimService.reject(claimId))).build();
+            return Response.ok(toResponse(claimService.reject(ClaimId.of(claimId)))).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(Response.Status.NOT_FOUND).entity(new ErrorResponse(e.getMessage())).build();
         } catch (IllegalStateException e) {
@@ -114,7 +115,7 @@ public class ClaimRestAdapter {
     @Operation(summary = "Update mutable fields of an OPEN claim (description, claimDate)")
     public Response updateClaim(@PathParam("claimId") String claimId, UpdateClaimRequest request) {
         try {
-            return Response.ok(toResponse(claimService.updateClaim(claimId, request.description(), request.claimDate()))).build();
+            return Response.ok(toResponse(claimService.updateClaim(ClaimId.of(claimId), request.description(), request.claimDate()))).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(Response.Status.NOT_FOUND).entity(new ErrorResponse(e.getMessage())).build();
         } catch (IllegalStateException | IllegalArgumentException e) {
@@ -124,7 +125,7 @@ public class ClaimRestAdapter {
 
     private ClaimResponse toResponse(Claim claim) {
         return new ClaimResponse(
-                claim.getClaimId(), claim.getPolicyId(), claim.getClaimNumber(),
+                claim.getClaimId().value(), claim.getPolicyId(), claim.getClaimNumber(),
                 claim.getDescription(), claim.getClaimDate(),
                 claim.getStatus().name(), claim.getCreatedAt().toString());
     }

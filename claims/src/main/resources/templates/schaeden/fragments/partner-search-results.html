@@ -1,0 +1,42 @@
+{! Partner search results fragment (htmx) – rendered by ClaimUiController.partnerSearch() !}
+{#if partners.isEmpty}
+<div class="text-muted p-2">Keine Partner gefunden.</div>
+{#else}
+<table class="table table-hover table-sm">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Vorname</th>
+      <th>Versichertennr.</th>
+      <th>Geburtsdatum</th>
+      <th>AHV-Nr.</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {#for partner in partners}
+    <tr>
+      <td><strong>{partner.lastName}</strong></td>
+      <td>{partner.firstName}</td>
+      <td>
+        {#if partner.insuredNumber}
+          <span class="badge bg-success font-monospace">{partner.insuredNumber}</span>
+        {#else}
+          <span class="text-muted">–</span>
+        {/if}
+      </td>
+      <td>{partner.formattedDateOfBirth ?: '–'}</td>
+      <td class="font-monospace">{partner.maskedSocialSecurityNumber ?: '–'}</td>
+      <td>
+        <button class="btn btn-sm btn-outline-primary"
+                hx-get="/claims/fragments/partner/{partner.partnerId}/policies"
+                hx-target="#policy-picker">
+          Policen anzeigen
+        </button>
+      </td>
+    </tr>
+    {/for}
+  </tbody>
+</table>
+{/if}
+

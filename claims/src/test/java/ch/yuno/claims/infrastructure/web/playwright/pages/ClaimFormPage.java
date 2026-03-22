@@ -25,7 +25,9 @@ public class ClaimFormPage {
     }
     // ── Actions ───────────────────────────────────────────────────────────────
     public void fillPolicyId(String policyId) {
-        page.locator("#policyId").fill(policyId);
+        // Open the "Direkte Police-ID Eingabe" accordion and fill the direct input
+        page.locator("summary:has-text('Direkte Police-ID Eingabe')").click();
+        page.locator("details input[type=text]").fill(policyId);
     }
     public void fillDescription(String description) {
         page.locator("#description").fill(description);

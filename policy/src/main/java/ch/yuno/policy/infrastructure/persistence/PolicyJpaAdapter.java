@@ -1,10 +1,12 @@
 package ch.yuno.policy.infrastructure.persistence;
 
 import ch.yuno.policy.domain.model.Coverage;
+import ch.yuno.policy.domain.model.CoverageId;
 import ch.yuno.policy.domain.model.CoverageType;
 import ch.yuno.policy.domain.model.PageRequest;
 import ch.yuno.policy.domain.model.PageResult;
 import ch.yuno.policy.domain.model.Policy;
+import ch.yuno.policy.domain.model.PolicyId;
 import ch.yuno.policy.domain.model.PolicyStatus;
 import ch.yuno.policy.domain.port.out.PolicyRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -26,7 +28,7 @@ public class PolicyJpaAdapter implements PolicyRepository {
     @Override
     @Transactional
     public Policy save(Policy policy) {
-        PolicyEntity entity = em.find(PolicyEntity.class, policy.getPolicyId());
+        PolicyEntity entity = em.find(PolicyEntity.class, policy.getPolicyId().value());
         if (entity == null) {
             entity = toEntity(policy);
             em.persist(entity);
@@ -37,8 +39,8 @@ public class PolicyJpaAdapter implements PolicyRepository {
     }
 
     @Override
-    public Optional<Policy> findById(String policyId) {
-        PolicyEntity entity = em.find(PolicyEntity.class, policyId);
+    public Optional<Policy> findById(PolicyId policyId) {
+        PolicyEntity entity = em.find(PolicyEntity.class, policyId.value());
         return Optional.ofNullable(entity).map(this::toDomain);
     }
 
@@ -118,8 +120,8 @@ public class PolicyJpaAdapter implements PolicyRepository {
 
     @Override
     @Transactional
-    public void delete(String policyId) {
-        PolicyEntity entity = em.find(PolicyEntity.class, policyId);
+    public void delete(PolicyId policyId) {
+        PolicyEntity entity = em.find(PolicyEntity.class, policyId.value());
         if (entity != null) {
             em.remove(entity);
         }
@@ -138,7 +140,7 @@ public class PolicyJpaAdapter implements PolicyRepository {
 
     private PolicyEntity toEntity(Policy policy) {
         PolicyEntity e = new PolicyEntity();
-        e.setPolicyId(policy.getPolicyId());
+        e.setPolicyId(policy.getPolicyId().value());
         e.setPolicyNumber(policy.getPolicyNumber());
         e.setPartnerId(policy.getPartnerId());
         e.setProductId(policy.getProductId());
@@ -163,10 +165,10 @@ public class PolicyJpaAdapter implements PolicyRepository {
 
         // sync coverages: remove deleted, update existing, add new
         e.getCoverages().removeIf(ce ->
-                policy.getCoverages().stream().noneMatch(c -> c.getCoverageId().equals(ce.getCoverageId())));
+                policy.getCoverages().stream().noneMatch(c -> c.getCoverageId().value().equals(ce.getCoverageId())));
         for (Coverage c : policy.getCoverages()) {
             CoverageEntity existing = e.getCoverages().stream()
-                    .filter(ce -> ce.getCoverageId().equals(c.getCoverageId()))
+                    .filter(ce -> ce.getCoverageId().equals(c.getCoverageId().value()))
                     .findFirst().orElse(null);
             if (existing != null) {
                 existing.setInsuredAmount(c.getInsuredAmount());
@@ -178,7 +180,7 @@ public class PolicyJpaAdapter implements PolicyRepository {
 
     private CoverageEntity toCoverageEntity(Coverage c, PolicyEntity policyEntity) {
         CoverageEntity ce = new CoverageEntity();
-        ce.setCoverageId(c.getCoverageId());
+        ce.setCoverageId(c.getCoverageId().value());
         ce.setPolicy(policyEntity);
         ce.setCoverageType(c.getCoverageType().name());
         ce.setInsuredAmount(c.getInsuredAmount());
@@ -187,7 +189,7 @@ public class PolicyJpaAdapter implements PolicyRepository {
 
     private Policy toDomain(PolicyEntity e) {
         Policy policy = new Policy(
-                e.getPolicyId(),
+                PolicyId.of(e.getPolicyId()),
                 e.getPolicyNumber(),
                 e.getPartnerId(),
                 e.getProductId(),
@@ -200,8 +202,8 @@ public class PolicyJpaAdapter implements PolicyRepository {
         List<Coverage> coverages = new ArrayList<>();
         for (CoverageEntity ce : e.getCoverages()) {
             coverages.add(new Coverage(
-                    ce.getCoverageId(),
-                    e.getPolicyId(),
+                    CoverageId.of(ce.getCoverageId()),
+                    PolicyId.of(e.getPolicyId()),
                     CoverageType.valueOf(ce.getCoverageType()),
                     ce.getInsuredAmount()
             ));

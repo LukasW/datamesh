@@ -1,7 +1,9 @@
 package ch.yuno.policy.domain.service;
 
+import ch.yuno.policy.domain.model.CoverageId;
 import ch.yuno.policy.domain.model.CoverageType;
 import ch.yuno.policy.domain.model.Policy;
+import ch.yuno.policy.domain.model.PolicyId;
 import ch.yuno.policy.domain.model.PremiumCalculationResult;
 import ch.yuno.policy.domain.port.out.OutboxRepository;
 import ch.yuno.policy.domain.port.out.PolicyRepository;
@@ -36,9 +38,9 @@ public class PolicyCommandService {
      * @throws PremiumCalculationUnavailableException if the Product Service is unreachable
      */
     @Transactional
-    public String createPolicy(String partnerId, String productId,
-                               LocalDate coverageStartDate, LocalDate coverageEndDate,
-                               BigDecimal premium, BigDecimal deductible) {
+    public PolicyId createPolicy(String partnerId, String productId,
+                                LocalDate coverageStartDate, LocalDate coverageEndDate,
+                                BigDecimal premium, BigDecimal deductible) {
         String policyNumber = generatePolicyNumber();
         Policy policy = new Policy(policyNumber, partnerId, productId,
                 coverageStartDate, coverageEndDate, premium, deductible);
@@ -52,7 +54,7 @@ public class PolicyCommandService {
      * @throws PremiumCalculationUnavailableException if the Product Service is unreachable
      */
     @Transactional
-    public String createPolicyWithPremiumCalculation(String partnerId, String productId,
+    public PolicyId createPolicyWithPremiumCalculation(String partnerId, String productId,
                                                      String productLine, int partnerAge,
                                                      String postalCode,
                                                      LocalDate coverageStartDate,
@@ -73,73 +75,73 @@ public class PolicyCommandService {
     }
 
     @Transactional
-    public void activatePolicy(String policyId) {
+    public void activatePolicy(PolicyId policyId) {
         Policy policy = findOrThrow(policyId);
         policy.activate();
         policyRepository.save(policy);
         outboxRepository.save(new OutboxEvent(
-                UUID.randomUUID(), "policy", policyId, "PolicyIssued",
+                UUID.randomUUID(), "policy", policyId.value(), "PolicyIssued",
                 PolicyEventPayloadBuilder.TOPIC_POLICY_ISSUED,
                 PolicyEventPayloadBuilder.buildPolicyIssued(
-                        policyId, policy.getPolicyNumber(),
+                        policyId.value(), policy.getPolicyNumber(),
                         policy.getPartnerId(), policy.getProductId(),
                         policy.getCoverageStartDate(), policy.getPremium())));
     }
 
     @Transactional
-    public void cancelPolicy(String policyId) {
+    public void cancelPolicy(PolicyId policyId) {
         Policy policy = findOrThrow(policyId);
         policy.cancel();
         policyRepository.save(policy);
         outboxRepository.save(new OutboxEvent(
-                UUID.randomUUID(), "policy", policyId, "PolicyCancelled",
+                UUID.randomUUID(), "policy", policyId.value(), "PolicyCancelled",
                 PolicyEventPayloadBuilder.TOPIC_POLICY_CANCELLED,
-                PolicyEventPayloadBuilder.buildPolicyCancelled(policyId, policy.getPolicyNumber())));
+                PolicyEventPayloadBuilder.buildPolicyCancelled(policyId.value(), policy.getPolicyNumber())));
     }
 
     @Transactional
-    public void updatePolicyDetails(String policyId, String productId,
+    public void updatePolicyDetails(PolicyId policyId, String productId,
                                     LocalDate coverageStartDate, LocalDate coverageEndDate,
                                     BigDecimal premium, BigDecimal deductible) {
         Policy policy = findOrThrow(policyId);
         policy.updateDetails(productId, coverageStartDate, coverageEndDate, premium, deductible);
         policyRepository.save(policy);
         outboxRepository.save(new OutboxEvent(
-                UUID.randomUUID(), "policy", policyId, "PolicyChanged",
+                UUID.randomUUID(), "policy", policyId.value(), "PolicyChanged",
                 PolicyEventPayloadBuilder.TOPIC_POLICY_CHANGED,
                 PolicyEventPayloadBuilder.buildPolicyChanged(
-                        policyId, policy.getPolicyNumber(),
+                        policyId.value(), policy.getPolicyNumber(),
                         policy.getPremium(), policy.getDeductible())));
     }
 
     @Transactional
-    public String addCoverage(String policyId, CoverageType coverageType, BigDecimal insuredAmount) {
+    public CoverageId addCoverage(PolicyId policyId, CoverageType coverageType, BigDecimal insuredAmount) {
         Policy policy = findOrThrow(policyId);
-        String coverageId = policy.addCoverage(coverageType, insuredAmount);
+        CoverageId coverageId = policy.addCoverage(coverageType, insuredAmount);
         policyRepository.save(policy);
         outboxRepository.save(new OutboxEvent(
-                UUID.randomUUID(), "policy", policyId, "CoverageAdded",
+                UUID.randomUUID(), "policy", policyId.value(), "CoverageAdded",
                 PolicyEventPayloadBuilder.TOPIC_COVERAGE_ADDED,
-                PolicyEventPayloadBuilder.buildCoverageAdded(policyId, coverageId, coverageType, insuredAmount)));
+                PolicyEventPayloadBuilder.buildCoverageAdded(policyId.value(), coverageId.value(), coverageType, insuredAmount)));
         return coverageId;
     }
 
     @Transactional
-    public void removeCoverage(String policyId, String coverageId) {
+    public void removeCoverage(PolicyId policyId, CoverageId coverageId) {
         Policy policy = findOrThrow(policyId);
         policy.removeCoverage(coverageId);
         policyRepository.save(policy);
         outboxRepository.save(new OutboxEvent(
-                UUID.randomUUID(), "policy", policyId, "CoverageRemoved",
+                UUID.randomUUID(), "policy", policyId.value(), "CoverageRemoved",
                 PolicyEventPayloadBuilder.TOPIC_COVERAGE_REMOVED,
-                PolicyEventPayloadBuilder.buildCoverageRemoved(policyId, coverageId)));
+                PolicyEventPayloadBuilder.buildCoverageRemoved(policyId.value(), coverageId.value())));
     }
 
     // ── Helper ─────────────────────────────────────────────────────────────────
 
-    private Policy findOrThrow(String policyId) {
+    private Policy findOrThrow(PolicyId policyId) {
         return policyRepository.findById(policyId)
-                .orElseThrow(() -> new PolicyNotFoundException(policyId));
+                .orElseThrow(() -> new PolicyNotFoundException(policyId.value()));
     }
 
     private String generatePolicyNumber() {

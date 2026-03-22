@@ -30,12 +30,13 @@ public class PartnerEventTranslator {
         String firstName = json.path("firstName").asText("");
         String name = json.path("name").asText("");
         String fullName = (firstName + " " + name).trim();
+        String insuredNumber = json.path("insuredNumber").asText(null);
 
         if (partnerId == null || partnerId.isEmpty() || fullName.isEmpty()) {
             throw new IllegalArgumentException(
                     "Partner event missing required fields: personId=" + partnerId + " name=" + fullName);
         }
 
-        return new PartnerView(partnerId, fullName);
+        return new PartnerView(partnerId, fullName, insuredNumber);
     }
 }

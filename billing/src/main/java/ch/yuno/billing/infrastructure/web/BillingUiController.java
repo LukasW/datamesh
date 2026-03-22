@@ -1,6 +1,7 @@
 package ch.yuno.billing.infrastructure.web;
 
 import ch.yuno.billing.domain.model.Invoice;
+import ch.yuno.billing.domain.model.InvoiceId;
 import ch.yuno.billing.domain.model.InvoiceStatus;
 import ch.yuno.billing.domain.model.PolicyholderView;
 import ch.yuno.billing.domain.service.InvoiceCommandService;
@@ -72,8 +73,9 @@ public class BillingUiController {
     @Path("/fragments/{id}/pay")
     public Response pay(@PathParam("id") String invoiceId) {
         try {
-            commandService.recordPayment(invoiceId);
-            Invoice invoice = queryService.findByIdOrThrow(invoiceId);
+            InvoiceId iid = InvoiceId.of(invoiceId);
+            commandService.recordPayment(iid);
+            Invoice invoice = queryService.findByIdOrThrow(iid);
             PolicyholderView partner = queryService.findPolicyholder(invoice.getPartnerId()).orElse(null);
             return Response.ok(renderRow(invoice, partner)).type(MediaType.TEXT_HTML).build();
         } catch (InvoiceNotFoundException e) {
@@ -87,8 +89,9 @@ public class BillingUiController {
     @Path("/fragments/{id}/dun")
     public Response dun(@PathParam("id") String invoiceId) {
         try {
-            commandService.initiateDunning(invoiceId);
-            Invoice invoice = queryService.findByIdOrThrow(invoiceId);
+            InvoiceId iid = InvoiceId.of(invoiceId);
+            commandService.initiateDunning(iid);
+            Invoice invoice = queryService.findByIdOrThrow(iid);
             PolicyholderView partner = queryService.findPolicyholder(invoice.getPartnerId()).orElse(null);
             return Response.ok(renderRow(invoice, partner)).type(MediaType.TEXT_HTML).build();
         } catch (InvoiceNotFoundException e) {
@@ -105,6 +108,13 @@ public class BillingUiController {
             return queryService.listByStatus(InvoiceStatus.valueOf(status.toUpperCase()), page, size);
         }
         if (partnerId != null && !partnerId.isBlank()) {
+            // VN-number search: resolve to partnerId first
+            if (partnerId.toUpperCase().startsWith("VN-")) {
+                String resolvedId = queryService.findPolicyholderByInsuredNumber(partnerId.toUpperCase())
+                        .map(PolicyholderView::partnerId)
+                        .orElse("__NOT_FOUND__");
+                return queryService.listByPartnerId(resolvedId, page, size);
+            }
             return queryService.listByPartnerId(partnerId, page, size);
         }
         return queryService.listAll(page, size);
@@ -132,7 +142,7 @@ public class BillingUiController {
                   <td>CHF %s</td>
                   <td>%s</td>
                 </tr>""".formatted(
-                i.getInvoiceId(), i.getInvoiceNumber(),
+                i.getInvoiceId().value(), i.getInvoiceNumber(),
                 partnerName, i.getPartnerId(),
                 i.getPolicyNumber(), statusBadge,
                 i.getDueDate(), i.getTotalAmount(),
@@ -148,7 +158,7 @@ public class BillingUiController {
                             hx-target="#invoice-%s" hx-swap="outerHTML"
                             hx-confirm="Zahlung für %s erfassen?">
                       Bezahlt
-                    </button>""".formatted(i.getInvoiceId(), i.getInvoiceId(), i.getInvoiceNumber()));
+                    </button>""".formatted(i.getInvoiceId().value(), i.getInvoiceId().value(), i.getInvoiceNumber()));
         }
         if (i.getStatus() == InvoiceStatus.OPEN || i.getStatus() == InvoiceStatus.OVERDUE) {
             sb.append("""
@@ -157,7 +167,7 @@ public class BillingUiController {
                             hx-target="#invoice-%s" hx-swap="outerHTML"
                             hx-confirm="Mahnverfahren für %s einleiten?">
                       Mahnen
-                    </button>""".formatted(i.getInvoiceId(), i.getInvoiceId(), i.getInvoiceNumber()));
+                    </button>""".formatted(i.getInvoiceId().value(), i.getInvoiceId().value(), i.getInvoiceNumber()));
         }
         return sb.toString();
     }

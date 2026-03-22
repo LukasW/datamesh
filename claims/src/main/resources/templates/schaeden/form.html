@@ -26,14 +26,66 @@
 
         <form method="post" action="/claims/neu" novalidate>
 
-          <div class="mb-3">
-            <label for="policyId" class="form-label fw-semibold">Police-ID <span class="text-danger">*</span></label>
-            <input type="text" class="form-control" id="policyId" name="policyId"
-                   value="{policyId ?: ''}"
-                   placeholder="z.B. a1b2c3d4-e5f6-…"
-                   required/>
-            <div class="form-text text-muted">Die UUID der versicherten Police.</div>
-          </div>
+          <!-- 1. Partner suchen -->
+          <fieldset class="mb-3">
+            <legend class="fs-6 fw-semibold">1. Partner suchen</legend>
+            <ul class="nav nav-tabs nav-fill mb-2" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-name" type="button">Name</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-ahv" type="button">AHV-Nr.</button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-vn" type="button">Versichertennr.</button>
+              </li>
+            </ul>
+            <div class="tab-content">
+              <div class="tab-pane fade show active" id="tab-name" role="tabpanel">
+                <input type="text" class="form-control" placeholder="Name / Vorname eingeben…"
+                       hx-get="/claims/fragments/partner-search"
+                       hx-target="#partner-results"
+                       hx-trigger="keyup changed delay:300ms"
+                       name="q" autocomplete="off">
+              </div>
+              <div class="tab-pane fade" id="tab-ahv" role="tabpanel">
+                <input type="text" class="form-control font-monospace" placeholder="756.XXXX.XXXX.XX"
+                       hx-get="/claims/fragments/partner-search"
+                       hx-target="#partner-results"
+                       hx-trigger="keyup changed delay:500ms"
+                       name="ahv" autocomplete="off">
+              </div>
+              <div class="tab-pane fade" id="tab-vn" role="tabpanel">
+                <div class="input-group">
+                  <span class="input-group-text">VN-</span>
+                  <input type="text" class="form-control font-monospace" placeholder="00000042" maxlength="11"
+                         hx-get="/claims/fragments/partner-search"
+                         hx-target="#partner-results"
+                         hx-trigger="keyup changed delay:500ms"
+                         name="vn" autocomplete="off">
+                </div>
+                <small class="text-muted">Versichertennummer eingeben (z.B. VN-00000042)</small>
+              </div>
+            </div>
+            <div id="partner-results" class="mt-2"></div>
+          </fieldset>
+
+          <!-- 2. Police auswählen -->
+          <fieldset class="mb-3">
+            <legend class="fs-6 fw-semibold">2. Police auswählen</legend>
+            <div id="policy-picker" class="mb-2">
+              <p class="text-muted small">Bitte zuerst einen Partner suchen und auswählen.</p>
+            </div>
+            <input type="hidden" id="policyId" name="policyId" value="{policyId ?: ''}" required>
+            <details class="mt-2">
+              <summary class="text-muted small">Direkte Police-ID Eingabe</summary>
+              <input type="text" class="form-control form-control-sm mt-1"
+                     placeholder="z.B. a1b2c3d4-e5f6-…"
+                     oninput="document.getElementById('policyId').value=this.value">
+            </details>
+          </fieldset>
+
+          <!-- 3. Schadendetails -->
 
           <div class="mb-3">
             <label for="claimDate" class="form-label fw-semibold">Schadensdatum <span class="text-danger">*</span></label>

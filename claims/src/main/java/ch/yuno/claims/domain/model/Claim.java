@@ -10,7 +10,7 @@ import java.util.UUID;
  */
 public class Claim {
 
-    private final String claimId;
+    private final ClaimId claimId;
     private final String policyId;
     private final String claimNumber;
     private String description;
@@ -18,7 +18,7 @@ public class Claim {
     private ClaimStatus status;
     private final Instant createdAt;
 
-    private Claim(String claimId, String policyId, String claimNumber,
+    private Claim(ClaimId claimId, String policyId, String claimNumber,
                   String description, LocalDate claimDate, ClaimStatus status,
                   Instant createdAt) {
         this.claimId = claimId;
@@ -49,7 +49,7 @@ public class Claim {
             throw new IllegalArgumentException("Claim date must not be null");
         }
 
-        String id = UUID.randomUUID().toString();
+        ClaimId id = ClaimId.generate();
         String number = generateClaimNumber(claimDate);
         return new Claim(id, policyId, number, description, claimDate, ClaimStatus.OPEN, Instant.now());
     }
@@ -57,7 +57,7 @@ public class Claim {
     /**
      * Reconstruct a Claim from persistence (no validation, trusted data).
      */
-    public static Claim reconstitute(String claimId, String policyId, String claimNumber,
+    public static Claim reconstitute(ClaimId claimId, String policyId, String claimNumber,
                                      String description, LocalDate claimDate,
                                      ClaimStatus status, Instant createdAt) {
         return new Claim(claimId, policyId, claimNumber, description, claimDate, status, createdAt);
@@ -103,7 +103,7 @@ public class Claim {
 
     // --- Getters (no framework annotations) ---
 
-    public String getClaimId() {
+    public ClaimId getClaimId() {
         return claimId;
     }
 
