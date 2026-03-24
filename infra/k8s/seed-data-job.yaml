@@ -1,0 +1,431 @@
+# ── Seed Data Job ─────────────────────────────────────────────────────────────
+# Populates Partner, Product and Policy services with test data via REST API.
+# Requires: Keycloak, Partner, Product, Policy services to be running.
+# Usage: kubectl apply -f seed-data-job.yaml
+#        kubectl -n datamesh delete job seed-data (for re-run)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-data
+  namespace: datamesh
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: seed-data
+          image: curlimages/curl:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+
+              KEYCLOAK_URL="http://keycloak:8080"
+              PARTNER_URL="http://partner-service:9080"
+              PRODUCT_URL="http://product-service:9081"
+              POLICY_URL="http://policy-service:9082"
+
+              # ── Wait for services ──────────────────────────────────
+              echo "Waiting for services to be ready..."
+              for svc in "$KEYCLOAK_URL/health/ready" "$PARTNER_URL/q/metrics" "$PRODUCT_URL/q/metrics" "$POLICY_URL/q/metrics"; do
+                until curl -sf -o /dev/null "$svc" 2>/dev/null; do
+                  echo "  waiting for $svc..."
+                  sleep 5
+                done
+              done
+              echo "All services ready."
+
+              # ── Get OIDC Token ──────────────────────────────────────
+              echo ""
+              echo "=== Obtaining OIDC token ==="
+              TOKEN=$(curl -sf -X POST "$KEYCLOAK_URL/realms/yuno/protocol/openid-connect/token" \
+                -H "Content-Type: application/x-www-form-urlencoded" \
+                -d "grant_type=password" \
+                -d "client_id=partner-service" \
+                -d "client_secret=secret" \
+                -d "username=admin" \
+                -d "password=admin" \
+                | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+
+              if [ -z "$TOKEN" ]; then
+                echo "ERROR: Failed to obtain OIDC token"
+                exit 1
+              fi
+              echo "Token obtained."
+
+              AUTH="Authorization: Bearer $TOKEN"
+              CT="Content-Type: application/json"
+
+              # Helper: POST with auth, return response body (tolerates 4xx)
+              post() {
+                curl -s -X POST "$1" -H "$AUTH" -H "$CT" -d "$2"
+              }
+
+              # Helper: GET with auth
+              get() {
+                curl -sf "$1" -H "$AUTH"
+              }
+
+              # Helper: extract id from {"id":"..."} response
+              extract_id() {
+                sed -n 's/.*"id":"\([^"]*\)".*/\1/p'
+              }
+
+              # Helper: find existing person by AHV number, returns personId or empty
+              find_person() {
+                local ahv="$1"
+                get "$PARTNER_URL/api/persons?ahv=$ahv" 2>/dev/null \
+                  | sed -n 's/.*"personId":"\([^"]*\)".*/\1/p' | head -1
+              }
+
+              # Helper: create person or find existing by AHV
+              create_or_find_person() {
+                local json="$1"
+                local ahv="$2"
+                local id
+                id=$(post "$PARTNER_URL/api/persons" "$json" | extract_id)
+                if [ -z "$id" ]; then
+                  # Creation failed (likely "already exists") — look up by AHV
+                  id=$(find_person "$ahv")
+                fi
+                echo "$id"
+              }
+
+              # Helper: find existing product by name, returns productId or empty
+              find_product() {
+                local name="$1"
+                get "$PRODUCT_URL/api/products?name=$name" 2>/dev/null \
+                  | sed -n 's/.*"productId":"\([^"]*\)".*/\1/p' | head -1
+              }
+
+              # Helper: create product or find existing by name
+              create_or_find_product() {
+                local json="$1"
+                local name="$2"
+                local id
+                id=$(post "$PRODUCT_URL/api/products" "$json" | extract_id)
+                if [ -z "$id" ]; then
+                  id=$(find_product "$name")
+                fi
+                echo "$id"
+              }
+
+              # ══════════════════════════════════════════════════════
+              # PARTNER: 5 Persons with addresses
+              # ══════════════════════════════════════════════════════
+              echo ""
+              echo "=== Seeding Partner Service ==="
+
+              # 1. Max Muster
+              P1=$(create_or_find_person \
+                '{"name":"Muster","firstName":"Max","gender":"MALE","dateOfBirth":"1978-05-12","socialSecurityNumber":"756.1234.5678.97"}' \
+                "756.1234.5678.97")
+              echo "  Max Muster: $P1"
+              post "$PARTNER_URL/api/persons/$P1/addresses" \
+                '{"addressType":"RESIDENCE","street":"Musterstrasse","houseNumber":"10","postalCode":"8001","city":"Zürich","validFrom":"2015-01-01"}' > /dev/null
+              post "$PARTNER_URL/api/persons/$P1/addresses" \
+                '{"addressType":"CORRESPONDENCE","street":"Postfach","houseNumber":"99","postalCode":"8001","city":"Zürich","validFrom":"2020-03-15"}' > /dev/null
+
+              # 2. Anna Müller
+              P2=$(create_or_find_person \
+                '{"name":"Müller","firstName":"Anna","gender":"FEMALE","dateOfBirth":"1990-09-03","socialSecurityNumber":"756.5432.1987.61"}' \
+                "756.5432.1987.61")
+              echo "  Anna Müller: $P2"
+              post "$PARTNER_URL/api/persons/$P2/addresses" \
+                '{"addressType":"RESIDENCE","street":"Altgasse","houseNumber":"12","postalCode":"4000","city":"Basel","validFrom":"2010-01-01","validTo":"2018-05-31"}' > /dev/null
+              post "$PARTNER_URL/api/persons/$P2/addresses" \
+                '{"addressType":"RESIDENCE","street":"Bahnhofstrasse","houseNumber":"5","postalCode":"3000","city":"Bern","validFrom":"2018-06-01"}' > /dev/null
+
+              # 3. Hans Meier
+              P3=$(create_or_find_person \
+                '{"name":"Meier","firstName":"Hans","gender":"MALE","dateOfBirth":"1965-03-22","socialSecurityNumber":"756.7654.3219.89"}' \
+                "756.7654.3219.89")
+              echo "  Hans Meier: $P3"
+              post "$PARTNER_URL/api/persons/$P3/addresses" \
+                '{"addressType":"RESIDENCE","street":"Hauptstrasse","houseNumber":"7","postalCode":"6000","city":"Luzern","validFrom":"2019-01-01"}' > /dev/null
+              post "$PARTNER_URL/api/persons/$P3/addresses" \
+                '{"addressType":"RESIDENCE","street":"Neugasse","houseNumber":"3","postalCode":"6300","city":"Zug","validFrom":"2026-06-01"}' > /dev/null
+              post "$PARTNER_URL/api/persons/$P3/addresses" \
+                '{"addressType":"DELIVERY","street":"Lieferweg","houseNumber":"1","postalCode":"6000","city":"Luzern","validFrom":"2023-01-01"}' > /dev/null
+
+              # 4. Maria Braun
+              P4=$(create_or_find_person \
+                '{"name":"Braun","firstName":"Maria","gender":"FEMALE","dateOfBirth":"1985-11-08","socialSecurityNumber":"756.8765.4321.51"}' \
+                "756.8765.4321.51")
+              echo "  Maria Braun: $P4"
+              post "$PARTNER_URL/api/persons/$P4/addresses" \
+                '{"addressType":"RESIDENCE","street":"Rosengasse","houseNumber":"4","postalCode":"9000","city":"St. Gallen","validFrom":"2021-04-01"}' > /dev/null
+
+              # 5. Peter Schmid
+              P5=$(create_or_find_person \
+                '{"name":"Schmid","firstName":"Peter","gender":"MALE","dateOfBirth":"2000-07-15","socialSecurityNumber":"756.9876.5432.00"}' \
+                "756.9876.5432.00")
+              echo "  Peter Schmid: $P5"
+              post "$PARTNER_URL/api/persons/$P5/addresses" \
+                '{"addressType":"RESIDENCE","street":"Industriestrasse","houseNumber":"22","postalCode":"8400","city":"Winterthur","validFrom":"2022-09-01"}' > /dev/null
+              post "$PARTNER_URL/api/persons/$P5/addresses" \
+                '{"addressType":"CORRESPONDENCE","street":"Alte Adresse","houseNumber":"1","postalCode":"8400","city":"Winterthur","validFrom":"2022-09-01","validTo":"2024-12-31"}' > /dev/null
+              post "$PARTNER_URL/api/persons/$P5/addresses" \
+                '{"addressType":"CORRESPONDENCE","street":"Neue Adresse","houseNumber":"2","postalCode":"8400","city":"Winterthur","validFrom":"2025-01-01"}' > /dev/null
+
+              echo "  Partner: 5 persons seeded."
+
+              # ══════════════════════════════════════════════════════
+              # PRODUCT: 6 Products (1 deprecated)
+              # ══════════════════════════════════════════════════════
+              echo ""
+              echo "=== Seeding Product Service ==="
+
+              # Refresh token (previous one may be near expiry)
+              TOKEN=$(curl -sf -X POST "$KEYCLOAK_URL/realms/yuno/protocol/openid-connect/token" \
+                -H "Content-Type: application/x-www-form-urlencoded" \
+                -d "grant_type=password&client_id=product-service&client_secret=secret&username=admin&password=admin" \
+                | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+              AUTH="Authorization: Bearer $TOKEN"
+
+              PRD1=$(create_or_find_product \
+                '{"name":"Yuno Hausrat Basis","description":"Grundschutz für Hausrat gegen Feuer, Wasser und Diebstahl.","productLine":"HOUSEHOLD_CONTENTS","basePremium":180.00}' \
+                "Yuno Hausrat Basis")
+              echo "  Yuno Hausrat Basis: $PRD1"
+
+              PRD2=$(create_or_find_product \
+                '{"name":"Yuno Hausrat Komfort","description":"Erweiterter Hausratschutz inkl. Glasbruch und grobe Fahrlässigkeit.","productLine":"HOUSEHOLD_CONTENTS","basePremium":320.00}' \
+                "Yuno Hausrat Komfort")
+              echo "  Yuno Hausrat Komfort: $PRD2"
+
+              PRD3=$(create_or_find_product \
+                '{"name":"Yuno Privathaftpflicht","description":"Schutz bei Schäden, die Sie als Privatperson verursachen.","productLine":"LIABILITY","basePremium":95.00}' \
+                "Yuno Privathaftpflicht")
+              echo "  Yuno Privathaftpflicht: $PRD3"
+
+              PRD4=$(create_or_find_product \
+                '{"name":"Yuno Motorfahrzeug Classic","description":"Vollkasko- und Haftpflichtschutz für Personenwagen.","productLine":"MOTOR_VEHICLE","basePremium":650.00}' \
+                "Yuno Motorfahrzeug Classic")
+              echo "  Yuno Motorfahrzeug Classic: $PRD4"
+
+              PRD5=$(create_or_find_product \
+                '{"name":"Yuno Reiseversicherung","description":"Annullierungskosten, Assistance und Gepäckschutz weltweit.","productLine":"TRAVEL","basePremium":120.00}' \
+                "Yuno Reiseversicherung")
+              echo "  Yuno Reiseversicherung: $PRD5"
+
+              PRD6=$(create_or_find_product \
+                '{"name":"Yuno Motorfahrzeug Legacy","description":"Älteres Motorfahrzeugprodukt (nicht mehr erhältlich).","productLine":"MOTOR_VEHICLE","basePremium":500.00}' \
+                "Yuno Motorfahrzeug Legacy")
+              post "$PRODUCT_URL/api/products/$PRD6/deprecate" "" > /dev/null
+              echo "  Yuno Motorfahrzeug Legacy (deprecated): $PRD6"
+
+              echo "  Product: 6 products seeded."
+
+              # ══════════════════════════════════════════════════════
+              # Wait for Kafka event propagation (Partner/Product → Policy read models)
+              # ══════════════════════════════════════════════════════
+              echo ""
+              echo "=== Waiting for event propagation (15s) ==="
+              sleep 15
+
+              # ══════════════════════════════════════════════════════
+              # POLICY: 4 Policies with coverages
+              # ══════════════════════════════════════════════════════
+              echo ""
+              echo "=== Seeding Policy Service ==="
+
+              TOKEN=$(curl -sf -X POST "$KEYCLOAK_URL/realms/yuno/protocol/openid-connect/token" \
+                -H "Content-Type: application/x-www-form-urlencoded" \
+                -d "grant_type=password&client_id=policy-service&client_secret=secret&username=admin&password=admin" \
+                | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+              AUTH="Authorization: Bearer $TOKEN"
+
+              CLAIMS_URL="http://claims-service:9083"
+              BILLING_URL="http://billing-service:9084"
+
+              # Check if policies already exist for Max Muster
+              EXISTING_POL=$(get "$POLICY_URL/api/policies?partnerId=$P1" 2>/dev/null || echo '{"totalElements":0}')
+              POL_TOTAL=$(echo "$EXISTING_POL" | sed -n 's/.*"totalElements":\([0-9]*\).*/\1/p')
+              SKIP_REST=false
+              if [ "${POL_TOTAL:-0}" -gt 0 ]; then
+                echo "  Policies already exist ($POL_TOTAL). Skipping policies/claims/billing."
+                SKIP_REST=true
+              else
+                # Policy 1: Household Contents (Max Muster) → ACTIVE
+                POL1=$(post "$POLICY_URL/api/policies" \
+                  "{\"partnerId\":\"$P1\",\"productId\":\"$PRD1\",\"coverageStartDate\":\"2024-01-01\",\"premium\":320.00,\"deductible\":200.00}" \
+                  | extract_id)
+                echo "  Household policy: $POL1"
+                post "$POLICY_URL/api/policies/$POL1/coverages" '{"coverageType":"HOUSEHOLD_CONTENTS","insuredAmount":80000}' > /dev/null
+                post "$POLICY_URL/api/policies/$POL1/coverages" '{"coverageType":"GLASS_BREAKAGE","insuredAmount":5000}' > /dev/null
+                post "$POLICY_URL/api/policies/$POL1/coverages" '{"coverageType":"THEFT","insuredAmount":10000}' > /dev/null
+                post "$POLICY_URL/api/policies/$POL1/activate" "" > /dev/null
+                echo "    + 3 coverages, activated"
+
+                # Policy 2: Building (Anna Müller) → ACTIVE
+                POL2=$(post "$POLICY_URL/api/policies" \
+                  "{\"partnerId\":\"$P2\",\"productId\":\"$PRD2\",\"coverageStartDate\":\"2023-03-01\",\"premium\":1250.00,\"deductible\":500.00}" \
+                  | extract_id)
+                echo "  Building policy: $POL2"
+                post "$POLICY_URL/api/policies/$POL2/coverages" '{"coverageType":"BUILDING","insuredAmount":750000}' > /dev/null
+                post "$POLICY_URL/api/policies/$POL2/coverages" '{"coverageType":"NATURAL_HAZARD","insuredAmount":250000}' > /dev/null
+                post "$POLICY_URL/api/policies/$POL2/activate" "" > /dev/null
+                echo "    + 2 coverages, activated"
+
+                # Policy 3: Liability (Hans Meier) → DRAFT
+                POL3=$(post "$POLICY_URL/api/policies" \
+                  "{\"partnerId\":\"$P3\",\"productId\":\"$PRD3\",\"coverageStartDate\":\"2026-04-01\",\"premium\":180.00,\"deductible\":0.00}" \
+                  | extract_id)
+                echo "  Liability policy (draft): $POL3"
+                post "$POLICY_URL/api/policies/$POL3/coverages" '{"coverageType":"LIABILITY","insuredAmount":5000000}' > /dev/null
+                echo "    + 1 coverage, remains DRAFT"
+
+                # Policy 4: Cancelled (Max Muster) → CANCELLED
+                POL4=$(post "$POLICY_URL/api/policies" \
+                  "{\"partnerId\":\"$P1\",\"productId\":\"$PRD1\",\"coverageStartDate\":\"2022-01-01\",\"coverageEndDate\":\"2024-12-31\",\"premium\":280.00,\"deductible\":150.00}" \
+                  | extract_id)
+                echo "  Cancelled policy: $POL4"
+                post "$POLICY_URL/api/policies/$POL4/coverages" '{"coverageType":"HOUSEHOLD_CONTENTS","insuredAmount":60000}' > /dev/null
+                post "$POLICY_URL/api/policies/$POL4/activate" "" > /dev/null
+                post "$POLICY_URL/api/policies/$POL4/cancel" "" > /dev/null
+                echo "    + 1 coverage, activated then cancelled"
+
+                echo "  Policy: 4 policies created."
+
+                # Wait for Kafka event propagation (Policy events → Claims read models + Billing invoices)
+                echo ""
+                echo "=== Waiting for Kafka propagation to Claims & Billing ==="
+
+                TOKEN=$(curl -sf -X POST "$KEYCLOAK_URL/realms/yuno/protocol/openid-connect/token" \
+                  -H "Content-Type: application/x-www-form-urlencoded" \
+                  -d "grant_type=password&client_id=claims-service&client_secret=secret&username=admin&password=admin" \
+                  | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+                AUTH="Authorization: Bearer $TOKEN"
+
+                # Poll until PolicySnapshot is ready (max 120s)
+                CLM1=""
+                for i in $(seq 1 24); do
+                  CLM1=$(post "$CLAIMS_URL/api/claims" \
+                    "{\"policyId\":\"$POL1\",\"description\":\"Wasserschaden im Keller durch Rohrbruch. Mobiliar und Elektronik beschädigt.\",\"claimDate\":\"2025-01-15\"}" \
+                    | sed -n 's/.*"claimId":"\([^"]*\)".*/\1/p')
+                  if [ -n "$CLM1" ]; then
+                    break
+                  fi
+                  echo "  PolicySnapshot not ready yet, waiting... ($i/24)"
+                  sleep 5
+                done
+              fi
+
+              if [ "$SKIP_REST" = "false" ]; then
+                # ══════════════════════════════════════════════════════
+                # CLAIMS: 4 Claims in different statuses
+                # ══════════════════════════════════════════════════════
+                echo ""
+                echo "=== Seeding Claims Service ==="
+
+                # Claim 1: Water damage on Household policy (Max Muster) → SETTLED
+                if [ -n "$CLM1" ]; then
+                  echo "  Created water damage claim: $CLM1"
+                  post "$CLAIMS_URL/api/claims/$CLM1/review" "" > /dev/null
+                  post "$CLAIMS_URL/api/claims/$CLM1/settle" "" > /dev/null
+                  echo "    → reviewed → settled"
+                else
+                  echo "  ⚠ Could not create water damage claim (PolicySnapshot not ready after 120s)"
+                fi
+
+                # Claim 2: Glass breakage on Household policy (Max Muster) → IN_REVIEW
+                CLM2=$(post "$CLAIMS_URL/api/claims" \
+                  "{\"policyId\":\"$POL1\",\"description\":\"Glasbruch Wintergarten durch Hagel.\",\"claimDate\":\"2025-03-08\"}" \
+                  | sed -n 's/.*"claimId":"\([^"]*\)".*/\1/p')
+                if [ -n "$CLM2" ]; then
+                  echo "  Created glass breakage claim: $CLM2"
+                  post "$CLAIMS_URL/api/claims/$CLM2/review" "" > /dev/null
+                  echo "    → in review"
+                else
+                  echo "  ⚠ Could not create glass breakage claim"
+                fi
+
+                # Claim 3: Storm damage on Building policy (Anna Müller) → OPEN
+                CLM3=$(post "$CLAIMS_URL/api/claims" \
+                  "{\"policyId\":\"$POL2\",\"description\":\"Sturmschaden am Dach. Mehrere Ziegel abgedeckt, Wassereintritt im Dachstock.\",\"claimDate\":\"2025-02-20\"}" \
+                  | sed -n 's/.*"claimId":"\([^"]*\)".*/\1/p')
+                if [ -n "$CLM3" ]; then
+                  echo "  Created storm damage claim: $CLM3"
+                  echo "    → remains open (FNOL)"
+                else
+                  echo "  ⚠ Could not create storm damage claim"
+                fi
+
+                # Claim 4: Rejected theft claim on Household (Max Muster) → REJECTED
+                CLM4=$(post "$CLAIMS_URL/api/claims" \
+                  "{\"policyId\":\"$POL1\",\"description\":\"Diebstahl Fahrrad aus unverschlossener Garage.\",\"claimDate\":\"2024-11-05\"}" \
+                  | sed -n 's/.*"claimId":"\([^"]*\)".*/\1/p')
+                if [ -n "$CLM4" ]; then
+                  echo "  Created theft claim: $CLM4"
+                  post "$CLAIMS_URL/api/claims/$CLM4/reject" "" > /dev/null
+                  echo "    → rejected (grobe Fahrlässigkeit)"
+                else
+                  echo "  ⚠ Could not create theft claim"
+                fi
+
+                echo "  Claims: done."
+
+                # ══════════════════════════════════════════════════════
+                # BILLING: Pay/dun invoices created by Kafka events
+                # ══════════════════════════════════════════════════════
+                echo ""
+                echo "=== Seeding Billing Service ==="
+
+                TOKEN=$(curl -sf -X POST "$KEYCLOAK_URL/realms/yuno/protocol/openid-connect/token" \
+                  -H "Content-Type: application/x-www-form-urlencoded" \
+                  -d "grant_type=password&client_id=billing-service&client_secret=secret&username=admin&password=admin" \
+                  | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+                AUTH="Authorization: Bearer $TOKEN"
+
+                # Poll for invoices (created automatically from policy.v1.issued Kafka events)
+                INV_IDS=""
+                INV_COUNT=0
+                for i in $(seq 1 12); do
+                  INVOICES=$(curl -sf "$BILLING_URL/api/invoices" -H "$AUTH" 2>/dev/null || echo "[]")
+                  INV_IDS=$(echo "$INVOICES" | sed 's/},{/}\n{/g' | sed -n 's/.*"invoiceId":"\([^"]*\)".*/\1/p')
+                  INV_COUNT=$(echo "$INV_IDS" | grep -c . || true)
+                  if [ "$INV_COUNT" -gt 0 ]; then
+                    break
+                  fi
+                  echo "  No invoices yet, waiting... ($i/12)"
+                  sleep 5
+                done
+                echo "  Found $INV_COUNT invoices."
+
+                if [ "$INV_COUNT" -gt 0 ]; then
+                  # First invoice → PAY it
+                  INV1=$(echo "$INV_IDS" | head -1)
+                  if [ -n "$INV1" ]; then
+                    post "$BILLING_URL/api/invoices/$INV1/pay" "" > /dev/null 2>&1 \
+                      && echo "  Paid invoice: $INV1" \
+                      || echo "  ⚠ Could not pay invoice $INV1"
+                  fi
+
+                  # Second invoice → DUN it
+                  INV2=$(echo "$INV_IDS" | head -2 | tail -1)
+                  if [ -n "$INV2" ] && [ "$INV2" != "$INV1" ]; then
+                    post "$BILLING_URL/api/invoices/$INV2/dun" "" > /dev/null 2>&1 \
+                      && echo "  Dunned invoice: $INV2" \
+                      || echo "  ⚠ Could not dun invoice $INV2"
+                  fi
+                else
+                  echo "  ⚠ No invoices found (Kafka events may still be propagating)"
+                fi
+
+                echo "  Billing: done."
+              fi
+
+              # ══════════════════════════════════════════════════════
+              echo ""
+              echo "=== Seed data complete ==="
+              echo "  Partners:  5"
+              echo "  Products:  6"
+              echo "  Policies:  4"
+              echo "  Claims:    4 (1 settled, 1 in review, 1 open, 1 rejected)"
+              echo "  Billing:   invoices paid/dunned"
+          resources:
+            limits:
+              memory: 64Mi

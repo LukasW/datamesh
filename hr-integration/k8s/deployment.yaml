@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hr-integration
+  namespace: datamesh
+spec:
+  selector:
+    app: hr-integration
+  ports:
+    - port: 9086
+      targetPort: 9086
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hr-integration
+  namespace: datamesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hr-integration
+  template:
+    metadata:
+      labels:
+        app: hr-integration
+    spec:
+      containers:
+        - name: hr-integration
+          image: yuno/hr-integration:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: QUARKUS_PROFILE
+              value: prod
+            - name: HR_ODATA_BASE_URL
+              value: http://hr-system:9085/odata
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:29092
+            - name: QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://jaeger:4317
+          ports:
+            - containerPort: 9086
+          readinessProbe:
+            httpGet:
+              path: /q/metrics
+              port: 9086
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 384Mi

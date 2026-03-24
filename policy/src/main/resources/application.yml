@@ -63,8 +63,16 @@ quarkus:
         host: localhost
         port: 9181
 
+  otel:
+    enabled: true
+    exporter:
+      otlp:
+        endpoint: http://localhost:4317
+
   log:
     level: INFO
+    console:
+      format: "%d{yyyy-MM-dd HH:mm:ss} %-5p traceId=%X{traceId} spanId=%X{spanId} [%c{3.}] (%t) %s%e%n"
 
 # Prod: explicit DB + Kafka broker + gRPC target (env-var driven)
 "%prod":
@@ -85,6 +93,12 @@ quarkus:
       client-id: policy-service
       credentials:
         secret: ${OIDC_CLIENT_SECRET}
+      discovery-enabled: false
+      authorization-path: ${KEYCLOAK_FRONTEND_URL}/realms/yuno/protocol/openid-connect/auth
+      token-path: /protocol/openid-connect/token
+      jwks-path: /protocol/openid-connect/certs
+      user-info-path: /protocol/openid-connect/userinfo
+      end-session-path: ${KEYCLOAK_FRONTEND_URL}/realms/yuno/protocol/openid-connect/logout
   # Kafka bootstrap.servers is in application.properties
 
 # Kafka channel config is in application.properties (dotted keys work better there)

@@ -57,8 +57,16 @@ quarkus:
     roles:
       role-claim-path: realm_access/roles
 
+  otel:
+    enabled: true
+    exporter:
+      otlp:
+        endpoint: http://localhost:4317
+
   log:
     level: INFO
+    console:
+      format: "%d{yyyy-MM-dd HH:mm:ss} %-5p traceId=%X{traceId} spanId=%X{spanId} [%c{3.}] (%t) %s%e%n"
 
 # Vault Transit Engine for PII encryption (ADR-009 Crypto-Shredding)
 vault:
@@ -98,6 +106,12 @@ mp:
       client-id: partner-service
       credentials:
         secret: ${OIDC_CLIENT_SECRET}
+      discovery-enabled: false
+      authorization-path: ${KEYCLOAK_FRONTEND_URL}/realms/yuno/protocol/openid-connect/auth
+      token-path: /protocol/openid-connect/token
+      jwks-path: /protocol/openid-connect/certs
+      user-info-path: /protocol/openid-connect/userinfo
+      end-session-path: ${KEYCLOAK_FRONTEND_URL}/realms/yuno/protocol/openid-connect/logout
   vault:
     url: ${VAULT_URL:http://vault:8200}
     token: ${VAULT_TOKEN:dev-root-token}

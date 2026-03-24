@@ -1,0 +1,430 @@
+# ── OpenMetadata, Marquez, Superset ───────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════════
+# OpenMetadata Elasticsearch (OpenSearch)
+# ═══════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: openmetadata-elasticsearch
+  namespace: datamesh
+spec:
+  clusterIP: None
+  selector:
+    app: openmetadata-elasticsearch
+  ports:
+    - port: 9200
+      targetPort: 9200
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: openmetadata-elasticsearch
+  namespace: datamesh
+spec:
+  serviceName: openmetadata-elasticsearch
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openmetadata-elasticsearch
+  template:
+    metadata:
+      labels:
+        app: openmetadata-elasticsearch
+    spec:
+      containers:
+        - name: opensearch
+          image: opensearchproject/opensearch:2.11.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: discovery.type
+              value: single-node
+            - name: plugins.security.disabled
+              value: "true"
+            - name: OPENSEARCH_JAVA_OPTS
+              value: "-Xms256m -Xmx256m"
+            - name: DISABLE_INSTALL_DEMO_CONFIG
+              value: "true"
+          ports:
+            - containerPort: 9200
+          readinessProbe:
+            httpGet:
+              path: /_cluster/health?wait_for_status=yellow&timeout=0s
+              port: 9200
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /usr/share/elasticsearch/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+---
+# ═══════════════════════════════════════════════════════════
+# OpenMetadata Server
+# ═══════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: openmetadata-server
+  namespace: datamesh
+spec:
+  selector:
+    app: openmetadata-server
+  ports:
+    - port: 8585
+      targetPort: 8585
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openmetadata-server
+  namespace: datamesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openmetadata-server
+  template:
+    metadata:
+      labels:
+        app: openmetadata-server
+    spec:
+      initContainers:
+        - name: migrate
+          image: openmetadata/server:1.6.13
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "/opt/openmetadata/bootstrap/openmetadata-ops.sh migrate && /opt/openmetadata/bootstrap/openmetadata-ops.sh reindex"]
+          env:
+            - name: OPENMETADATA_CLUSTER_NAME
+              value: datamesh
+            - name: SEARCH_TYPE
+              value: opensearch
+            - name: DB_DRIVER_CLASS
+              value: org.postgresql.Driver
+            - name: DB_SCHEME
+              value: postgresql
+            - name: DB_HOST
+              value: openmetadata-db
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: openmetadata
+            - name: DB_USER_PASSWORD
+              value: openmetadata
+            - name: OM_DATABASE
+              value: openmetadata
+            - name: ELASTICSEARCH_HOST
+              value: openmetadata-elasticsearch
+            - name: ELASTICSEARCH_PORT
+              value: "9200"
+            - name: ELASTICSEARCH_SCHEME
+              value: http
+          resources:
+            limits:
+              memory: 2Gi
+      containers:
+        - name: openmetadata
+          image: openmetadata/server:1.6.13
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: OPENMETADATA_CLUSTER_NAME
+              value: datamesh
+            - name: SEARCH_TYPE
+              value: opensearch
+            - name: DB_DRIVER_CLASS
+              value: org.postgresql.Driver
+            - name: DB_SCHEME
+              value: postgresql
+            - name: DB_HOST
+              value: openmetadata-db
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: openmetadata
+            - name: DB_USER_PASSWORD
+              value: openmetadata
+            - name: OM_DATABASE
+              value: openmetadata
+            - name: ELASTICSEARCH_HOST
+              value: openmetadata-elasticsearch
+            - name: ELASTICSEARCH_PORT
+              value: "9200"
+            - name: ELASTICSEARCH_SCHEME
+              value: http
+            - name: PIPELINE_SERVICE_CLIENT_ENDPOINT
+              value: http://openmetadata-ingestion:8080
+            - name: SERVER_HOST_API_URL
+              value: http://openmetadata-server:8585/api
+          ports:
+            - containerPort: 8585
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: 8586
+            initialDelaySeconds: 120
+            periodSeconds: 15
+            timeoutSeconds: 10
+          resources:
+            limits:
+              memory: 2Gi
+---
+# ═══════════════════════════════════════════════════════════
+# OpenMetadata Ingestion (Airflow)
+# ═══════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: openmetadata-ingestion
+  namespace: datamesh
+spec:
+  selector:
+    app: openmetadata-ingestion
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openmetadata-ingestion
+  namespace: datamesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openmetadata-ingestion
+  template:
+    metadata:
+      labels:
+        app: openmetadata-ingestion
+    spec:
+      containers:
+        - name: ingestion
+          image: openmetadata/ingestion:1.6.13
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              airflow db migrate
+              airflow users create --username admin --firstname Admin --lastname Admin \
+                --email admin@yuno.ch --role Admin --password admin 2>/dev/null || true
+              airflow scheduler &
+              airflow webserver --port 8080
+          env:
+            - name: AIRFLOW__API__AUTH_BACKENDS
+              value: airflow.api.auth.backend.basic_auth
+            - name: AIRFLOW__CORE__EXECUTOR
+              value: LocalExecutor
+            - name: AIRFLOW__WEBSERVER__WORKERS
+              value: "1"
+            - name: AIRFLOW__WEBSERVER__WEB_SERVER_PORT
+              value: "8080"
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              value: "postgresql+psycopg2://openmetadata:openmetadata@openmetadata-db:5432/airflow"
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              memory: 2Gi
+---
+# ═══════════════════════════════════════════════════════════
+# Marquez (OpenLineage backend)
+# ═══════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: marquez
+  namespace: datamesh
+spec:
+  selector:
+    app: marquez
+  ports:
+    - name: api
+      port: 5050
+      targetPort: 5050
+    - name: admin
+      port: 5051
+      targetPort: 5051
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marquez
+  namespace: datamesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: marquez
+  template:
+    metadata:
+      labels:
+        app: marquez
+    spec:
+      containers:
+        - name: marquez
+          image: marquezproject/marquez
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MARQUEZ_PORT
+              value: "5050"
+            - name: MARQUEZ_ADMIN_PORT
+              value: "5051"
+            - name: POSTGRES_HOST
+              value: marquez-db
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: marquez
+            - name: POSTGRES_USER
+              value: marquez
+            - name: POSTGRES_PASSWORD
+              value: marquez
+          ports:
+            - containerPort: 5050
+            - containerPort: 5051
+          readinessProbe:
+            httpGet:
+              path: /api/v1/namespaces
+              port: 5050
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 512Mi
+---
+# ═══════════════════════════════════════════════════════════
+# Marquez Web UI
+# ═══════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: marquez-web
+  namespace: datamesh
+spec:
+  selector:
+    app: marquez-web
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marquez-web
+  namespace: datamesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: marquez-web
+  template:
+    metadata:
+      labels:
+        app: marquez-web
+    spec:
+      containers:
+        - name: marquez-web
+          image: marquezproject/marquez-web
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MARQUEZ_HOST
+              value: marquez
+            - name: MARQUEZ_PORT
+              value: "5050"
+            - name: WEB_PORT
+              value: "3000"
+          ports:
+            - containerPort: 3000
+          resources:
+            limits:
+              memory: 256Mi
+---
+# ═══════════════════════════════════════════════════════════
+# Superset
+# ═══════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: superset
+  namespace: datamesh
+spec:
+  selector:
+    app: superset
+  ports:
+    - port: 8088
+      targetPort: 8088
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: superset
+  namespace: datamesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: superset
+  template:
+    metadata:
+      labels:
+        app: superset
+    spec:
+      initContainers:
+        - name: init
+          image: yuno/superset:local
+          imagePullPolicy: IfNotPresent
+          command: ["bash", "/init.sh"]
+          env:
+            - name: SUPERSET_SECRET_KEY
+              value: datamesh-dev-secret-change-in-prod
+            - name: SQLALCHEMY_DATABASE_URI
+              value: "postgresql+psycopg2://superset:superset@superset-db:5432/superset"
+          volumeMounts:
+            - name: superset-config
+              mountPath: /app/pythonpath/superset_config.py
+              subPath: superset_config.py
+            - name: superset-init
+              mountPath: /init.sh
+              subPath: superset-init.sh
+      containers:
+        - name: superset
+          image: yuno/superset:local
+          imagePullPolicy: IfNotPresent
+          command: ["superset", "run", "-h", "0.0.0.0", "-p", "8088"]
+          env:
+            - name: SUPERSET_SECRET_KEY
+              value: datamesh-dev-secret-change-in-prod
+            - name: SQLALCHEMY_DATABASE_URI
+              value: "postgresql+psycopg2://superset:superset@superset-db:5432/superset"
+          ports:
+            - containerPort: 8088
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8088
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: superset-config
+              mountPath: /app/pythonpath/superset_config.py
+              subPath: superset_config.py
+      volumes:
+        - name: superset-config
+          configMap:
+            name: superset-config
+        - name: superset-init
+          configMap:
+            name: superset-init

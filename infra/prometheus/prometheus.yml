@@ -14,3 +14,15 @@ scrape_configs:
     metrics_path: '/q/metrics'
     static_configs:
       - targets: ['policy-service:9082']
+  - job_name: 'claims-service'
+    metrics_path: '/q/metrics'
+    static_configs:
+      - targets: ['claims-service:9083']
+  - job_name: 'billing-service'
+    metrics_path: '/q/metrics'
+    static_configs:
+      - targets: ['billing-service:9084']
+  - job_name: 'hr-integration'
+    metrics_path: '/q/metrics'
+    static_configs:
+      - targets: ['hr-integration:9086']

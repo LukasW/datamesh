@@ -178,6 +178,27 @@ services:
       - |
         kafka-topics --bootstrap-server kafka:29092 \
           --create --if-not-exists \
+          --topic debezium.configs \
+          --partitions 1 \
+          --replication-factor 1 \
+          --config cleanup.policy=compact \
+          && echo 'debezium.configs topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic debezium.offsets \
+          --partitions 1 \
+          --replication-factor 1 \
+          --config cleanup.policy=compact \
+          && echo 'debezium.offsets topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
+          --topic debezium.statuses \
+          --partitions 1 \
+          --replication-factor 1 \
+          --config cleanup.policy=compact \
+          && echo 'debezium.statuses topic created.' \
+        && kafka-topics --bootstrap-server kafka:29092 \
+          --create --if-not-exists \
           --topic person.v1.state \
           --partitions 6 \
           --replication-factor 1 \
@@ -506,6 +527,7 @@ services:
       OIDC_CLIENT_SECRET: secret
       VAULT_URL: http://vault:8200
       VAULT_TOKEN: dev-root-token
+      QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
     networks:
       - backend
@@ -539,6 +561,7 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       OIDC_CLIENT_SECRET: secret
       OPENLINEAGE_URL: http://marquez:5050
+      QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5006"
     networks:
       - backend
@@ -577,6 +600,7 @@ services:
       GRPC_PREMIUM_HOST: product-service
       GRPC_PREMIUM_PORT: "9181"
       OPENLINEAGE_URL: http://marquez:5050
+      QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5007"
     networks:
       - backend
@@ -618,6 +642,7 @@ services:
       OPENLINEAGE_URL: http://marquez:5050
       VAULT_URL: http://vault:8200
       VAULT_TOKEN: dev-root-token
+      QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5008"
     networks:
       - backend
@@ -701,6 +726,7 @@ services:
       KEYCLOAK_URL: http://keycloak:8080
       OIDC_CLIENT_SECRET: secret
       OPENLINEAGE_URL: http://marquez:5050
+      QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
     networks:
       - backend
@@ -775,6 +801,7 @@ services:
       QUARKUS_PROFILE: prod
       HR_ODATA_BASE_URL: http://hr-system:9085/odata
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5011"
     networks:
       - backend
@@ -822,6 +849,24 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
+
+  jaeger:
+    image: jaegertracing/jaeger:2.4.0
+    restart: unless-stopped
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    networks:
+      - backend
+      - frontend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   # ══════════════════════════════════════════════════════════════════════════════
   # ── Phase 1: Lakehouse Foundation ───────────────────────────────────────────
@@ -904,14 +949,20 @@ services:
         condition: service_healthy
       nessie:
         condition: service_healthy
+      vault:
+        condition: service_healthy
     ports:
       - "8086:8086"
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: dev-root-token
     volumes:
       - ./infra/trino/etc/config.properties:/etc/trino/config.properties:ro
       - ./infra/trino/etc/jvm.config:/etc/trino/jvm.config:ro
       - ./infra/trino/etc/node.properties:/etc/trino/node.properties:ro
       - ./infra/trino/etc/log.properties:/etc/trino/log.properties:ro
       - ./infra/trino/catalog/iceberg.properties:/etc/trino/catalog/iceberg.properties:ro
+      - ./infra/trino/vault-udf/target/trino-vault-decrypt-1.0.0-SNAPSHOT:/usr/lib/trino/plugin/vault-decrypt:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8086/v1/info || exit 1"]
       interval: 10s

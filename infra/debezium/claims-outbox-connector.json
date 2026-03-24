@@ -21,6 +21,7 @@
     "transforms.outbox.route.topic.replacement": "${routedByValue}",
     "transforms.outbox.table.fields.additional.placement": "event_type:header:eventType",
     "value.converter": "org.apache.kafka.connect.storage.StringConverter",
-    "key.converter": "org.apache.kafka.connect.storage.StringConverter"
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "snapshot.mode": "always"
   }
 }

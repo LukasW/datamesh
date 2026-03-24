@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: hr-system
+  namespace: datamesh
+spec:
+  selector:
+    app: hr-system
+  ports:
+    - port: 9085
+      targetPort: 9085
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hr-system
+  namespace: datamesh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hr-system
+  template:
+    metadata:
+      labels:
+        app: hr-system
+    spec:
+      containers:
+        - name: hr-system
+          image: yuno/hr-system:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: QUARKUS_PROFILE
+              value: prod
+            - name: DATABASE_URL
+              value: jdbc:postgresql://hr-db:5432/hr_db
+            - name: DATABASE_USER
+              value: hr_user
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-passwords
+                  key: hr-db-password
+          ports:
+            - containerPort: 9085
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 9085
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 384Mi

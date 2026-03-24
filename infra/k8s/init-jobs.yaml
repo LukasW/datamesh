@@ -1,0 +1,202 @@
+# ── Init Jobs (one-time setup tasks) ─────────────────────────────────────────
+
+# ═══════════════════════════════════════════════════════════
+# Vault Transit Engine Init
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-init
+  namespace: datamesh
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: vault-init
+          image: hashicorp/vault
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              until vault status -address=http://vault:8200 2>/dev/null; do sleep 2; done
+              vault secrets enable transit 2>/dev/null || echo 'Transit engine already enabled.'
+              echo 'Vault Transit engine ready for crypto-shredding (ADR-009).'
+          env:
+            - name: VAULT_ADDR
+              value: http://vault:8200
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vault-config
+                  key: vault-token
+---
+# ═══════════════════════════════════════════════════════════
+# MinIO Bucket Init
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-init
+  namespace: datamesh
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: minio-init
+          image: minio/mc
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              until mc alias set local http://minio:9000 minioadmin minioadmin 2>/dev/null; do sleep 2; done
+              mc mb local/warehouse --ignore-existing
+              echo "MinIO bucket 'warehouse' ready."
+---
+# ═══════════════════════════════════════════════════════════
+# Kafka Topic Init
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-init
+  namespace: datamesh
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: kafka-init
+          image: confluentinc/cp-kafka:7.5.0
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              until kafka-broker-api-versions --bootstrap-server kafka:29092 2>/dev/null; do
+                echo 'Waiting for Kafka...'; sleep 3
+              done
+
+              # Debezium Connect internal topics (must be compacted)
+              for topic in debezium.configs debezium.offsets debezium.statuses; do
+                kafka-topics --bootstrap-server kafka:29092 \
+                  --create --if-not-exists --topic "$topic" \
+                  --partitions 1 --replication-factor 1 \
+                  --config cleanup.policy=compact
+                echo "$topic created."
+              done
+
+              # Compacted state topics
+              for topic in person.v1.state product.v1.state hr.v1.employee.state hr.v1.org-unit.state; do
+                kafka-topics --bootstrap-server kafka:29092 \
+                  --create --if-not-exists --topic "$topic" \
+                  --partitions 6 --replication-factor 1 \
+                  --config cleanup.policy=compact \
+                  --config min.cleanable.dirty.ratio=0.01 \
+                  --config segment.ms=10000
+                echo "$topic created."
+              done
+
+              # Standard event topics
+              for topic in billing.v1.invoice-created billing.v1.payment-received billing.v1.dunning-initiated \
+                           billing.v1.payout-triggered claims.v1.opened claims.v1.settled \
+                           hr.v1.employee.changed hr.v1.org-unit.changed; do
+                kafka-topics --bootstrap-server kafka:29092 \
+                  --create --if-not-exists --topic "$topic" \
+                  --partitions 6 --replication-factor 1
+                echo "$topic created."
+              done
+
+              # DLQ topics
+              for topic in partner-person-created-dlq partner-person-updated-dlq \
+                           product-defined-dlq product-updated-dlq product-deprecated-dlq \
+                           billing-policy-issued-dlq billing-policy-cancelled-dlq \
+                           billing-claims-settled-dlq hr-integration-dlq; do
+                kafka-topics --bootstrap-server kafka:29092 \
+                  --create --if-not-exists --topic "$topic" \
+                  --partitions 1 --replication-factor 1
+                echo "$topic created."
+              done
+
+              echo 'All Kafka topics ready.'
+---
+# ═══════════════════════════════════════════════════════════
+# Debezium Connector Registration
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: debezium-init
+  namespace: datamesh
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: debezium-init
+          image: curlimages/curl:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              until curl -sf http://debezium-connect:8083/connectors; do
+                echo 'Debezium not ready, retrying in 5s...'; sleep 5
+              done
+
+              for connector in partner product policy billing claims; do
+                curl -f -X POST http://debezium-connect:8083/connectors \
+                  -H 'Content-Type: application/json' \
+                  -d @/config/${connector}-outbox-connector.json \
+                  && echo "${connector} connector registered." \
+                  || echo "${connector} connector failed (may already exist)."
+              done
+          volumeMounts:
+            - name: connector-configs
+              mountPath: /config
+      volumes:
+        - name: connector-configs
+          configMap:
+            name: debezium-connectors
+---
+# ═══════════════════════════════════════════════════════════
+# Iceberg Sink Connector Registration
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: iceberg-init
+  namespace: datamesh
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: iceberg-init
+          image: curlimages/curl:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              until curl -sf http://debezium-connect:8083/connectors; do
+                echo 'Debezium not ready, retrying in 5s...'; sleep 5
+              done
+
+              for domain in partner product policy billing claims hr; do
+                curl -f -X POST http://debezium-connect:8083/connectors \
+                  -H 'Content-Type: application/json' \
+                  -d @/config/iceberg-sink-${domain}.json \
+                  && echo "${domain} Iceberg sink registered." \
+                  || echo "${domain} Iceberg sink failed (may already exist)."
+              done
+          volumeMounts:
+            - name: sink-configs
+              mountPath: /config
+      volumes:
+        - name: sink-configs
+          configMap:
+            name: iceberg-sinks

@@ -48,6 +48,9 @@ Eine moderne Sachversicherungs-Plattform basierend auf **Domain-Driven Design (D
 * **Unit Tests:** `mvn test` (Fokus auf `domain/model` und `domain/service`).
 * **Integration:** `mvn verify -Pintegration` (Nutzt **Testcontainers** für Postgres & Redpanda/Kafka).
 * **Contract Testing:** `mvn test -Dtest=DataContractVerificationTest` (Validiert ODC-Compliance).
+* **Single Test:** `mvn test -pl {module} -Dtest=ClassName#methodName`.
+* **Playwright only:** `mvn test -pl {module} -Dgroups=playwright`.
+* **Consumer-Group Reset (nach Consumer-Fix):** `kafka-consumer-groups --bootstrap-server localhost:29092 --group {group} --topic {topic} --reset-offsets --to-earliest --execute` (Service vorher stoppen).
 
 ---
 
@@ -62,6 +65,7 @@ Eine moderne Sachversicherungs-Plattform basierend auf **Domain-Driven Design (D
 * **Hexagonal Isolation:** Die `domain`-Packages dürfen **keine** Framework-Abhängigkeiten haben (kein `@Inject`, kein `@Entity`, kein Jackson).
 * **No Shared State:** Keine Cross-Domain DB-Zugriffe. Kommunikation erfolgt zu 95% via Kafka.
 * **Transactional Outbox:** Jeder Kafka-Event muss über die Outbox-Tabelle laufen, um Konsistenz zwischen DB und Message Broker zu garantieren.
+* **ADR-009 PII Encryption:** `person.v1.state` Events enthalten Vault-Transit-verschlüsselte PII-Felder (`name`, `firstName`, `dateOfBirth`, `socialSecurityNumber`). Jeder neue Consumer muss das `"encrypted": true` Flag prüfen und via Vault Transit entschlüsseln. `insuredNumber` ist **nicht** PII und bleibt im Klartext.
 * **Synchrone Ausnahmen (ADR-010):** gRPC-Calls sind erlaubt für reine Query-/Berechnungs-Use-Cases mit mandatorischem Circuit Breaker, Timeout und Graceful Degradation. Aktuell: Prämienberechnung (Policy → Product). REST nur für IAM (Keycloak).
 
 ### 3. Data Mesh & Contracts

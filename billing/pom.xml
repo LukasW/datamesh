@@ -93,10 +93,14 @@
             <artifactId>quarkus-oidc</artifactId>
         </dependency>
 
-        <!-- Observability (Prometheus metrics) -->
+        <!-- Observability (Prometheus metrics + distributed tracing) -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-opentelemetry</artifactId>
         </dependency>
 
         <!-- OpenLineage (data lineage tracking to Marquez) -->

@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: datamesh
+
+resources:
+  # Infrastructure
+  - namespace.yaml
+  - secrets.yaml
+  - databases.yaml
+  - messaging.yaml
+  - security.yaml
+  - lakehouse.yaml
+  - observability.yaml
+  - governance.yaml
+  - init-jobs.yaml
+  # ingress.yaml is applied separately in deploy.sh (after NGINX controller is ready)
