@@ -1,6 +1,6 @@
 # Datamesh Kubernetes Analyse – Analytics, Governance & Lineage
 
-> **Datum:** 2026-03-23
+> **Datum:** 2026-03-24
 > **Scope:** Nur Kubernetes-Deployment (`infra/k8s/`), keine Docker-Compose-Analyse
 
 ---
@@ -50,19 +50,38 @@ Lineage:
 
 | Kategorie | Komponente | K8s Resource | Status |
 |---|---|---|---|
-| **Lakehouse** | MinIO | StatefulSet | ✅ Deployed |
-| | Nessie | Deployment | ✅ Deployed |
-| | Trino | Deployment | ✅ Deployed |
-| **Transformation** | SQLMesh | - | ❌ **NICHT deployed** |
-| **Data Quality** | Soda Core | - | ❌ **NICHT deployed** |
-| **Governance** | OpenMetadata Server | Deployment | ✅ Deployed |
-| | OpenMetadata Ingestion (Airflow) | Deployment | ✅ Deployed |
-| | Marquez | Deployment | ✅ Deployed |
-| | Marquez Web UI | Deployment | ✅ Deployed |
-| **BI** | Superset | Deployment | ✅ Deployed |
-| **Messaging** | Kafka (KRaft) | StatefulSet | ✅ Deployed |
-| | Schema Registry | Deployment | ✅ Deployed |
-| | Debezium Connect | Deployment | ✅ Deployed |
+| **Lakehouse** | MinIO | StatefulSet (5Gi PVC) | Deployed |
+| | Nessie | Deployment (IN_MEMORY) | Deployed, aber flüchtig |
+| | Trino | Deployment (1536Mi) | Deployed |
+| **Transformation** | SQLMesh | - | **NICHT deployed** |
+| **Data Quality** | Soda Core | - | **NICHT deployed** |
+| **Governance** | OpenMetadata Server | Deployment (2Gi) | Deployed |
+| | OpenMetadata Ingestion (Airflow) | Deployment (2Gi) | Deployed |
+| | Marquez | Deployment (512Mi) | Deployed |
+| | Marquez Web UI | Deployment (256Mi) | Deployed |
+| **BI** | Superset | Deployment (512Mi) | Deployed |
+| **Messaging** | Kafka (KRaft) | StatefulSet (1Gi) | Deployed |
+| | Schema Registry | Deployment (256Mi) | Deployed |
+| | Debezium Connect | Deployment (1280Mi) | Deployed |
+| **Security** | Keycloak | Deployment (512Mi) | Deployed |
+| | Vault | Deployment (256Mi) | Deployed |
+| **Observability** | Prometheus | Deployment (256Mi) | Deployed |
+| | Grafana | Deployment (256Mi) | Deployed |
+| | Jaeger | Deployment (256Mi) | Deployed |
+
+### Init-Jobs (K8s)
+
+| Job | Aufgabe | Status |
+|---|---|---|
+| `vault-init` | Transit Engine aktivieren | OK |
+| `minio-init` | `warehouse` Bucket erstellen | OK |
+| `kafka-init` | Topics erstellen (state, events, DLQ) | OK |
+| `debezium-init` | 5 Outbox CDC Connectors registrieren | OK |
+| `iceberg-init` | 6 Iceberg Sink Connectors registrieren | OK |
+| `seed-data` | Test-Daten via REST APIs einspielen | OK |
+| **openmetadata-init** | **Services, Pipelines, PII Tags registrieren** | **FEHLT** |
+| **schema-registry-init** | **JSON Schemas registrieren** | **FEHLT** |
+| **sqlmesh-init** | **sqlmesh plan --auto-apply** | **FEHLT** |
 
 ---
 
@@ -70,230 +89,205 @@ Lineage:
 
 ### Ziel 1: Queries in Apache Superset über Kafka Topics und HR-Daten (Iceberg)
 
-**Status: ⚠️ Teilweise – Pipeline ist architektonisch korrekt, aber Daten fehlen**
+**Status: NICHT ERFÜLLT**
 
 **Was funktioniert (konfiguriert):**
-- Superset ist deployed mit custom Image (`yuno/superset:local`) inkl. Trino-Driver
+- Superset ist deployed mit Custom-Image (`yuno/superset:local`) inkl. Trino-Driver (`trino` pip package)
 - Init-Script (`superset-init.sh`) erstellt automatisch die Trino-Datasource: `trino://trino@trino:8086/iceberg`
-- Schema-Discovery erlaubt für `analytics`, `partner_raw`, `product_raw`, `policy_raw`, `billing_raw`, `claims_raw`
+- Schema-Discovery erlaubt (`allow_multi_schema_metadata_fetch: true`)
 - Trino Iceberg-Catalog via Nessie ist konfiguriert
+- Iceberg Sink Connectors für alle 6 Domains sind via `iceberg-init` Job registriert
+- SQLMesh-Modelle definieren vollständige Analytics-Schicht (8 staging, 7 dims/facts, 5 marts)
 
-**Was NICHT funktioniert (Probleme):**
-1. **SQLMesh ist nicht in K8s deployed** – Es gibt ein Dockerfile und Modelle, aber kein K8s Deployment/Job. Die `analytics.*` Schemas (staging views, dim/fact/mart Tabellen) werden nie erstellt.
-2. **Trino Vault UDF Plugin ist nicht gemountet** – Das Plugin-JAR wird gebaut (`infra/trino/vault-udf/`), aber das K8s Trino-Deployment mountet es nicht. Die `vault_decrypt()` Funktion in den SQLMesh-Staging-Modellen (`stg_person_events`, `stg_address_events`) würde fehlschlagen.
-3. **Nessie verwendet IN_MEMORY Storage** – Bei jedem Nessie-Pod-Restart gehen alle Iceberg-Tabellen-Metadaten verloren. Parquet-Files in MinIO bleiben erhalten, aber Trino kann sie nicht mehr finden.
+**Was NICHT funktioniert:**
+1. **Trino war nicht via Ingress erreichbar** (HTTP 406) → BEHOBEN (`http-server.process-forwarded=true`)
+2. **SQLMesh ist nicht in K8s deployed** → Kein K8s Job/CronJob. `analytics.*` Schema (staging, dim/fact/mart) wird nie erstellt.
+3. **Trino Vault UDF Plugin nicht gemountet** → `vault_decrypt()` Funktion nicht verfügbar. PII-Entschlüsselung in `stg_person_events` und `stg_address_events` schlägt fehl.
+4. **Nessie IN_MEMORY** → Bei Pod-Restart gehen alle Iceberg-Metadaten verloren. Raw-Tabellen müssten komplett neu aufgebaut werden.
+
+**Betroffene Tabellen (alle nicht vorhanden):**
+
+| Schema | Tabellen |
+|---|---|
+| `partner_raw` | `person_events` |
+| `product_raw` | `product_events` |
+| `policy_raw` | `policy_events` |
+| `claims_raw` | `claims_events` |
+| `billing_raw` | `billing_events` |
+| `hr_raw` | `employee_events`, `org_unit_events` |
+| `analytics` | `stg_*`, `dim_partner`, `dim_product`, `dim_employee`, `dim_org_unit`, `dim_partner_address`, `fact_policies`, `fact_claims`, `fact_invoices`, `mart_portfolio_summary`, `mart_management_kpi`, `mart_financial_summary`, `mart_policy_detail`, `mart_org_hierarchy` |
 
 ### Ziel 2: Open Data Contracts in OpenMetadata
 
-**Status: ❌ Nicht erfüllt**
+**Status: NICHT ERFÜLLT**
 
 **Was funktioniert:**
-- OpenMetadata Server + Ingestion (Airflow) sind deployed
-- OpenSearch (Elasticsearch) ist deployed als Search-Backend
-- Airflow-Datenbank wird per `init-airflow-db.sql` erstellt
-- JSON-Konfigurationsdateien existieren:
-  - `trino-ingestion.json` (Trino/Iceberg-Metadaten)
-  - `kafka-ingestion.json` (Kafka-Topic-Metadaten)
-  - `odc-ingestion.json` (ODC YAML Contracts)
-  - `pii-classification.json` (PII-Tagging)
-  - `marquez-lineage.json` (Lineage-Integration)
+- OpenMetadata Server + Ingestion (Airflow) + OpenSearch sind deployed
+- Airflow-DB wird via `init-airflow-db.sql` (ConfigMap → initdb) erstellt
+- Ingestion-Konfigurationen existieren als JSON-Dateien:
+  - `kafka-ingestion.json` – Kafka Topics
+  - `trino-ingestion.json` – Iceberg Tables
+  - `odc-ingestion.json` – ODC Contracts (Custom-Konzept)
+  - `pii-classification.json` – PII Tags & Retention
+  - `marquez-lineage.json` – Lineage-Import
 
 **Was NICHT funktioniert:**
-1. **Ingestion-Pipelines werden NICHT registriert** – Die JSON-Dateien liegen in `infra/openmetadata/`, aber es gibt keinen K8s Job oder Init-Container, der diese via OpenMetadata REST API registriert. Die Dateien werden nicht einmal als ConfigMap gemountet.
-2. **ODC-Ingestion ist ein Custom-Konzept** – OpenMetadata hat keinen nativen ODC-Ingestion-Typ. `odc-ingestion.json` hat `serviceType: "metadata"`, was kein Standard-OpenMetadata-Connector ist. Die Mapping-Rules (`$.dataProduct.outputPort.topic` etc.) erfordern einen Custom Ingestion Workflow.
-3. **PII-Classification ist nicht automatisiert** – `pii-classification.json` definiert Tags und Table/Column-Zuweisungen, wird aber nie über die OpenMetadata API angewendet.
+1. **Kein OpenMetadata-Init-Job im K8s-Deployment** – `deploy.sh` erstellt zwar die ConfigMaps, führt aber NICHT die äquivalenten Schritte von `scripts/init-openmetadata.sh` aus:
+   - Keine Service-Registration (Kafka, Trino)
+   - Keine Ingestion-Pipeline-Erstellung via Airflow
+   - Keine PII-Tag-Erstellung
+   - Keine Airflow-DAG-Deployments
+2. **ODC-Ingestion ist ein Custom-Konzept** – OpenMetadata hat keinen nativen ODC-Connector. `odc-ingestion.json` erfordert einen Custom-Workflow.
+3. **HR-Topics fehlen im Kafka-Ingestion-Filter** – `kafka-ingestion.json` enthält kein `hr.v1.*` Pattern.
+
+**Vergleich Docker-Compose vs. K8s:**
+
+| Schritt | Docker-Compose (`compose.sh`) | K8s (`deploy.sh`) |
+|---|---|---|
+| Services registrieren | `scripts/init-openmetadata.sh` (Zeile 117) | **FEHLT** |
+| Ingestion-Pipelines erstellen | init-openmetadata.sh Schritt 6 | **FEHLT** |
+| PII Tags erstellen | init-openmetadata.sh Schritt 5 | **FEHLT** |
+| Schema-Registration | `scripts/register-schemas.sh` (Zeile 114) | **FEHLT** |
 
 ### Ziel 3: Daten-Lineage sichtbar
 
-**Status: ⚠️ Teilweise – Infrastruktur steht, aber kaum Lineage-Daten fliessen**
+**Status: TEILWEISE – Infrastruktur steht, aber kaum Lineage-Daten**
 
-**Wo Lineage sichtbar ist (theoretisch):**
-- **Marquez Web UI**: `http://marquez.localhost` – zeigt Lineage-Graphen aus OpenLineage-Events
-- **OpenMetadata**: Hätte Lineage via Marquez-Integration (`marquez-lineage.json`), aber Pipeline ist nicht registriert
+**Wo Lineage sichtbar sein sollte:**
+- **Marquez Web UI**: `http://marquez.localhost` – primäre Lineage-Visualisierung
+- **OpenMetadata**: `http://openmetadata.localhost` – via Marquez-Integration (Pipeline fehlt)
 
 **Lineage-Quellen:**
-| Quelle | Emittiert Lineage? | Ziel | Status |
-|---|---|---|---|
-| Debezium Connect | via OpenLineage Java lib | Marquez | ⚠️ JAR ist im Image, aber `OPENLINEAGE_URL` reicht nicht für alle Connector-Typen |
-| Iceberg Sink Connector | via OpenLineage Java lib | Marquez | ⚠️ Gleiche Einschränkung |
-| SQLMesh | via `openlineage.transport` Config | Marquez | ❌ SQLMesh läuft nicht in K8s |
-| Product Service (gRPC) | QUARKUS_OTEL → Jaeger | Jaeger (Tracing) | ✅ Traces, aber keine Daten-Lineage |
-| Policy Service (gRPC Client) | QUARKUS_OTEL → Jaeger | Jaeger | ✅ Traces |
 
-**Problem:** OpenLineage-Integration in Kafka Connect ist nicht trivial. Die OpenLineage Java JARs sind im Debezium-Image installiert, und `OPENLINEAGE_URL` ist gesetzt, aber:
-- Der Debezium PostgreSQL Connector hat **keine native OpenLineage-Integration** – die JARs allein reichen nicht
-- Der Iceberg Sink Connector hat ebenfalls **keine automatische OpenLineage-Emission** – es müsste ein Kafka Connect OpenLineage Listener Plugin konfiguriert werden
+| Quelle | Ziel | Mechanismus | Status |
+|---|---|---|---|
+| Debezium CDC | Marquez | `OPENLINEAGE_URL` env + Java JARs | OpenLineage JARs im Image, aber Debezium hat keine native Integration |
+| Iceberg Sink | Marquez | `OPENLINEAGE_URL` env | Gleiche Einschränkung – kein Connector-Listener konfiguriert |
+| SQLMesh | Marquez | `openlineage.transport.url` in config.yaml | **SQLMesh nicht deployed** |
+| Product Service | Marquez | `OPENLINEAGE_URL` env | Konfiguriert im K8s Deployment |
+| gRPC Calls | Jaeger | OTLP Tracing | Funktioniert (aber Tracing != Daten-Lineage) |
 
 ---
 
 ## 3. Aktualität der Daten
 
-### Analytics-Daten (Superset)
+### Analytics-Daten (Superset via Trino)
 
-| Schicht | Latenz | Aktualisierung | Status |
+| Schicht | Latenz (Soll) | Aktualisierung | Status K8s |
 |---|---|---|---|
-| Outbox → Kafka | ~Sekunden | Echtzeit (CDC) | ✅ Wenn Debezium-Connector läuft |
-| Kafka → Iceberg (raw) | ~10 Sekunden | `commit.interval-ms: 10000` | ✅ Wenn Iceberg Sink läuft |
-| Iceberg raw → staging | View (live) | Trino-View-Auflösung bei Query | ❌ Views existieren nicht (SQLMesh) |
-| Staging → marts (dim/fact) | @hourly | SQLMesh cron: `@hourly` | ❌ SQLMesh läuft nicht |
-| Marts → Superset | Live | SQL-at-Query-Time via Trino | ❌ Keine Marts vorhanden |
+| Domain DB → Kafka | ~Sekunden | Echtzeit (CDC) | OK, wenn Debezium-Connectors laufen |
+| Kafka → Iceberg (raw) | ~10 Sekunden | `commit.interval-ms: 10000` | OK, wenn Iceberg Sink Connectors laufen |
+| Iceberg raw → analytics staging | View (live) | Trino-View bei Query-Time | FEHLT (SQLMesh) |
+| Staging → marts (dim/fact) | @hourly | SQLMesh Cron | FEHLT (SQLMesh) |
+| Marts → Superset | Live | SQL-at-Query-Time via Trino | FEHLT (keine Marts) |
 
-**Theoretische End-to-End-Latenz:** ~10-15 Sekunden (raw) bis max. 1 Stunde (marts)
-**Aktuelle Realität:** Keine Analytics-Daten verfügbar, weil SQLMesh nicht deployed ist und die Raw-Tabellen möglicherweise nicht existieren (Nessie IN_MEMORY).
+**Theoretische End-to-End-Latenz:** ~10-15s (raw) bis max. 1h (marts)
+**Aktuelle Realität:** Keine Analytics-Daten, da SQLMesh fehlt und Iceberg-Tabellen möglicherweise nicht persistiert sind (Nessie IN_MEMORY).
 
 ### Governance-Daten (OpenMetadata)
 
-| Datenquelle | Aktualisierung | Status |
-|---|---|---|
-| Trino/Iceberg Tabellen-Metadaten | On-demand (Ingestion Pipeline) | ❌ Pipeline nicht registriert |
-| Kafka Topics | On-demand | ❌ Pipeline nicht registriert |
-| PII-Klassifikation | Manuell / Pipeline | ❌ Nicht angewendet |
-| ODC Contracts | Custom Pipeline | ❌ Kein Standard-Connector |
-| Lineage (via Marquez) | `syncInterval: 5m` | ❌ Pipeline nicht registriert |
+| Datenquelle | Geplante Aktualisierung | Mechanismus | Status K8s |
+|---|---|---|---|
+| Trino/Iceberg Metadaten | Alle 6h | Airflow Pipeline | FEHLT – Pipeline nicht registriert |
+| Kafka Topics | Alle 6h | Airflow Pipeline | FEHLT – Pipeline nicht registriert |
+| PII-Klassifikation | Einmalig | init-openmetadata.sh | FEHLT – Script nicht ausgeführt |
+| ODC Contracts | Custom | odc-ingestion.json | FEHLT – Kein nativer Connector |
+| Lineage (Marquez) | Alle 5min | marquez-lineage.json | FEHLT – Pipeline nicht registriert |
 
 ---
 
 ## 4. Informationsquellen pro System
 
-### Analytics-System (Superset / Trino)
+### Analytics
 
-| Information | Wo? | Verfügbar? |
-|---|---|---|
-| Partner-Stammdaten (entschlüsselt) | `analytics.dim_partner` | ❌ |
-| Partner-Adressen | `analytics.dim_partner_address` | ❌ |
-| Produkt-Katalog | `analytics.dim_product` | ❌ |
-| Policen-Details | `analytics.fact_policies`, `analytics.mart_policy_detail` | ❌ |
-| Schadensfälle | `analytics.fact_claims` | ❌ |
-| Rechnungen | `analytics.fact_invoices` | ❌ |
-| Portfolio-Übersicht | `analytics.mart_portfolio_summary` | ❌ |
-| Management-KPIs | `analytics.mart_management_kpi` | ❌ |
-| Finanz-Übersicht | `analytics.mart_financial_summary` | ❌ |
-| HR Mitarbeiter | `analytics.dim_employee` | ❌ |
-| HR Org-Einheiten | `analytics.dim_org_unit`, `analytics.mart_org_hierarchy` | ❌ |
-| Raw Events (alle Domains) | `{domain}_raw.*_events` | ⚠️ Nur wenn Iceberg Sink + Nessie funktionieren |
+| Information | Tabelle/Schema | System | Verfügbar? |
+|---|---|---|---|
+| Partner-Stammdaten (entschlüsselt) | `analytics.dim_partner` | Superset / Trino | Nein |
+| Partner-Adressen | `analytics.dim_partner_address` | Superset / Trino | Nein |
+| Produkt-Katalog | `analytics.dim_product` | Superset / Trino | Nein |
+| Policen-Details | `analytics.fact_policies`, `mart_policy_detail` | Superset / Trino | Nein |
+| Schadensfälle | `analytics.fact_claims` | Superset / Trino | Nein |
+| Rechnungen | `analytics.fact_invoices` | Superset / Trino | Nein |
+| Portfolio-KPIs | `analytics.mart_portfolio_summary` | Superset / Trino | Nein |
+| Management-KPIs | `analytics.mart_management_kpi` | Superset / Trino | Nein |
+| Finanz-Übersicht | `analytics.mart_financial_summary` | Superset / Trino | Nein |
+| HR Mitarbeiter | `analytics.dim_employee` | Superset / Trino | Nein |
+| HR Org-Einheiten | `analytics.dim_org_unit`, `mart_org_hierarchy` | Superset / Trino | Nein |
+| Raw Events (alle Domains) | `{domain}_raw.*_events` | Trino | Nein (Nessie IN_MEMORY) |
 
-### Governance-System (OpenMetadata)
+### Governance
 
-| Information | Wo? | Verfügbar? |
-|---|---|---|
-| Tabellen-Metadaten (Iceberg) | OpenMetadata → Trino Ingestion | ❌ |
-| Kafka-Topic-Metadaten | OpenMetadata → Kafka Ingestion | ❌ |
-| PII-Tags auf Spalten | OpenMetadata → PII Classification | ❌ |
-| Daten-Lineage | OpenMetadata → Marquez Integration | ❌ |
-| Data Contracts (ODC) | OpenMetadata → Custom Ingestion | ❌ |
-| Data Quality Results | OpenMetadata → Soda Integration | ❌ |
-
-### Lineage-System (Marquez)
-
-| Lineage-Pfad | Wo sichtbar? | Verfügbar? |
-|---|---|---|
-| Outbox → Kafka Topic | Marquez Web UI | ❌ (OpenLineage nicht aktiv in Debezium) |
-| Kafka → Iceberg Table | Marquez Web UI | ❌ (OpenLineage nicht aktiv in Iceberg Sink) |
-| Raw → Staging → Marts | Marquez Web UI | ❌ (SQLMesh nicht deployed) |
-| gRPC: Policy → Product | Jaeger UI (Tracing) | ✅ (aber Tracing, nicht Daten-Lineage) |
+| Information | System | URL | Verfügbar? |
+|---|---|---|---|
+| Tabellen-Metadaten (Iceberg) | OpenMetadata | `http://openmetadata.localhost` | Nein |
+| Kafka-Topic-Metadaten | OpenMetadata | `http://openmetadata.localhost` | Nein |
+| PII-Tags auf Spalten | OpenMetadata | `http://openmetadata.localhost` | Nein |
+| Data Contracts (ODC) | OpenMetadata | `http://openmetadata.localhost` | Nein |
+| Daten-Lineage (Graphen) | Marquez Web | `http://marquez.localhost` | Nein (keine Events) |
+| Request-Tracing | Jaeger | `http://jaeger.localhost` | **Ja** |
+| Metriken (HTTP, JVM, Kafka) | Grafana | `http://grafana.localhost` | **Ja** |
 
 ---
 
-## 5. Fehleranalyse: Warum werden keine Daten in Superset und OpenMetadata angezeigt?
+## 5. Fehleranalyse: Warum keine Daten in Superset und OpenMetadata?
 
-### Problem 1: SQLMesh ist nicht in K8s deployed (KRITISCH)
+### Problem 1: SQLMesh nicht in K8s deployed (KRITISCH)
 
-**Symptom:** Keine `analytics.*` Tabellen in Trino, Superset zeigt keine Daten
-**Ursache:** Es existiert ein Dockerfile (`infra/sqlmesh/Dockerfile`) und SQLMesh-Modelle, aber:
-- Kein K8s Deployment, Job oder CronJob für SQLMesh
-- Kein Image-Build für SQLMesh in `build.sh` (nur `debezium-connect` und `superset`)
+**Symptom:** Kein `analytics`-Schema in Trino → Superset hat keine brauchbaren Tabellen
+**Ursache:** Dockerfile (`infra/sqlmesh/Dockerfile`) und 24 SQL-Modelle existieren, aber:
+- Kein K8s Deployment, Job oder CronJob
+- SQLMesh-Image wird in `build.sh` nicht gebaut
 - Kein Image-Load in `deploy.sh`
 
-**Auswirkung:** Die gesamte Transformation-Schicht (staging views, dimensions, facts, marts) fehlt. Superset hat zwar die Trino-Datasource, aber keine queryable Tabellen im `analytics` Schema.
-
-**Fix:**
-1. SQLMesh Image in `build.sh` bauen
-2. K8s Job oder CronJob erstellen (einmalig `sqlmesh plan --auto-apply`, dann periodisch)
-3. Image in `deploy.sh` laden
+**Auswirkung:** Gesamte Transformation-Schicht fehlt (8 staging + 7 dim/fact + 5 marts + 3 tests).
 
 ### Problem 2: Trino Vault UDF Plugin nicht gemountet (KRITISCH)
 
-**Symptom:** `vault_decrypt()` Funktion nicht verfügbar in Trino
-**Ursache:** Das Trino K8s Deployment mountet nur `trino-config` und `trino-catalog` ConfigMaps. Das Vault UDF Plugin JAR (`trino-vault-decrypt-1.0.0-SNAPSHOT.jar`) wird nirgends in den Trino Container injiziert.
-
-**Auswirkung:** Alle SQLMesh-Staging-Modelle, die `vault_decrypt()` verwenden (`stg_person_events`, `stg_address_events`), würden fehlschlagen. PII-Felder (Name, Geburtsdatum, AHV-Nummer, Adressen) können nicht entschlüsselt werden.
-
-**Fix:**
-1. Trino als Custom Image bauen (Plugin-JAR in `/usr/lib/trino/plugin/vault/` kopieren)
-2. Oder: Plugin-JAR als ConfigMap/PVC mounten und `plugin.dir` in Trino konfigurieren
+**Symptom:** `vault_decrypt()` Funktion nicht verfügbar
+**Ursache:** Das Plugin-JAR (`infra/trino/vault-udf/target/`) wird in keinem Volume/ConfigMap in den Trino-Container gemountet.
+**Auswirkung:** `stg_person_events` und `stg_address_events` (SQLMesh) schlagen fehl → keine PII-Entschlüsselung → fehlerhafte Dimensions.
 
 ### Problem 3: Nessie IN_MEMORY Storage (KRITISCH)
 
-**Symptom:** Nach Nessie-Restart sind alle Iceberg-Tabellen weg
+**Symptom:** Alle Iceberg-Metadaten gehen bei Nessie-Restart verloren
 **Ursache:** `NESSIE_VERSION_STORE_TYPE: IN_MEMORY` in `lakehouse.yaml`
+**Auswirkung:** Instabiler Iceberg-Catalog. Parquet-Files in MinIO bleiben, aber Trino kann sie nicht referenzieren.
 
-**Auswirkung:** Nessie verliert alle Catalog-Metadaten bei Pod-Restart. Parquet-Files in MinIO bleiben, aber Trino kann sie nicht mehr referenzieren. Die Iceberg Sink Connectors müssten alle Tabellen neu erstellen.
+### Problem 4: OpenMetadata Init fehlt (KRITISCH)
 
-**Fix:**
-1. Nessie auf `JDBC` oder `ROCKSDB` Backend umstellen
-2. Für JDBC: Eigene PostgreSQL-Datenbank hinzufügen
-3. Für RocksDB: PVC mounten
+**Symptom:** OpenMetadata UI komplett leer – keine Topics, keine Tabellen, keine Tags
+**Ursache:** `deploy.sh` führt `scripts/init-openmetadata.sh` nicht aus (nur `compose.sh` tut das).
+**Fehlende Schritte:**
+1. Kafka Messaging Service registrieren
+2. Trino Database Service registrieren
+3. Ingestion-Pipelines erstellen und in Airflow deployen
+4. PII Classification + Tags anlegen
+5. Initialen Ingestion-Run triggern
 
-### Problem 4: OpenMetadata Ingestion-Pipelines nicht registriert (KRITISCH)
+### Problem 5: Schema Registry nicht initialisiert (MITTEL)
 
-**Symptom:** OpenMetadata zeigt keine Tabellen, Topics oder Lineage
-**Ursache:** Die Ingestion-Konfigurationen (`trino-ingestion.json`, `kafka-ingestion.json`, etc.) liegen nur als Dateien in `infra/openmetadata/` vor. Es gibt keinen Init-Job, der diese via `POST /api/v1/services/ingestionPipelines` in OpenMetadata registriert.
+**Symptom:** Schema Registry hat keine JSON-Schemas für die Domain-Topics
+**Ursache:** `scripts/register-schemas.sh` wird nicht im K8s-Deployment aufgerufen.
+**Auswirkung:** OpenMetadata Kafka-Ingestion hat keine Schema-Informationen → Topic-Metadaten unvollständig.
 
-**Auswirkung:** OpenMetadata hat keine Datenquellen konfiguriert und führt keine Ingestion aus. Alle Governance-Features (Tabellen-Discovery, PII-Tags, Lineage, Topic-Metadaten) sind leer.
+### Problem 6: OpenLineage nicht aktiv in Kafka Connect (MITTEL)
 
-**Fix:**
-1. Init-Job erstellen, der nach OpenMetadata-Start:
-   a. Trino Database Service erstellt
-   b. Kafka Messaging Service erstellt
-   c. Ingestion Pipelines registriert
-   d. Initialen Ingestion-Run triggert
-2. Die JSON-Dateien in die OpenMetadata-API-Struktur (`CreateIngestionPipeline`) konvertieren
+**Symptom:** Marquez zeigt keine Lineage-Events von Debezium/Iceberg Sink
+**Ursache:** OpenLineage Java JARs sind installiert, `OPENLINEAGE_URL` gesetzt, aber:
+- Kein `CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All`
+- Kein OpenLineage Connector Listener konfiguriert
+- Debezium PostgreSQL Connector hat keine native OpenLineage-Integration
 
-### Problem 5: OpenLineage nicht aktiv in Kafka Connect (MITTEL)
+### Problem 7: HR Topics fehlen in Kafka-Ingestion-Filter (NIEDRIG)
 
-**Symptom:** Marquez zeigt keine Lineage-Events
-**Ursache:** Die OpenLineage Java JARs sind im Debezium-Image installiert und `OPENLINEAGE_URL` ist gesetzt, aber:
-- Debezium PostgreSQL Connector unterstützt OpenLineage nicht nativ
-- Es fehlt der `OpenLineageConnectorListener` in der Connect-Worker-Konfiguration
-- Der Iceberg Sink Connector braucht explizite OpenLineage-Integration
+**Symptom:** `hr.v1.*` Topics nicht in OpenMetadata sichtbar
+**Ursache:** `kafka-ingestion.json` und `init-openmetadata.sh` filtern nur 5 Domains, nicht HR.
+**Fix:** `"hr\\.v1\\..*"` zum Filter hinzufügen.
 
-**Fix:**
-1. `CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All` setzen
-2. OpenLineage Transport Listener konfigurieren
-3. Alternativ: Lineage extern via Custom Job aus Connector-Metadaten ableiten
+### Problem 8: Trino X-Forwarded-For (BEHOBEN)
 
-### Problem 6: Airflow-Datenbank-Initialisierung (MITTEL)
-
-**Symptom:** OpenMetadata Ingestion (Airflow) kann möglicherweise nicht starten
-**Ursache:** Die `init-airflow-db.sql` erstellt die `airflow` Datenbank, aber:
-- Das Script verwendet `CREATE DATABASE airflow` – dies funktioniert nur beim ersten Start der openmetadata-db
-- Die Airflow-Connection-URL zeigt auf `postgresql+psycopg2://openmetadata:openmetadata@openmetadata-db:5432/airflow`
-- Die ConfigMap `openmetadata-db-init` wird zwar erstellt (in `deploy.sh`), aber ob sie beim richtigen Zeitpunkt (initdb) gemountet ist, hängt davon ab, ob die PVC leer ist
-
-**Fix:** Airflow-DB-Erstellung verifizieren; ggf. als initContainer in der Airflow-Deployment lösen.
-
-### Problem 7: Soda Core nicht in K8s deployed (NIEDRIG)
-
-**Symptom:** Keine Data Quality Checks werden ausgeführt
-**Ursache:** Dockerfile und Check-Definitionen existieren, aber kein K8s CronJob
-
-**Auswirkung:** Data Quality wird nicht validiert. Keine Freshness-, Uniqueness- oder Null-Checks.
-
-**Fix:** K8s CronJob erstellen, der periodisch `soda scan` ausführt.
-
-### Problem 8: HR Topics fehlen in Kafka-Ingestion (NIEDRIG)
-
-**Symptom:** HR-Topics werden in OpenMetadata nicht entdeckt
-**Ursache:** `kafka-ingestion.json` filtert nur `person.v1.*`, `product.v1.*`, `policy.v1.*`, `claims.v1.*`, `billing.v1.*` – die `hr.v1.*` Topics fehlen im Filter.
-
-**Fix:** `"hr\\.v1\\..*"` zum `topicFilterPattern.includes` Array in `kafka-ingestion.json` hinzufügen.
-
-### Problem 9: Superset hat keine vorkonfigurierten Dashboards (NIEDRIG)
-
-**Symptom:** Superset zeigt nach Login eine leere Dashboard-Liste
-**Ursache:** Das Init-Script erstellt nur die Trino-Datasource, aber keine Dashboards, Charts oder Datasets. Selbst wenn die Tabellen existieren würden, müsste der User alles manuell erstellen.
-
-**Fix:** Dashboard-JSON exportieren und im Init-Script via `superset import-dashboards` laden.
+**Symptom:** HTTP ERROR 406 bei `http://trino.localhost`
+**Fix:** `http-server.process-forwarded=true` in `config.properties` hinzugefügt.
 
 ---
 
@@ -301,32 +295,18 @@ Lineage:
 
 | # | Severity | Problem | Betroffene Systeme |
 |---|---|---|---|
-| 1 | 🔴 KRITISCH | SQLMesh nicht deployed – keine Analytics-Tabellen | Superset, Trino |
-| 2 | 🔴 KRITISCH | Trino Vault UDF nicht gemountet – PII-Entschlüsselung unmöglich | Trino, SQLMesh, Superset |
-| 3 | 🔴 KRITISCH | Nessie IN_MEMORY – Tabellen-Metadaten gehen bei Restart verloren | Trino, Iceberg, alle Analytics |
-| 4 | 🔴 KRITISCH | OpenMetadata Ingestion-Pipelines nicht registriert – Governance leer | OpenMetadata |
-| 5 | 🟡 MITTEL | OpenLineage nicht aktiv in Kafka Connect – keine Lineage in Marquez | Marquez, OpenMetadata |
-| 6 | 🟡 MITTEL | Airflow-DB-Initialisierung unsicher | OpenMetadata Ingestion |
-| 7 | 🟢 NIEDRIG | Soda Core nicht deployed – keine Quality Checks | Data Quality |
-| 8 | 🟢 NIEDRIG | HR-Topics fehlen in OpenMetadata Kafka-Ingestion Filter | OpenMetadata |
-| 9 | 🟢 NIEDRIG | Keine vorkonfigurierten Superset Dashboards | Superset |
+| 1 | KRITISCH | SQLMesh nicht deployed – keine Analytics-Tabellen | Superset, Trino |
+| 2 | KRITISCH | Trino Vault UDF nicht gemountet – PII-Entschlüsselung unmöglich | Trino, SQLMesh |
+| 3 | KRITISCH | Nessie IN_MEMORY – Metadaten flüchtig bei Restart | Trino, Iceberg |
+| 4 | KRITISCH | OpenMetadata Init fehlt – Governance komplett leer | OpenMetadata |
+| 5 | MITTEL | Schema Registry nicht initialisiert | Schema Registry, OpenMetadata |
+| 6 | MITTEL | OpenLineage nicht aktiv in Kafka Connect | Marquez, Lineage |
+| 7 | NIEDRIG | HR Topics fehlen im OpenMetadata-Filter | OpenMetadata |
+| 8 | BEHOBEN | Trino X-Forwarded-For Header | Trino |
 
 ---
 
-## 7. Empfohlene Reihenfolge zur Behebung
-
-1. **Nessie auf persistenten Storage umstellen** (JDBC/RocksDB) – Grundvoraussetzung für stabile Iceberg-Tabellen
-2. **Trino mit Vault UDF Plugin als Custom Image deployen** – Nötig für PII-Entschlüsselung
-3. **SQLMesh als K8s CronJob deployen** – Erstellt die Analytics-Schicht
-4. **OpenMetadata Init-Job erstellen** – Registriert Ingestion-Pipelines via API
-5. **OpenLineage in Kafka Connect aktivieren** – Lineage-Events an Marquez
-6. **Soda Core als CronJob deployen** – Quality Monitoring
-7. **HR-Topics in OpenMetadata aufnehmen** – Vollständige Governance
-8. **Superset Dashboards provisionieren** – Sofortige Sichtbarkeit nach Fix
-
----
-
-## 8. Referenz: Wo finde ich was?
+## 7. Referenz: Wo finde ich was?
 
 | Frage | System | URL |
 |---|---|---|
@@ -338,8 +318,7 @@ Lineage:
 | Wo sehe ich Daten-Lineage? | Marquez Web UI | `http://marquez.localhost` (aktuell leer) |
 | Wo sehe ich Request-Tracing? | Jaeger | `http://jaeger.localhost` |
 | Wo sehe ich Metriken? | Grafana/Prometheus | `http://grafana.localhost` |
-| Wo kann ich SQL-Queries machen? | Superset SQL Lab | `http://superset.localhost` (Datasource vorhanden, Tabellen fehlen) |
+| Wo kann ich SQL-Queries machen? | Superset SQL Lab | `http://superset.localhost` (Tabellen fehlen) |
 | Wo ist der Nessie Catalog? | Nessie API | `http://nessie.localhost/api/v2/trees` |
 | Wo sind die ODC Contracts? | Im Code | `{domain}/src/main/resources/contracts/*.odcontract.yaml` |
 | Wo sind die SQLMesh-Modelle? | Im Code | `infra/sqlmesh/models/` (staging + marts) |
-| Wo sind die Soda-Checks? | Im Code | `infra/soda/checks/` |
