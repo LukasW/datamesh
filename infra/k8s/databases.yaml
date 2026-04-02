@@ -617,3 +617,68 @@ spec:
         resources:
           requests:
             storage: 1Gi
+---
+# ═══════════════════════════════════════════════════════════
+# nessie-db (Iceberg Catalog persistence)
+# ═══════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: nessie-db
+  namespace: datamesh
+spec:
+  clusterIP: None
+  selector:
+    app: nessie-db
+  ports:
+    - port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nessie-db
+  namespace: datamesh
+spec:
+  serviceName: nessie-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nessie-db
+  template:
+    metadata:
+      labels:
+        app: nessie-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: POSTGRES_DB
+              value: nessie
+            - name: POSTGRES_USER
+              value: nessie
+            - name: POSTGRES_PASSWORD
+              value: nessie
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "nessie", "-d", "nessie"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            limits:
+              memory: 128Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

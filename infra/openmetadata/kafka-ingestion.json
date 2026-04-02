@@ -18,7 +18,8 @@
           "product\\.v1\\..*",
           "policy\\.v1\\..*",
           "claims\\.v1\\..*",
-          "billing\\.v1\\..*"
+          "billing\\.v1\\..*",
+          "hr\\.v1\\..*"
         ]
       },
       "generateSampleData": true,

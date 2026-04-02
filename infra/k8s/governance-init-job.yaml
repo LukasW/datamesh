@@ -1,0 +1,325 @@
+# ── OpenMetadata + Schema Registry Initialization ─────────────────────────────
+# Equivalent of scripts/init-openmetadata.sh and scripts/register-schemas.sh
+# for the Kubernetes deployment.
+
+# ═══════════════════════════════════════════════════════════
+# Schema Registry Init (register JSON Schemas for all topics)
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: schema-registry-init
+  namespace: datamesh
+spec:
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: schema-init
+          image: curlimages/curl:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              SR_URL="http://schema-registry:8081"
+
+              until curl -sf "$SR_URL/subjects" > /dev/null; do
+                echo 'Waiting for Schema Registry...'; sleep 3
+              done
+
+              REGISTERED=0
+              FAILED=0
+              for file in /schemas/*.schema.json; do
+                [ -f "$file" ] || continue
+                filename=$(basename "$file")
+                topic="${filename%.schema.json}"
+                subject="${topic}-value"
+
+                # Wrap schema content as Schema Registry payload
+                # Using sed to escape the JSON for embedding
+                schema_content=$(cat "$file")
+                payload="{\"schemaType\":\"JSON\",\"schema\":$(echo "$schema_content" | sed 's/\\/\\\\/g; s/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/^/"/;s/$/"/')}"
+
+                if curl -sf -X POST "$SR_URL/subjects/${subject}/versions" \
+                    -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+                    -d "$payload" > /dev/null 2>&1; then
+                  echo "  + ${subject}"
+                  REGISTERED=$((REGISTERED + 1))
+                else
+                  echo "  ! ${subject} failed"
+                  FAILED=$((FAILED + 1))
+                fi
+              done
+
+              echo "Schema registration: ${REGISTERED} ok, ${FAILED} failed"
+          volumeMounts:
+            - name: schemas
+              mountPath: /schemas
+      volumes:
+        - name: schemas
+          configMap:
+            name: json-schemas
+---
+# ═══════════════════════════════════════════════════════════
+# OpenMetadata Init (services, PII tags, direct CLI ingestion)
+# Uses the openmetadata/ingestion image to run metadata ingest
+# directly via CLI, bypassing the Airflow pipeline deploy issues.
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: openmetadata-init
+  namespace: datamesh
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: openmetadata-init
+          image: openmetadata/ingestion:1.6.13
+          imagePullPolicy: IfNotPresent
+          command: ["python3", "-c"]
+          args:
+            - |
+              import json, time, urllib.request, urllib.error, base64, sys, subprocess, textwrap, os
+
+              OM_URL = "http://openmetadata-server:8585"
+
+              def log(msg):
+                  print(f"  {msg}", flush=True)
+
+              def api(method, path, body=None, token=None):
+                  url = f"{OM_URL}{path}"
+                  data = json.dumps(body).encode() if body else None
+                  headers = {"Content-Type": "application/json"}
+                  if token:
+                      headers["Authorization"] = f"Bearer {token}"
+                  req = urllib.request.Request(url, data=data, headers=headers, method=method)
+                  try:
+                      with urllib.request.urlopen(req, timeout=30) as resp:
+                          return json.loads(resp.read())
+                  except urllib.error.HTTPError as e:
+                      body_text = e.read().decode() if e.fp else ""
+                      log(f"HTTP {e.code} {method} {path}: {body_text[:200]}")
+                      return None
+                  except Exception as e:
+                      log(f"Error {method} {path}: {e}")
+                      return None
+
+              # ── Wait for OpenMetadata ───────────────────────────────
+              print("Waiting for OpenMetadata server...", flush=True)
+              for i in range(120):
+                  try:
+                      urllib.request.urlopen(f"{OM_URL}/api/v1/system/version", timeout=5)
+                      log("OpenMetadata is up")
+                      break
+                  except:
+                      time.sleep(2)
+              else:
+                  print("ERROR: OpenMetadata not reachable after 240s", flush=True)
+                  sys.exit(1)
+
+              # ── Authenticate ────────────────────────────────────────
+              print("\nAuthenticating...", flush=True)
+              pw = base64.b64encode(b"admin").decode()
+              resp = api("POST", "/api/v1/users/login",
+                         {"email": "admin@open-metadata.org", "password": pw})
+              if not resp or "accessToken" not in resp:
+                  print("ERROR: Authentication failed", flush=True)
+                  sys.exit(1)
+              token = resp["accessToken"]
+              log("Authenticated")
+
+              # ── Get ingestion-bot JWT for CLI workflows ─────────────
+              bot_resp = api("GET", "/api/v1/bots/name/ingestion-bot", token=token)
+              bot_token = token  # fallback to admin token
+              if bot_resp:
+                  bot_user = bot_resp.get("botUser", {}).get("name")
+                  if bot_user:
+                      token_resp = api("GET", f"/api/v1/users/token/{bot_user}", token=token)
+                      if token_resp and "JWTAuthMechanism" in str(token_resp):
+                          pass  # bot tokens managed separately
+                  log(f"Ingestion bot found: {bot_resp.get('name')}")
+
+              # ── 1. Register Kafka messaging service ─────────────────
+              print("\nRegistering Kafka service...", flush=True)
+              api("PUT", "/api/v1/services/messagingServices", {
+                  "name": "kafka",
+                  "displayName": "Kafka Domain Topics",
+                  "serviceType": "Kafka",
+                  "connection": {
+                      "config": {
+                          "type": "Kafka",
+                          "bootstrapServers": "kafka:29092",
+                          "schemaRegistryURL": "http://schema-registry:8081"
+                      }
+                  }
+              }, token)
+              log("Kafka service registered")
+
+              # ── 2. Register Trino database service ──────────────────
+              print("\nRegistering Trino service...", flush=True)
+              api("PUT", "/api/v1/services/databaseServices", {
+                  "name": "trino-iceberg",
+                  "displayName": "Iceberg Lakehouse (Trino)",
+                  "serviceType": "Trino",
+                  "connection": {
+                      "config": {
+                          "type": "Trino",
+                          "hostPort": "trino:8086",
+                          "username": "openmetadata",
+                          "catalog": "iceberg",
+                          "databaseSchema": "analytics"
+                      }
+                  }
+              }, token)
+              log("Trino service registered")
+
+              # ── 3. Create PII classification + tags ─────────────────
+              print("\nCreating PII classification...", flush=True)
+              api("PUT", "/api/v1/classifications", {
+                  "name": "PII",
+                  "displayName": "Personally Identifiable Information",
+                  "description": "Classification for data containing personally identifiable information subject to nDSG/GDPR"
+              }, token)
+
+              for tag_name, tag_desc in [
+                  ("Sensitive", "PII fields requiring crypto-shredding (ADR-009). Includes: name, firstName, socialSecurityNumber, dateOfBirth, addresses."),
+                  ("PersonIdentifier", "Direct person identifiers (personId, AHV number). Key deletion in Vault renders all associated data unreadable."),
+                  ("Address", "Physical address data (street, city, postalCode). Subject to right-to-erasure.")
+              ]:
+                  api("PUT", "/api/v1/tags", {
+                      "name": tag_name,
+                      "displayName": tag_name,
+                      "description": tag_desc,
+                      "classification": "PII"
+                  }, token)
+                  log(f"Tag PII.{tag_name} created")
+
+              # ── 4. Run Kafka metadata ingestion via CLI ─────────────
+              print("\nRunning Kafka metadata ingestion via CLI...", flush=True)
+              kafka_yaml = textwrap.dedent(f"""\
+              source:
+                type: kafka
+                serviceName: kafka
+                serviceConnection:
+                  config:
+                    type: Kafka
+                    bootstrapServers: kafka:29092
+                    schemaRegistryURL: http://schema-registry:8081
+                sourceConfig:
+                  config:
+                    type: MessagingMetadata
+                    topicFilterPattern:
+                      includes:
+                        - "person\\\\.v1\\\\..*"
+                        - "product\\\\.v1\\\\..*"
+                        - "policy\\\\.v1\\\\..*"
+                        - "claims\\\\.v1\\\\..*"
+                        - "billing\\\\.v1\\\\..*"
+                        - "hr\\\\.v1\\\\..*"
+                    generateSampleData: true
+                    markDeletedTopics: true
+              sink:
+                type: metadata-rest
+                config: {{}}
+              workflowConfig:
+                openMetadataServerConfig:
+                  hostPort: {OM_URL}/api
+                  authProvider: openmetadata
+                  securityConfig:
+                    jwtToken: "{token}"
+              """)
+              with open("/tmp/kafka-ingest.yaml", "w") as f:
+                  f.write(kafka_yaml)
+
+              result = subprocess.run(
+                  ["metadata", "ingest", "-c", "/tmp/kafka-ingest.yaml"],
+                  capture_output=True, text=True, timeout=300
+              )
+              for line in result.stdout.strip().split("\n")[-10:]:
+                  log(line)
+              if result.returncode != 0:
+                  for line in result.stderr.strip().split("\n")[-5:]:
+                      log(f"STDERR: {line}")
+                  log(f"Kafka ingestion exit code: {result.returncode}")
+              else:
+                  log("Kafka ingestion completed successfully")
+
+              # ── 5. Run Trino metadata ingestion via CLI ─────────────
+              print("\nRunning Trino metadata ingestion via CLI...", flush=True)
+              trino_yaml = textwrap.dedent(f"""\
+              source:
+                type: trino
+                serviceName: trino-iceberg
+                serviceConnection:
+                  config:
+                    type: Trino
+                    hostPort: trino:8086
+                    username: openmetadata
+                    catalog: iceberg
+                sourceConfig:
+                  config:
+                    type: DatabaseMetadata
+                    schemaFilterPattern:
+                      includes:
+                        - analytics
+                        - partner_raw
+                        - product_raw
+                        - policy_raw
+                        - billing_raw
+                        - claims_raw
+                        - hr_raw
+                    includeViews: true
+                    markDeletedTables: true
+                    includeTags: true
+              sink:
+                type: metadata-rest
+                config: {{}}
+              workflowConfig:
+                openMetadataServerConfig:
+                  hostPort: {OM_URL}/api
+                  authProvider: openmetadata
+                  securityConfig:
+                    jwtToken: "{token}"
+              """)
+              with open("/tmp/trino-ingest.yaml", "w") as f:
+                  f.write(trino_yaml)
+
+              result = subprocess.run(
+                  ["metadata", "ingest", "-c", "/tmp/trino-ingest.yaml"],
+                  capture_output=True, text=True, timeout=300
+              )
+              for line in result.stdout.strip().split("\n")[-10:]:
+                  log(line)
+              if result.returncode != 0:
+                  for line in result.stderr.strip().split("\n")[-5:]:
+                      log(f"STDERR: {line}")
+                  log(f"Trino ingestion exit code: {result.returncode}")
+              else:
+                  log("Trino ingestion completed successfully")
+
+              # ── 6. Trigger search reindex ───────────────────────────
+              print("\nTriggering search reindex...", flush=True)
+              reindex_resp = api("POST", "/api/v1/apps/name/SearchIndexingApplication/trigger", {}, token)
+              if reindex_resp:
+                  log("Search reindex triggered")
+              else:
+                  log("Search reindex trigger failed (may need manual trigger from UI)")
+
+              # ── 7. Report ───────────────────────────────────────────
+              print("\nOpenMetadata initialization complete.", flush=True)
+              topics = api("GET", "/api/v1/topics?service=kafka&limit=100", token=token)
+              tables = api("GET", "/api/v1/tables?service=trino-iceberg&limit=100", token=token)
+              t_count = topics["paging"]["total"] if topics and "paging" in topics else 0
+              tb_count = tables["paging"]["total"] if tables and "paging" in tables else 0
+              log(f"Kafka Topics: {t_count}")
+              log(f"Iceberg Tables: {tb_count}")
+              log(f"PII Tags: 3 (Sensitive, PersonIdentifier, Address)")
+          resources:
+            limits:
+              memory: 1Gi

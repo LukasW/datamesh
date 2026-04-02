@@ -14,4 +14,6 @@ resources:
   - observability.yaml
   - governance.yaml
   - init-jobs.yaml
+  - transformation.yaml
+  - governance-init-job.yaml
   # ingress.yaml is applied separately in deploy.sh (after NGINX controller is ready)

@@ -71,6 +71,8 @@ echo ""
 echo "▶ Building custom container images..."
 $CONTAINER_CMD build -t yuno/debezium-connect:latest infra/debezium/
 $CONTAINER_CMD build -t yuno/superset:local infra/superset/
+$CONTAINER_CMD build -t yuno/trino:local infra/trino/
+$CONTAINER_CMD build -t yuno/sqlmesh:local infra/sqlmesh/
 
 echo ""
 echo "✓ All images built successfully."

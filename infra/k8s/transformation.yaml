@@ -1,0 +1,90 @@
+# ── SQLMesh (Incremental Transformations: raw → staging → marts) ──────────────
+
+# ═══════════════════════════════════════════════════════════
+# SQLMesh Initial Plan + Apply (one-time bootstrap)
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sqlmesh-init
+  namespace: datamesh
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: sqlmesh
+          image: yuno/sqlmesh:local
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Waiting for Trino to be ready..."
+              until python3 -c "
+              import urllib.request
+              try:
+                  urllib.request.urlopen('http://trino:8086/v1/info')
+                  print('Trino is up')
+              except:
+                  exit(1)
+              " 2>/dev/null; do
+                sleep 5
+              done
+
+              echo "Waiting for Iceberg raw schemas (Iceberg Sink Connectors need time)..."
+              attempts=0
+              until python3 -c "
+              from trino.dbapi import connect
+              conn = connect(host='trino', port=8086, user='sqlmesh', catalog='iceberg')
+              cur = conn.cursor()
+              cur.execute('SHOW SCHEMAS')
+              schemas = [row[0] for row in cur.fetchall()]
+              raw_schemas = [s for s in schemas if s.endswith('_raw')]
+              if len(raw_schemas) == 0:
+                  print(f'No raw schemas yet (found: {schemas})')
+                  exit(1)
+              print(f'Found raw schemas: {raw_schemas}')
+              " 2>/dev/null; do
+                attempts=$((attempts + 1))
+                if [ $attempts -ge 60 ]; then
+                  echo "WARNING: No raw schemas after 5 minutes. Running plan anyway (tables may be created later)."
+                  break
+                fi
+                sleep 5
+              done
+
+              echo "Running sqlmesh plan --auto-apply..."
+              sqlmesh plan --auto-apply --no-prompts
+          resources:
+            limits:
+              memory: 512Mi
+---
+# ═══════════════════════════════════════════════════════════
+# SQLMesh Hourly Run (incremental updates)
+# ═══════════════════════════════════════════════════════════
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sqlmesh-run
+  namespace: datamesh
+spec:
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: sqlmesh
+              image: yuno/sqlmesh:local
+              imagePullPolicy: IfNotPresent
+              command: ["sqlmesh", "run"]
+              resources:
+                limits:
+                  memory: 512Mi

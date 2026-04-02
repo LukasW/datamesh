@@ -388,6 +388,9 @@ services:
       # OpenLineage integration — emit CDC/Iceberg lineage events to Marquez
       OPENLINEAGE_URL: http://marquez:5050
       OPENLINEAGE_NAMESPACE: kafka-connect
+      OPENLINEAGE_TRANSPORT_TYPE: http
+      OPENLINEAGE_TRANSPORT_URL: http://marquez:5050
+      CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
       PARTNER_DB_PASSWORD: ${PARTNER_DB_PASSWORD}
       PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD}
       POLICY_DB_PASSWORD: ${POLICY_DB_PASSWORD}

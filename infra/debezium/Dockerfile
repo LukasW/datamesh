@@ -18,10 +18,14 @@ COPY --from=iceberg-deps /tmp/iceberg-plugin/libs/ /usr/share/confluent-hub-comp
 
 # OpenLineage transport – enables automatic lineage emission from Kafka Connect
 # connectors (Debezium source + Iceberg sink) to Marquez via OPENLINEAGE_URL env var.
+# JARs placed on Connect classpath so the OpenLineage TransformConfig is discoverable.
 RUN mkdir -p /usr/share/java/openlineage && \
     curl -sL -o /usr/share/java/openlineage/openlineage-java-1.25.0.jar \
       https://repo1.maven.org/maven2/io/openlineage/openlineage-java/1.25.0/openlineage-java-1.25.0.jar && \
     curl -sL -o /usr/share/java/openlineage/openlineage-sql-java-1.25.0.jar \
       https://repo1.maven.org/maven2/io/openlineage/openlineage-sql-java/1.25.0/openlineage-sql-java-1.25.0.jar
+
+# Ensure OpenLineage JARs are on the Kafka Connect classpath
+ENV CLASSPATH="/usr/share/java/openlineage/*"
 
 USER appuser

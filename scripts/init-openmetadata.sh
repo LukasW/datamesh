@@ -112,6 +112,7 @@ source:
           - 'policy\\.v1\\..*'
           - 'claims\\.v1\\..*'
           - 'billing\\.v1\\..*'
+          - 'hr\\.v1\\..*'
       generateSampleData: true
       markDeletedTopics: true
 sink:
@@ -153,6 +154,7 @@ source:
           - policy_raw
           - billing_raw
           - claims_raw
+          - hr_raw
       includeViews: true
       markDeletedTables: true
       includeTags: true
@@ -241,13 +243,13 @@ deploy_pipeline() {
 if [[ -n "$KAFKA_ID" ]]; then
   deploy_pipeline "kafka-metadata-ingestion" "Kafka Metadata Ingestion" "metadata" \
     "$KAFKA_ID" "messagingService" "kafka.kafka-metadata-ingestion" \
-    '{"config":{"type":"MessagingMetadata","topicFilterPattern":{"includes":["person\\.v1\\..*","product\\.v1\\..*","policy\\.v1\\..*","claims\\.v1\\..*","billing\\.v1\\..*"]},"generateSampleData":true,"markDeletedTopics":true}}'
+    '{"config":{"type":"MessagingMetadata","topicFilterPattern":{"includes":["person\\.v1\\..*","product\\.v1\\..*","policy\\.v1\\..*","claims\\.v1\\..*","billing\\.v1\\..*","hr\\.v1\\..*"]},"generateSampleData":true,"markDeletedTopics":true}}'
 fi
 
 if [[ -n "$TRINO_ID" ]]; then
   deploy_pipeline "trino-metadata-ingestion" "Trino Metadata Ingestion" "metadata" \
     "$TRINO_ID" "databaseService" "trino-iceberg.trino-metadata-ingestion" \
-    '{"config":{"type":"DatabaseMetadata","schemaFilterPattern":{"includes":["analytics","partner_raw","product_raw","policy_raw","billing_raw","claims_raw"]},"includeViews":true,"markDeletedTables":true,"includeTags":true}}'
+    '{"config":{"type":"DatabaseMetadata","schemaFilterPattern":{"includes":["analytics","partner_raw","product_raw","policy_raw","billing_raw","claims_raw","hr_raw"]},"includeViews":true,"markDeletedTables":true,"includeTags":true}}'
 fi
 
 # ── 7. Report ─────────────────────────────────────────────────────────────

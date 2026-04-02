@@ -150,6 +150,8 @@ DOMAIN_IMAGES=(
 INFRA_IMAGES=(
   "yuno/debezium-connect:latest"
   "yuno/superset:local"
+  "yuno/trino:local"
+  "yuno/sqlmesh:local"
 )
 
 load_image() {
@@ -241,8 +243,22 @@ if [[ -f "$PROJECT_ROOT/infra/superset/superset_config.py" ]]; then
     --from-file=superset-init.sh="$PROJECT_ROOT/infra/superset/superset-init.sh"
 fi
 
+# JSON Schemas for Schema Registry init job
+SCHEMA_ARGS=()
+for svc in partner product policy claims billing; do
+  schema_dir="$PROJECT_ROOT/$svc/src/main/resources/contracts/schemas"
+  if [[ -d "$schema_dir" ]]; then
+    for f in "$schema_dir"/*.schema.json; do
+      [[ -f "$f" ]] && SCHEMA_ARGS+=(--from-file="$(basename "$f")=$f")
+    done
+  fi
+done
+if [[ ${#SCHEMA_ARGS[@]} -gt 0 ]]; then
+  create_cm json-schemas "${SCHEMA_ARGS[@]}"
+fi
+
 # ── Delete completed init jobs (for idempotent re-deploys) ───────────────────
-for job in vault-init minio-init kafka-init debezium-init iceberg-init seed-data; do
+for job in vault-init minio-init kafka-init debezium-init iceberg-init seed-data sqlmesh-init schema-registry-init openmetadata-init; do
   kubectl -n datamesh delete job "$job" --ignore-not-found 2>/dev/null
 done
 
@@ -277,7 +293,7 @@ done
 step "Waiting for core infrastructure to be ready..."
 
 echo "  Databases..."
-for db in partner-db product-db policy-db claims-db billing-db hr-db; do
+for db in partner-db product-db policy-db claims-db billing-db hr-db nessie-db; do
   kubectl -n datamesh rollout status statefulset/$db --timeout=120s 2>/dev/null || true
 done
 

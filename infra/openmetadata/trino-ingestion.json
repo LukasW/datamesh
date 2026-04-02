@@ -22,7 +22,8 @@
           "product_raw",
           "policy_raw",
           "billing_raw",
-          "claims_raw"
+          "claims_raw",
+          "hr_raw"
         ]
       },
       "includeViews": true,

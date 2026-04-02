@@ -279,6 +279,12 @@ spec:
               value: http://marquez:5050
             - name: OPENLINEAGE_NAMESPACE
               value: kafka-connect
+            - name: OPENLINEAGE_TRANSPORT_TYPE
+              value: http
+            - name: OPENLINEAGE_TRANSPORT_URL
+              value: http://marquez:5050
+            - name: CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY
+              value: All
             - name: PARTNER_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -304,6 +310,13 @@ spec:
                 secretKeyRef:
                   name: db-passwords
                   key: claims-db-password
+            # AWS SDK region for Iceberg Sink S3 client (MinIO)
+            - name: AWS_REGION
+              value: us-east-1
+            - name: AWS_ACCESS_KEY_ID
+              value: minioadmin
+            - name: AWS_SECRET_ACCESS_KEY
+              value: minioadmin
           ports:
             - containerPort: 8083
           readinessProbe:

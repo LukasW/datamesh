@@ -105,7 +105,13 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: NESSIE_VERSION_STORE_TYPE
-              value: IN_MEMORY
+              value: JDBC
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: jdbc:postgresql://nessie-db:5432/nessie
+            - name: QUARKUS_DATASOURCE_USERNAME
+              value: nessie
+            - name: QUARKUS_DATASOURCE_PASSWORD
+              value: nessie
           ports:
             - containerPort: 19120
           readinessProbe:
@@ -150,7 +156,7 @@ spec:
     spec:
       containers:
         - name: trino
-          image: trinodb/trino
+          image: yuno/trino:local
           imagePullPolicy: IfNotPresent
           env:
             - name: VAULT_ADDR
