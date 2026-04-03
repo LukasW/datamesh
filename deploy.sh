@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-# compose.sh – Build and deploy the Datamesh platform via Docker Compose
+# deploy-compose.sh – Build and deploy the platform via Docker Compose
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -32,7 +32,7 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Build and deploy the Datamesh platform via Docker Compose.
+Build and deploy the platform via Docker Compose.
 
 Options:
   --skip-build     Skip Maven build (reuse existing images)
@@ -68,54 +68,14 @@ fi
 echo ""
 echo "▶ Restarting Compose..."
 
-${=COMPOSE_CMD} --profile tools down $([[ "$DELETE_VOLUMES" == true ]] && echo "-v") 2>/dev/null || true
-${=COMPOSE_CMD} --profile tools build
-${=COMPOSE_CMD} --profile tools up $([[ "$DAEMON_MODE" == true ]] && echo "-d")
+${=COMPOSE_CMD} down $([[ "$DELETE_VOLUMES" == true ]] && echo "-v") 2>/dev/null || true
+${=COMPOSE_CMD} build
+${=COMPOSE_CMD} up $([[ "$DAEMON_MODE" == true ]] && echo "-d")
 
 if [[ "$DAEMON_MODE" == true ]]; then
-  echo "▶ Waiting for Debezium Connect to be ready..."
-  for i in {1..30}; do
-    if curl -sf http://localhost:8083/connectors > /dev/null 2>&1; then
-      break
-    fi
-    sleep 2
-  done
-
-  echo "▶ Registering Debezium connectors..."
-  register_connector() {
-    local file="$1"
-    local name
-    name=$(python3 -c "import sys,json; print(json.load(open('$file'))['name'])")
-    local config
-    config=$(python3 -c "import sys,json; print(json.dumps(json.load(open('$file'))['config']))")
-    if curl -sf -X PUT "http://localhost:8083/connectors/${name}/config" \
-        -H "Content-Type: application/json" \
-        -d "$config" > /dev/null; then
-      echo "  ✓ ${name} registered"
-    else
-      echo "  ✗ ${name} registration failed"
-    fi
-  }
-
-  register_connector infra/debezium/partner-outbox-connector.json
-  register_connector infra/debezium/product-outbox-connector.json
-  register_connector infra/debezium/policy-outbox-connector.json
-  register_connector infra/debezium/billing-outbox-connector.json
-  register_connector infra/debezium/claims-outbox-connector.json
-
-  echo ""
-  echo "▶ Registering Iceberg sink connectors..."
-  for sink in infra/debezium/iceberg-sink-*.json; do
-    register_connector "$sink"
-  done
-
   echo ""
   echo "▶ Registering JSON Schemas in Schema Registry..."
   scripts/register-schemas.sh || echo "  ⚠ Schema registration failed (non-blocking)"
-
-  echo ""
-  echo "▶ Initializing OpenMetadata catalog..."
-  scripts/init-openmetadata.sh || echo "  ⚠ OpenMetadata init failed (non-blocking)"
 
   if [[ "$CREATE_TEST_DATA" == true ]]; then
     echo ""
@@ -140,35 +100,33 @@ if [[ "$DAEMON_MODE" == true ]]; then
   echo "║  HR-System (COTS)   http://localhost:9085              :9085             ║"
   echo "║  HR-Integration     http://localhost:9086/q/health     :9086             ║"
   echo "║  ────────────────────────────────────────────────────────────────────   ║"
-  echo "║  Data Mesh & Governance                                                 ║"
-  echo "║  ────────────────────────────────────────────────────────────────────   ║"
-  echo "║  OpenMetadata       http://localhost:8585              :8585             ║"
-  echo "║  Apache Superset    http://localhost:8088              :8088             ║"
-  echo "║  Trino              http://localhost:8086              :8086             ║"
-  echo "║  Marquez (Lineage)  http://localhost:3001              :3001             ║"
-  echo "║  MinIO Console      http://localhost:9001              :9001             ║"
-  echo "║  Nessie Catalog     http://localhost:19120             :19120            ║"
-  echo "║  Vault              http://localhost:8200              :8200             ║"
-  echo "║  ────────────────────────────────────────────────────────────────────   ║"
   echo "║  Infrastruktur                                                          ║"
   echo "║  ────────────────────────────────────────────────────────────────────   ║"
-  echo "║  Keycloak Admin     http://localhost:8180              :8180             ║"
+  echo "║  Keycloak Admin     http://localhost:8280              :8280             ║"
   echo "║  AKHQ (Kafka UI)    http://localhost:8085              :8085             ║"
   echo "║  Schema Registry    http://localhost:8081              :8081             ║"
-  echo "║  Debezium Connect   http://localhost:8083/connectors   :8083             ║"
+  echo "║  Vault              http://localhost:8200              :8200             ║"
   echo "║  Prometheus         http://localhost:9090              :9090             ║"
   echo "║  Jaeger (Tracing)   http://localhost:16686             :16686            ║"
   echo "║  Grafana            http://localhost:3000              :3000             ║"
+  echo "║  ────────────────────────────────────────────────────────────────────   ║"
+  echo "║  Data Mesh & Analytics                                                  ║"
+  echo "║  ────────────────────────────────────────────────────────────────────   ║"
+  echo "║  MinIO Console      http://localhost:9001              :9001             ║"
+  echo "║  Nessie Catalog     http://localhost:19120/api/v2      :19120            ║"
+  echo "║  Trino              http://localhost:8086              :8086             ║"
+  echo "║  Superset           http://localhost:8088              :8088             ║"
+  echo "║  OpenMetadata       http://localhost:8585              :8585             ║"
   echo "╠══════════════════════════════════════════════════════════════════════════╣"
   echo "║  Zugangsdaten                                                           ║"
   echo "║  ────────────────────────────────────────────────────────────────────   ║"
   echo "║  Domain Services    admin / admin  (via Keycloak, alle Rollen)          ║"
   echo "║  Keycloak Admin     admin / admin                                       ║"
-  echo "║  OpenMetadata       admin@open-metadata.org / admin                      ║"
-  echo "║  Superset           admin / admin                                       ║"
   echo "║  Grafana            admin / admin                                       ║"
-  echo "║  MinIO              minioadmin / minioadmin                              ║"
+  echo "║  Superset           admin / admin                                       ║"
+  echo "║  OpenMetadata       admin@open-metadata.org / admin                    ║"
+  echo "║  Trino              (kein Auth – anonymer Zugriff)                      ║"
+  echo "║  MinIO              minioadmin / minioadmin                             ║"
   echo "║  Vault              Token: dev-root-token                               ║"
-  echo "║  Trino              User: trino  (keine Authentifizierung)              ║"
   echo "╚══════════════════════════════════════════════════════════════════════════╝"
 fi

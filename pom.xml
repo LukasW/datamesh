@@ -23,15 +23,14 @@
 
     <properties>
         <compiler-plugin.version>3.15.0</compiler-plugin.version>
-        <maven.compiler.release>21</maven.compiler.release>
-        <avro.version>1.11.3</avro.version>
-        <confluent.version>7.5.0</confluent.version>
-        <openlineage.version>1.25.0</openlineage.version>
+        <maven.compiler.release>25</maven.compiler.release>
+        <avro.version>1.12.1</avro.version>
+        <confluent.version>7.9.2</confluent.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.32.3</quarkus.platform.version>
+        <quarkus.platform.version>3.34.2</quarkus.platform.version>
         <quarkus.container-image.group>${IMAGE_REGISTRY:css}</quarkus.container-image.group>
         <quarkus.container-image.additional-tags>latest</quarkus.container-image.additional-tags>
         <skipITs>true</skipITs>
@@ -62,11 +61,6 @@
                         <artifactId>kafka-clients</artifactId>
                     </exclusion>
                 </exclusions>
-            </dependency>
-            <dependency>
-                <groupId>io.openlineage</groupId>
-                <artifactId>openlineage-java</artifactId>
-                <version>${openlineage.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

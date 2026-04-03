@@ -28,12 +28,10 @@ A property insurance platform built on **Domain-Driven Design**, **Hexagonal Arc
 │  Superset :8088 (BI dashboards, Keycloak SSO)                  │
 │  Soda Core (data quality checks via SodaCL)                    │
 └─────────────────────────────────────────────────────────────────┘
-        │ OpenLineage + Metadata Ingestion
+        │
         ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ Governance & Metadata                                           │
-│  OpenMetadata :8585 (catalog, PII tags, lineage)               │
-│  Marquez :5050 (OpenLineage lineage server)                    │
+│ Security & Privacy                                              │
 │  Vault :8200 (crypto-shredding, ADR-009)                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -75,16 +73,18 @@ Full architecture documentation: [specs/arc42.md](specs/arc42.md)
 | Component | URL | Purpose |
 | --- | --- | --- |
 | MinIO Console | http://localhost:9001 | S3-compatible object store (Iceberg Parquet files) |
+| Nessie | http://localhost:19120/api/v2 | Git-like Iceberg catalog |
 | Trino | http://localhost:8086 | Federated SQL on Iceberg tables |
 | Superset | http://localhost:8088 | Self-Service BI dashboards (Keycloak SSO) |
+| OpenMetadata | http://localhost:8585 | Data catalog, lineage, PII tags |
 
-### Governance & Metadata
+### Observability
 
 | Component | URL | Purpose |
 | --- | --- | --- |
-| OpenMetadata | http://localhost:8585 | Data catalog, PII tagging, lineage |
-| Marquez | http://localhost:5050 | OpenLineage lineage server |
-| Marquez Web | http://localhost:3001 | Lineage visualization UI |
+| Prometheus | http://localhost:9090 | Metrics scraping |
+| Grafana | http://localhost:3000 | Dashboards (admin/admin) |
+| Jaeger | http://localhost:16686 | Distributed tracing |
 
 ### Databases (direct access via psql / DBeaver)
 
@@ -92,7 +92,7 @@ Full architecture documentation: [specs/arc42.md](specs/arc42.md)
 | --- | --- | --- | --- | --- |
 | partner_db | localhost | 5432 | partner_user | partner_db |
 | product_db | localhost | 5433 | product_user | product_db |
-| policy_db | localhost | 5434 | policy_user | policy_db |
+| policy_db | localhost | 5435 | policy_user | policy_db |
 | billing_db | localhost | 5436 | billing_user | billing_db |
 | claims_db | localhost | 5437 | claims_user | claims_db |
 | hr_db | localhost | 5438 | hr_user | hr_db |
@@ -208,16 +208,6 @@ All topics are described by an Open Data Contract (ODC) YAML under `{domain}/src
 
 ---
 
-## Metadata & Governance
-
-**OpenMetadata** provides data discovery, PII tagging, and quality dashboards at http://localhost:8585. Two ingestion pipelines run every 6 hours:
-- **kafka-metadata-ingestion** — discovers all `*.v1.*` topics
-- **trino-metadata-ingestion** — discovers Iceberg tables in all raw + analytics schemas
-
-**Marquez** (http://localhost:5050) tracks end-to-end data lineage via OpenLineage events from Debezium Connect and SQLMesh.
-
-**Soda Core** runs SodaCL quality checks against Iceberg tables via Trino (null rates, duplicates, freshness).
-
 ---
 
 ## Project Structure
@@ -327,7 +317,6 @@ Each domain service (partner, product, policy) requires its own `DATABASE_URL`, 
 | Data Quality | Soda Core (SodaCL on Trino) |
 | BI / Dashboards | Apache Superset (Keycloak SSO, Row-Level Security) |
 | Metadata Catalogue | OpenMetadata |
-| Data Lineage | OpenLineage / Marquez |
 | Crypto-Shredding | HashiCorp Vault (Transit engine, ADR-009) |
 | UI | Quarkus Qute + Bootstrap + htmx |
 | Build | Maven (multi-module) |

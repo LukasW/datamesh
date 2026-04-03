@@ -9,7 +9,7 @@
 | **kafka** | 9092 | Central event broker running in KRaft mode (no ZooKeeper). All domain integration is asynchronous and exclusively via Kafka topics — direct service-to-service DB access is forbidden (ADR-001). Uses `confluentinc/cp-kafka:7.5.0`. Listens internally on `29092` (inter-broker) and externally on `9092` (host). Resource limits: 1 CPU, 1.5 GB. |
 | **schema-registry** | 8081 | Confluent Schema Registry (`confluentinc/cp-schema-registry:7.5.0`). Stores and versions Avro schemas for every Kafka topic. Producers validate messages against the registered schema before publishing; consumers use it to deserialise. Prevents silent schema-breaking changes across domain boundaries. |
 | **akhq** | 8085 | Kafka management UI (`tchiotludo/akhq:0.25.1`). Browse topics, inspect individual messages, monitor consumer group lag, view registered schemas, and manage ACLs. Dev/ops tooling only; not part of the data flow. Connected to `frontend` network only. |
-| **debezium-connect** | 8083 | Kafka Connect worker built from a custom Dockerfile (`infra/debezium/Dockerfile`). Bundles three connector types: (1) **Debezium PostgreSQL** (`2.5.4`) — tails the PostgreSQL WAL (Change Data Capture) on each domain database and forwards outbox rows to Kafka; (2) **Avro Converter** (`7.5.0`) — Schema Registry-aware serialisation; (3) **Iceberg Sink Connector** — writes Kafka events as Apache Iceberg tables into MinIO. Emits OpenLineage events to Marquez (`OPENLINEAGE_URL`). Uses `EnvVarConfigProvider` to inject DB passwords at runtime. Resource limits: 1 CPU, 1.5 GB. |
+| **debezium-connect** | 8083 | Kafka Connect worker built from a custom Dockerfile (`infra/debezium/Dockerfile`). Bundles three connector types: (1) **Debezium PostgreSQL** (`2.5.4`) — tails the PostgreSQL WAL (Change Data Capture) on each domain database and forwards outbox rows to Kafka; (2) **Avro Converter** (`7.5.0`) — Schema Registry-aware serialisation; (3) **Iceberg Sink Connector** — writes Kafka events as Apache Iceberg tables into MinIO. Uses `EnvVarConfigProvider` to inject DB passwords at runtime. Resource limits: 1 CPU, 1.5 GB. |
 | **keycloak** | 8180 | Identity Provider (`quay.io/keycloak/keycloak:24.0`). Runs in dev mode with a pre-imported realm (`infra/keycloak/yuno-realm.json`). Provides OIDC tokens for all five domain services and Superset. Defines roles `UNDERWRITER`, `CLAIMS_AGENT`, `BROKER`, `ADMIN`. All Quarkus services validate JWTs against this instance. |
 
 ### Init Jobs
@@ -35,7 +35,6 @@
 | **billing-db** | 5436 | PostgreSQL 16 instance owned exclusively by `billing-service`. WAL logical replication enabled for Debezium CDC on the outbox table. |
 | **superset-db** | — | PostgreSQL 16 instance for Apache Superset internal metadata (dashboards, saved queries, datasource configs, user sessions). Not exposed externally. |
 | **openmetadata-db** | — | PostgreSQL 16 instance for OpenMetadata server metadata and (in a separate `airflow` database created by `init-airflow-db.sql`) for the Airflow scheduler/webserver state used by the ingestion container. |
-| **marquez-db** | — | PostgreSQL 16 instance for Marquez lineage data (namespaces, jobs, runs, datasets, lineage edges). Not exposed externally. |
 | **hr-db** | 5438 | PostgreSQL 16 instance owned exclusively by `hr-system`. Standard configuration (no CDC/WAL needed — integration runs via OData polling, not Debezium). Volume: `hr-db-data`. |
 
 ### Domain Services
@@ -73,7 +72,7 @@
 
 | Service | Purpose |
 |---|---|
-| **sqlmesh** | Incremental model transformations on Iceberg via Trino. Built from `infra/sqlmesh/Dockerfile` (Python 3.12 + `sqlmesh[trino]`). Runs in the `tools` profile (`--profile tools`). Configuration in `infra/sqlmesh/config.yaml`: gateway points at `trino:8086`, catalog `iceberg`, schema `analytics`. Models (`infra/sqlmesh/models/`) include `dim_partner`, `dim_product`, `fact_policies`, `fact_invoices`, and cross-domain marts. Runs on an `@hourly` cron. Emits **OpenLineage** events to Marquez for end-to-end lineage tracking. Replaces the earlier dbt + Airflow approach. |
+| **sqlmesh** | Incremental model transformations on Iceberg via Trino. Built from `infra/sqlmesh/Dockerfile` (Python 3.12 + `sqlmesh[trino]`). Runs in the `tools` profile (`--profile tools`). Configuration in `infra/sqlmesh/config.yaml`: gateway points at `trino:8086`, catalog `iceberg`, schema `analytics`. Models (`infra/sqlmesh/models/`) include `dim_partner`, `dim_product`, `fact_policies`, `fact_invoices`, and cross-domain marts. Runs on an `@hourly` cron. Replaces the earlier dbt + Airflow approach. |
 
 ### Governance & Compliance (Phase 3)
 
@@ -82,8 +81,6 @@
 | **openmetadata-server** | 8585 | Unified metadata catalog (`openmetadata/server:1.6.13`). Provides data discovery, search, PII tagging, data quality dashboards, and retention policy management. Stores metadata in `openmetadata-db`, search index in OpenSearch. Exposes REST API on port 8585 (admin healthcheck on 8586). Connects to the ingestion container for Airflow pipeline orchestration (`PIPELINE_SERVICE_CLIENT_ENDPOINT`). Configured with `SEARCH_TYPE=opensearch` for OpenSearch 2.11.1 compatibility. |
 | **openmetadata-ingestion** | — | Airflow-based ingestion orchestrator (`openmetadata/ingestion:1.6.13`). Runs both `airflow scheduler` and `airflow webserver` (port 8080) as supervised background processes. Uses a dedicated `airflow` database (separate from the OM server DB) with `LocalExecutor`. Hosts two scheduled ingestion pipelines: **kafka-metadata-ingestion** (discovers all `*.v1.*` topics every 6 hours) and **trino-metadata-ingestion** (discovers Iceberg tables in all raw schemas + analytics every 6 hours). Automatically picks up new topics, schema changes, and new tables. Mounts ODC contract directories from all five domains. Resource limits: 1.5 CPUs, 3 GB. |
 | **openmetadata-elasticsearch** | 9200 | OpenSearch 2.11.1 instance (`opensearchproject/opensearch:2.11.1`) used by OpenMetadata for full-text search and indexing. Pinned to 2.11.1 for aarch64/Apple Silicon compatibility (later versions crash with JVM SIGILL). Runs in single-node mode with security disabled. JVM: 512 MB heap. |
-| **marquez** | 5050 (API), 5051 (Admin) | OpenLineage-compatible lineage server (`marquezproject/marquez`). Receives lineage events from Debezium Connect (`OPENLINEAGE_URL`) and SQLMesh. Tracks end-to-end data lineage from CDC source tables through Kafka topics to Iceberg tables to SQLMesh analytical marts. Stores lineage graph in `marquez-db`. |
-| **marquez-web** | 3001 | Web UI for Marquez lineage visualization (`marquezproject/marquez-web`). Displays interactive lineage graphs showing how data flows from source databases through CDC, Kafka, Iceberg, and transformations. Connected to `frontend` network for browser access. |
 | **vault** | 8200 | HashiCorp Vault (`hashicorp/vault`) for crypto-shredding (ADR-009). Runs in **dev mode** with root token `dev-root-token`. The **Transit** secrets engine (enabled by `vault-init`) manages per-entity AES-256 encryption keys. When a GDPR/nDSG right-to-erasure request is received, the corresponding Transit key is destroyed, rendering all encrypted PII fields permanently unreadable. `partner-service` integrates directly with Vault for encrypt/decrypt operations. |
 | **soda-core** | — | Data quality and contract testing engine. Built from `infra/soda/Dockerfile` (Python 3.12 + `soda-core-trino`). Runs in the `tools` profile. Executes SodaCL checks (`infra/soda/checks/`) against Iceberg tables via Trino: null rates, duplicate detection, row count thresholds, and freshness assertions (e.g., `freshness < 24h` on `partner_raw.person_events`). Validates that data products meet their ODC contract guarantees. |
 
@@ -160,7 +157,6 @@ component "superset\n:8088"       <<lakehouse>> as SUPERSET
 
 ' ── Governance & Compliance ──────────────────────────────────────────
 component "openmetadata\n:8585"   <<governance>> as OMD
-component "marquez\n:5050"        <<governance>> as MRQ
 component "vault\n:8200"          <<governance>> as VAULT
 component "soda-core"             <<governance>> as SODA
 
@@ -221,8 +217,6 @@ SUPERSET --> TRINO : BI queries
 ' ── Governance ────────────────────────────────────────────────────────
 OMD  --> KAFKA  : topic metadata
 OMD  --> TRINO  : table metadata
-MRQ  --> SQLMESH : OpenLineage events
-DBZ  --> MRQ    : OpenLineage events
 SODA --> TRINO  : quality checks
 
 ' ── Schema Registry ───────────────────────────────────────────────────

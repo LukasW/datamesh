@@ -52,7 +52,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: kafka
-          image: confluentinc/cp-kafka:7.5.0
+          image: confluentinc/cp-kafka:7.9.2
           imagePullPolicy: IfNotPresent
           env:
             - name: KAFKA_NODE_ID
@@ -130,7 +130,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: schema-registry
-          image: confluentinc/cp-schema-registry:7.5.0
+          image: confluentinc/cp-schema-registry:7.9.2
           imagePullPolicy: IfNotPresent
           env:
             - name: SCHEMA_REGISTRY_HOST_NAME
@@ -185,7 +185,7 @@ spec:
     spec:
       containers:
         - name: akhq
-          image: tchiotludo/akhq:0.25.1
+          image: tchiotludo/akhq:0.25.2
           imagePullPolicy: IfNotPresent
           env:
             - name: AKHQ_CONFIGURATION
@@ -275,14 +275,6 @@ spec:
               value: env
             - name: CONNECT_CONFIG_PROVIDERS_ENV_CLASS
               value: org.apache.kafka.common.config.provider.EnvVarConfigProvider
-            - name: OPENLINEAGE_URL
-              value: http://marquez:5050
-            - name: OPENLINEAGE_NAMESPACE
-              value: kafka-connect
-            - name: OPENLINEAGE_TRANSPORT_TYPE
-              value: http
-            - name: OPENLINEAGE_TRANSPORT_URL
-              value: http://marquez:5050
             - name: CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY
               value: All
             - name: PARTNER_DB_PASSWORD

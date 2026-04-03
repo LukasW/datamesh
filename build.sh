@@ -2,8 +2,8 @@
 # build.sh – Build all Datamesh container images (Maven + custom images)
 #
 # This script ONLY builds. For deployment use:
-#   - compose.sh       → Docker Compose
-#   - infra/k8s/deploy.sh  → kind Kubernetes
+#   - deploy-compose.sh     → Docker Compose
+#   - infra/k8s/deploy.sh   → kind Kubernetes
 set -euo pipefail
 
 cd "$(dirname "$0")"

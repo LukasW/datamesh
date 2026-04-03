@@ -14,10 +14,3 @@ model_defaults:
   dialect: trino
   start: "2024-01-01"
   cron: "@hourly"
-
-# OpenLineage integration — emits lineage events to Marquez
-openlineage:
-  transport:
-    type: http
-    url: http://marquez:5050
-    namespace: sqlmesh

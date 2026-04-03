@@ -72,10 +72,6 @@ Aufbau einer modernen Versicherungsplattform für eine Sachversicherung auf Basi
 >
 > - HR-System (Stub) → `hr-system/` *(OData v4 API + CRUD UI, Port 9085)*
 > - HR-Integration (Camel) → `hr-integration/` *(OData → Kafka Bridge, Port 9086)*
->
-> **Geplante Services (Documented Stubs):**
->
-> - Sales & Distribution Service → [`sales/specs/business_spec.md`](../sales/specs/business_spec.md) *(Planned, not yet implemented)*
 
 ### 3.1 Fachlicher Kontext (Context Map)
 
@@ -96,11 +92,9 @@ package "Core Domains" {
 package "Supporting Domains" {
   component [Partner/Customer\nManagement] as PCM
   component [Billing & Collection\n(Inkasso/Exkasso)] as BIL
-  component [Sales & Distribution\n(Vertrieb)] as SAL
 }
 
 package "Generic Domains" {
-  component [Document Management\n(DMS)] as DMS
   component [Identity & Access\nManagement (IAM)] as IAM
 }
 
@@ -130,16 +124,9 @@ KAFKA --> POL
 KAFKA --> CLM
 KAFKA --> BIL
 
-' Sales feeds Policy
-SAL -down-> KAFKA : publiziert\nOfferAccepted
-KAFKA -down-> POL : konsumiert\nOfferAccepted
-
 ' Generic services
-DMS <.. POL : Dokumente ablegen
-DMS <.. CLM : Schadenfotos
 IAM <.. POL
 IAM <.. CLM
-IAM <.. SAL
 
 ' External HR System
 HRS -down-> HRI : OData v4\n(Polling)
@@ -160,22 +147,18 @@ title Technischer Kontext
 actor "Versicherungsnehmer" as VN
 actor "Underwriter" as UW
 actor "Sachbearbeiter" as SB
-actor "Broker/Agent" as BR
 
 cloud "Browser" as BROWSER
 
 rectangle "Sachversicherungs-Plattform" {
   rectangle "Policy UI\n(Quarkus/Qute/htmx)" as POLUI
   rectangle "Claims UI\n(Quarkus/Qute/htmx)" as CLMUI
-  rectangle "Sales UI\n(Quarkus/Qute/htmx)" as SALUI
 
   component "Policy Service" as POLSVC
   component "Claims Service" as CLMSVC
   component "Product Service" as PRODSVC
   component "Partner Service" as PARTSVC
   component "Billing Service" as BILSVC
-  component "Sales Service" as SALSVC
-  component "DMS Service" as DMSSVC
   component "IAM Service\n(Keycloak)" as IAMSVC
   component "HR-System\n(COTS Stub)" as HRSVC
   component "HR-Integration\n(Camel)" as HRINTSVC
@@ -186,29 +169,24 @@ rectangle "Sachversicherungs-Plattform" {
   database "Billing DB\n(PostgreSQL)" as BILDB
   database "Product DB\n(PostgreSQL)" as PRODDB
   database "Partner DB\n(PostgreSQL)" as PARTDB
-  database "Sales DB\n(PostgreSQL)" as SALESDB
   database "HR DB\n(PostgreSQL)" as HRDB
 }
 
 VN --> BROWSER
 UW --> BROWSER
 SB --> BROWSER
-BR --> BROWSER
 
 BROWSER --> POLUI
 BROWSER --> CLMUI
-BROWSER --> SALUI
 
 POLUI --> POLSVC
 CLMUI --> CLMSVC
-SALUI --> SALSVC
 
 POLSVC --> POLDB
 CLMSVC --> CLMDB
 BILSVC --> BILDB
 PRODSVC --> PRODDB
 PARTSVC --> PARTDB
-SALSVC --> SALESDB
 HRSVC --> HRDB
 
 POLSVC <--> KAFKA
@@ -216,7 +194,6 @@ CLMSVC <--> KAFKA
 BILSVC <--> KAFKA
 PRODSVC <--> KAFKA
 PARTSVC <--> KAFKA
-SALSVC <--> KAFKA
 
 POLSVC ..> IAMSVC : REST (Auth)
 CLMSVC ..> IAMSVC : REST (Auth)
@@ -310,9 +287,8 @@ rectangle "4. Federated Governance" as D4 {
 > | Partner/Customer Management | [`partner/specs/business_spec.md`](../partner/specs/business_spec.md) | 9080 | Implementiert |
 > | Product Management | [`product/specs/business_spec.md`](../product/specs/business_spec.md) | 9081 | Implementiert |
 > | Policy Management | [`policy/specs/business_spec.md`](../policy/specs/business_spec.md) | 9082 | Implementiert |
-> | Claims Management | [`claims/specs/business_spec.md`](../claims/specs/business_spec.md) | 9083 | Implementiert – PostgreSQL, Outbox/Debezium, OIDC, Qute UI |
+> | Claims Management | [`claims/specs/business_spec.md`](../claims/specs/business_spec.md) | 9083 | Implementiert |
 > | Billing & Collection | [`billing/specs/business_spec.md`](../billing/specs/business_spec.md) | 9084 | Implementiert |
-> | Sales & Distribution | [`sales/specs/business_spec.md`](../sales/specs/business_spec.md) | TBD | Geplant, noch nicht implementiert |
 > | HR-System (Extern) | — | 9085 | Implementiert – COTS-Stub mit OData v4 API + CRUD UI |
 > | HR-Integration (Camel) | — | 9086 | Implementiert – OData → Kafka Bridge (ECST + Change Topics) |
 
@@ -337,11 +313,9 @@ package "Sachversicherungs-Plattform" {
   package "Supporting" #LightGreen {
     [Partner/Customer SCS\n:9080] as PCM
     [Billing & Collection SCS\n:9084] as BIL
-    [Sales & Distribution SCS\n(nicht implementiert)] as SAL
   }
 
   package "Generic" #LightYellow {
-    [Document Management SCS] as DMS
     [IAM (Keycloak)] as IAM
   }
 
@@ -364,7 +338,6 @@ package "Sachversicherungs-Plattform" {
 
   package "Governance & Compliance" #LightCyan {
     [OpenMetadata\n(:8585)] as OMD
-    [Marquez / OpenLineage\n(:5050)] as MRQ
     [Soda Core\n(Quality)] as SODA
     [Vault\n(Crypto-Shredding, :8200)] as VAULT
   }
@@ -389,7 +362,6 @@ SUPERSET --> TRINO : BI Queries
 
 OMD ..> KAFKA : Topic-Metadaten
 OMD ..> TRINO : Tabellen-Metadaten
-MRQ ..> SQLMESH : Lineage Events
 SODA ..> TRINO : Quality Checks
 
 @enduml
@@ -409,7 +381,7 @@ package "Policy Management SCS" {
 
   package "Driving Adapters (Input)" #LightBlue {
     [REST/Qute UI Controller] as UI
-    [Kafka Consumer\n(OfferAccepted)\n(PartnerCreated)\n(ProductDefined)] as KCONS
+    [Kafka Consumer\n(PartnerCreated)\n(ProductDefined)] as KCONS
     [REST Server\n(PolicyQuery)] as REST_IN
   }
 
@@ -422,20 +394,17 @@ package "Policy Management SCS" {
     }
     interface "PolicyRepository\n(Port)" as REPO_PORT
     interface "EventPublisher\n(Port)" as EVENT_PORT
-    interface "DocumentPort" as DOC_PORT
     interface "PremiumCalculationPort\n(Port, ADR-010)" as PREM_PORT
   }
 
   package "Driven Adapters (Output)" #LightGreen {
     [PostgreSQL Adapter\n(JPA/Hibernate)] as DB_ADAPT
     [Kafka Producer\n(PolicyIssued)\n(PolicyCancelled)\n(PolicyChanged)] as KPROD
-    [DMS REST Client] as DMS_ADAPT
     [gRPC Client\n(PremiumCalculation, ADR-010)] as GRPC_ADAPT
   }
 
   database "Policy DB\n(PostgreSQL)" as POLDB
   database "Kafka" as KAFKA
-  component "DMS Service" as DMS
   component "Product Service\n(gRPC :9181)" as PRODSVC
 }
 
@@ -448,17 +417,14 @@ APP --> PREM
 APP --> RISK
 APP --> REPO_PORT
 APP --> EVENT_PORT
-APP --> DOC_PORT
 APP --> PREM_PORT
 
 REPO_PORT <|.. DB_ADAPT
 EVENT_PORT <|.. KPROD
-DOC_PORT <|.. DMS_ADAPT
 PREM_PORT <|.. GRPC_ADAPT
 
 DB_ADAPT --> POLDB
 KPROD --> KAFKA
-DMS_ADAPT --> DMS
 GRPC_ADAPT --> PRODSVC
 
 @enduml
@@ -624,8 +590,6 @@ end note
 **Datenfluss (Data Mesh – keine direkte DB-Abhängigkeit):**  
 Die `partner_sicht`-Tabelle im Policy-Service ist ein lokales Read Model, das ausschließlich durch Kafka-Events (`person.v1.created`, `person.v1.updated`) befüllt wird. Die Suche läuft vollständig gegen diese materialisierte Sicht – es gibt keine synchrone REST-Abhängigkeit zum Partner-Service (ADR-001).
 
-
-
 ```plantuml
 @startuml runtime-fnol
 !theme plain
@@ -643,7 +607,6 @@ participant "Claims DB\n(+ policy_snapshot)" as DB
 participant "Kafka Producer" as KPROD
 queue "Kafka Topic:\nclaims.v1.opened" as TOPIC
 participant "Billing Service" as BIL
-participant "DMS Service" as DMS
 
 note over SNAP, DB
   policy_snapshot-Tabelle wird durch Kafka-Consumer
@@ -661,7 +624,6 @@ APP -> COV : checkCoverage(claim, policySnapshot)
 COV --> APP : CoverageResult (gedeckt/nicht gedeckt)
 APP -> AGG : apply(ClaimOpenedEvent)
 APP -> REPO_PORT : save(claimAggregate)
-APP -> DMS : uploadDocuments(fotos) [REST]
 APP -> EVENT_PORT : publish(ClaimOpenedEvent)
 EVENT_PORT -> TOPIC : ClaimOpenedEvent\n{claimId, policyId,\namount, coverageResult}
 APP --> UI : 201 Created + claimId
@@ -748,12 +710,6 @@ node "Kubernetes Cluster" {
     PCM_SVC --> PCM_DB
   }
 
-  node "Namespace: sales" {
-    artifact "sales-svc\n(Quarkus JAR)" as SAL_SVC
-    database "sales-db\n(PostgreSQL)" as SAL_DB
-    SAL_SVC --> SAL_DB
-  }
-
   node "Namespace: hr (External)" {
     artifact "hr-system\n(COTS Stub :9085)" as HR_SVC
     artifact "hr-integration\n(Camel :9086)" as HR_INT
@@ -766,7 +722,6 @@ node "Kubernetes Cluster" {
     artifact "Kafka Cluster\n(3 Broker)" as KAFKA
     artifact "Schema Registry" as SR
     artifact "Keycloak (IAM)" as IAM
-    artifact "DMS Service" as DMS
     artifact "ODC Catalog" as ODC
     KAFKA --> SR
   }
@@ -785,7 +740,6 @@ node "Kubernetes Cluster" {
 
   node "Namespace: governance" {
     artifact "OpenMetadata" as OMD
-    artifact "Marquez (Lineage)" as MRQ
     artifact "Vault (Crypto-Shredding)" as VAULT
     artifact "Soda Core (Quality)" as SODA
   }
@@ -796,16 +750,13 @@ CLM_SVC <--> KAFKA
 BIL_SVC <--> KAFKA
 PROD_SVC <--> KAFKA
 PCM_SVC <--> KAFKA
-SAL_SVC <--> KAFKA
 HR_INT --> KAFKA : hr.v1.*
 
 KAFKA --> MINIO : Iceberg Sink
 SODA --> TRINO : Quality Checks
 OMD --> TRINO : Metadata
-MRQ --> SQLMESH : Lineage
 
 POL_SVC ..> IAM : REST (Auth)
-CLM_SVC ..> DMS : REST (Dokumente)
 POL_SVC ..> PROD_SVC : gRPC (Prämienberechnung)
 
 @enduml
@@ -836,12 +787,18 @@ node "Localhost" {
     artifact "partner\n(Quarkus :9080)" as PARTNER
     artifact "product\n(Quarkus :9081)" as PRODUCT
     artifact "policy\n(Quarkus :9082)" as POLICY
+    artifact "claims\n(Quarkus :9083)" as CLAIMS
+    artifact "billing\n(Quarkus :9084)" as BILLING
     database "partner_db\n(PostgreSQL :5432)" as PARTNERDB
     database "product_db\n(PostgreSQL :5433)" as PRODUCTDB
     database "policy_db\n(PostgreSQL :5434)" as POLICYDB
+    database "claims_db\n(PostgreSQL :5435)" as CLAIMSDB
+    database "billing_db\n(PostgreSQL :5436)" as BILLINGDB
     PARTNER --> PARTNERDB
     PRODUCT --> PRODUCTDB
     POLICY --> POLICYDB
+    CLAIMS --> CLAIMSDB
+    BILLING --> BILLINGDB
   }
 
   node "External Systems" {
@@ -856,6 +813,9 @@ node "Localhost" {
     artifact "debezium-connect\n(:8083)" as DEBEZIUM
     DEBEZIUM --> PARTNERDB : WAL (logical)
     DEBEZIUM --> PRODUCTDB : WAL (logical)
+    DEBEZIUM --> POLICYDB : WAL (logical)
+    DEBEZIUM --> CLAIMSDB : WAL (logical)
+    DEBEZIUM --> BILLINGDB : WAL (logical)
     DEBEZIUM --> KAFKA
   }
 
@@ -878,23 +838,20 @@ node "Localhost" {
     artifact "openmetadata-ingestion" as OMDI
     artifact "openmetadata-elasticsearch\n(:9200)" as OMDES
     database "openmetadata-db\n(PostgreSQL)" as OMDDB
-    artifact "marquez\n(Lineage :5050)" as MRQ
-    artifact "marquez-web\n(:3001)" as MRQW
-    database "marquez-db\n(PostgreSQL)" as MRQDB
     artifact "vault\n(Crypto-Shredding :8200)" as VAULT
     artifact "soda-core\n(Quality)" as SODA
     OMD --> OMDDB
     OMD --> OMDES
     OMDI --> OMD
-    MRQ --> MRQDB
-    MRQW --> MRQ
     SODA --> TRINO
   }
 }
 
 PARTNER --> DEBEZIUM : outbox table
 PRODUCT --> DEBEZIUM : outbox table
-POLICY --> KAFKA : Outbox\n(in-proc)
+POLICY --> DEBEZIUM : outbox table
+CLAIMS --> DEBEZIUM : outbox table
+BILLING --> DEBEZIUM : outbox table
 HRINT --> KAFKA : hr.v1.* (ECST + Change)
 
 KAFKA --> MINIO : Iceberg Sink\nConnector (Parquet)
@@ -902,7 +859,6 @@ SQLMESH --> TRINO : Transform Models
 
 OMD ..> KAFKA : Topic-Metadaten
 OMD ..> TRINO : Tabellen-Metadaten
-MRQ ..> SQLMESH : OpenLineage Events
 
 @enduml
 ```
@@ -916,11 +872,10 @@ MRQ ..> SQLMESH : OpenLineage Events
 5. `nessie`, `minio` → `trino`
 6. `debezium-connect`, `minio-init`, `nessie` → `iceberg-init` (registers Iceberg sink connectors)
 7. `superset-db` → `superset-init` → `superset`
-8. `trino` → `sqlmesh`, `soda-core` (tools profile)
-9. `openmetadata-db`, `openmetadata-elasticsearch` → `openmetadata-server` → `openmetadata-ingestion`
-10. `marquez-db` → `marquez` → `marquez-web`
-11. `vault` (standalone, dev mode)
-12. `hr-db` → `hr-system` → `hr-integration` (depends: kafka, hr-system)
+8. `trino` → `sqlmesh`, `soda-core`
+9. `openmetadata-db`, `openmetadata-elasticsearch` → `openmetadata-migrate` → `openmetadata-server` → `openmetadata-ingestion`
+10. `vault` → `vault-init` (dev mode)
+11. `hr-db` → `hr-system` → `hr-integration` (depends: kafka, hr-system)
 
 ---
 
@@ -930,7 +885,7 @@ MRQ ..> SQLMESH : OpenLineage Events
 
 Jedes Kafka-Topic wird durch einen **Open Data Contract (ODC)** beschrieben und im ODC-Katalog registriert. Dies ist der verbindliche "Vertrag" zwischen Producer und Consumer.
 
-**Ausführungsort der SodaCL Quality Checks:** Die im ODC definierten Qualitätsprüfungen laufen **nachgelagert in der dbt-Pipeline** (Analytics Platform) – nicht im operativen Kafka-Strom. Sie werden als dbt-Tests nach jedem `dbt run` ausgeführt und blockieren **nicht** den Producer. Abweichungen erscheinen im Governance-Dashboard des Data Product Portals. Kritische Prüfungen (z.B. Null-Checks auf Pflichtfelder) werden zusätzlich als Avro-Schema-Constraints in der Schema Registry durchgesetzt (verhindert invalide Events bereits beim Publish).
+**Ausführungsort der SodaCL Quality Checks:** Die im ODC definierten Qualitätsprüfungen laufen **nachgelagert via Soda Core** gegen Trino (auf den Iceberg-Tabellen) – nicht im operativen Kafka-Strom. Sie blockieren **nicht** den Producer. Abweichungen sind im OpenMetadata Data Quality Dashboard sichtbar. Kritische Prüfungen (z.B. Null-Checks auf Pflichtfelder) werden zusätzlich als Avro-Schema-Constraints in der Schema Registry durchgesetzt (verhindert invalide Events bereits beim Publish).
 
 **Beispiel ODC für `policy.v1.issued`:**
 
@@ -1038,12 +993,6 @@ HR-System (via Camel Integration):
   hr.v1.org-unit.state      (compacted – ECST)
   hr.v1.org-unit.changed    (delta event)
   hr-integration-dlq        (dead-letter queue)
-
-Reserviert (geplant, noch nicht implementiert):
-  sales.v1.offer-created
-  sales.v1.offer-accepted
-  sales.v1.offer-rejected
-  sales.v1.offer-expired
 ```
 
 **Breaking Changes** erfordern eine neue Major-Version (z.B. `policy.v2.issued`). Der alte Topic wird für eine Übergangsperiode parallel betrieben (Consumer-Driven Contract Testing).
@@ -1108,7 +1057,7 @@ DB -> DB : mark as published
 
 ### 8.6 Data Mesh Analytics- und Governance-Plattform
 
-Die Plattformschicht konsumiert alle Domain-Events und stellt sie als analysierbares Data Warehouse bereit. Sie greift **nie direkt auf die operativen Domain-Datenbanken zu** (ADR-004: Data Inside vs. Data Outside).
+Alle Domain-Events werden via **Debezium Iceberg Sink Connector** als Parquet-Dateien in MinIO (S3-kompatibel) geschrieben und durch Apache Iceberg (via Nessie Catalog) versioniert. Trino dient als föderierter Query-Layer; SQLMesh transformiert die Rohdaten in analytische Modelle. Die Plattformschicht greift **nie direkt auf die operativen Domain-Datenbanken zu** (ADR-004).
 
 ```plantuml
 @startuml analytics-platform
@@ -1117,94 +1066,104 @@ skinparam defaultFontSize 10
 
 title Analytics & Governance – Datenpfad
 
-queue "Kafka\nperson.v1.*\nproduct.v1.*\npolicy.v1.*" as KAFKA
+queue "Kafka\n(alle Domain-Topics)" as KAFKA
 
-package "infra/platform" {
-  component "Platform Consumer\n(Python/kafka-python-ng)" as PC
-  database "raw.person_events\nraw.person_state\nraw.product_events\nraw.policy_events\n(platform_db)" as RAW
-  PC --> RAW : UPSERT / INSERT
+package "infra/debezium" {
+  component "Iceberg Sink Connectors\n(billing, claims, hr,\npartner, policy, product)" as SINK
 }
 
-package "infra/dbt" {
-  component "Staging Models\n(stg_person_events\nstg_product_events\nstg_policy_events)" as STG
-  component "Mart Models\n(dim_partner, dim_product\nfact_policies\nmart_portfolio_summary)" as MART
-  component "dbt Tests\n(assert_no_orphan_policies\nassert_premium_positive)" as TESTS
+package "infra/minio + infra/nessie" {
+  database "MinIO (S3)\nParquet-Dateien" as MINIO
+  component "Nessie\n(Iceberg Catalog)" as NESSIE
+  MINIO --> NESSIE : Catalog-Metadaten
+}
+
+package "infra/trino" {
+  component "Trino\n(Query Engine :8086)" as TRINO
+  TRINO --> NESSIE : Iceberg-Catalog
+  TRINO --> MINIO : Parquet-Dateien lesen
+}
+
+package "infra/sqlmesh" {
+  component "Staging Models\n(stg_*_events)" as STG
+  component "Mart Models\n(dim_*, fact_*, mart_*)" as MART
   STG --> MART
-  MART --> TESTS
+  STG --> TRINO
+  MART --> TRINO
 }
 
-package "infra/spark" {
-  component "Spark Structured Streaming\n(Delta Lake)" as SPARK
+package "infra/superset" {
+  component "Apache Superset\n(BI :8088)" as SUPERSET
 }
 
-package "infra/governance" {
-  component "lint-contracts.py\n(ODC-Pflichtfelder)" as LINT
-  component "schema-compat-check.sh\n(Avro Backward Compat)" as COMPAT
-  component "check-freshness.py\n(Topic-Latenz vs. SLA)" as FRESH
-}
-
-package "infra/portal" {
-  component "Data Product Portal\n(FastAPI :8090)" as PORTAL
-  note right of PORTAL
-    /           Produktkatalog
-    /products/{topic}  Detail + Schema
-    /lineage    Cross-Domain Lineage (D3.js)
-    /governance Governance Dashboard
-    /demo       mart_portfolio_summary Live
+package "infra/openmetadata" {
+  component "OpenMetadata\n(:8585)" as OMD
+  note right of OMD
+    Ingestion-Pipelines:
+    - kafka-ingestion.json  → Topics + Avro-Schemas
+    - trino-ingestion.json  → Tabellen-Metadaten
+    - odc-ingestion.json    → ODC Custom Properties
+    - pii-classification.json → PII-Tags
   end note
 }
 
-package "infra/datahub" {
-  component "DataHub\n(integriert, :9002)" as DH
-  note right of DH
-    Startet automatisch mit podman compose up.
-    Eigene Kafka/ZooKeeper-Instanz entfällt –
-    nutzt bestehenden Broker :29092.
-    datahub-ingest läuft einmalig beim Start:
-      recipe_kafka.yaml  → Topics + Avro-Schemas
-      ingest_odc.py      → ODC Custom Properties,
-                            Tags, Ownership
+package "infra/soda" {
+  component "Soda Core\n(Quality Checks)" as SODA
+  note right of SODA
+    Checks für: billing, hr,
+    partner, policy, product
+    (SodaCL via Trino)
   end note
 }
 
-KAFKA --> PC
-KAFKA --> SPARK
+KAFKA --> SINK
+SINK --> MINIO : Iceberg Sink\n(Parquet)
 
-RAW --> STG
-STG --> MART
+SUPERSET --> TRINO : BI-Queries
 
-LINT ..> KAFKA : liest ODC-Files
-COMPAT ..> KAFKA : Schema Registry
-FRESH ..> KAFKA : Lag-Messung
+OMD ..> KAFKA : Schema Registry Ingestion
+OMD ..> TRINO : Tabellen-Metadaten
 
-PORTAL --> RAW
-PORTAL --> MART
-
-DH ..> KAFKA : Schema Registry Ingestion
-DH ..> MART  : dbt Manifest Ingestion
+SODA ..> TRINO : Quality Checks
 
 @enduml
 ```
 
-**dbt-Modellhierarchie:**
+**SQLMesh-Modellhierarchie (`infra/sqlmesh/models/`):**
 
-| Layer | Model | Quelle | Beschreibung |
+| Layer | Modelle | Quelle | Beschreibung |
 | --- | --- | --- | --- |
-| Staging | `stg_person_events` | `raw.person_events` | JSON-Parsing, typisierte Spalten |
-| Staging | `stg_product_events` | `raw.product_events` | JSON-Parsing, typisierte Spalten |
-| Staging | `stg_policy_events` | `raw.policy_events` | JSON-Parsing, typisierte Spalten |
+| Staging | `stg_person_events` | Iceberg `person.v1.*` | JSON-Parsing, typisierte Spalten |
+| Staging | `stg_address_events` | Iceberg `person.v1.*` | Adressen separat normalisiert |
+| Staging | `stg_product_events` | Iceberg `product.v1.*` | Produktdefinitionen |
+| Staging | `stg_policy_events` | Iceberg `policy.v1.*` | Policen-Mutationen |
+| Staging | `stg_claims_events` | Iceberg `claims.v1.*` | Schadenfall-Mutationen |
+| Staging | `stg_billing_events` | Iceberg `billing.v1.*` | Rechnungen, Zahlungen |
+| Staging | `stg_employee_events` | Iceberg `hr.v1.*` | Mitarbeiter-State (HR) |
+| Staging | `stg_org_unit_events` | Iceberg `hr.v1.*` | Org-Einheiten-State (HR) |
 | Mart | `dim_partner` | `stg_person_events` | Aktuellster Stand pro Person |
+| Mart | `dim_partner_address` | `stg_address_events` | Aktuelle Adresse pro Partner |
 | Mart | `dim_product` | `stg_product_events` | Aktuellster Stand pro Produkt |
-| Mart | `fact_policies` | `stg_policy_events` | Eine Zeile pro Police (aktiver Status) |
-| Mart | `mart_portfolio_summary` | `fact_policies` + `dim_partner` + `dim_product` | Cross-Domain-Aggregation: aktive Policen pro Stadt und Produktlinie |
+| Mart | `dim_employee` | `stg_employee_events` | Aktuellster Mitarbeiter-Stand |
+| Mart | `dim_org_unit` | `stg_org_unit_events` | Aktuellste Org-Einheit |
+| Mart | `fact_policies` | `stg_policy_events` | Eine Zeile pro Police |
+| Mart | `fact_claims` | `stg_claims_events` | Eine Zeile pro Schadenfall |
+| Mart | `fact_invoices` | `stg_billing_events` | Eine Zeile pro Rechnung |
+| Mart | `mart_portfolio_summary` | `fact_policies` + `dim_*` | Aktive Policen pro Stadt/Produktlinie |
+| Mart | `mart_financial_summary` | `fact_invoices` + `fact_claims` | Einnahmen- und Schadensübersicht |
+| Mart | `mart_policy_detail` | `fact_policies` + `dim_*` | Police-Detail mit allen Dimensionen |
+| Mart | `mart_management_kpi` | alle Facts + Dims | Management-KPIs |
+| Mart | `mart_org_hierarchy` | `dim_org_unit` + `dim_employee` | Vollständige Org-Hierarchie |
 
-**Governance-Prüfungen (laufen beim Compose-Start):**
+**Soda-Core-Qualitätsprüfungen (`infra/soda/checks/`):**
 
-| Skript | Prüfung | Fehlverhalten |
+| Check-Datei | Domäne | Art der Prüfung |
 | --- | --- | --- |
-| `lint-contracts.py` | Alle ODC-Felder mandatory: owner, domain, outputPort, freshness, availability, qualityScore, tags | Exit 1 → Build fehlschlägt |
-| `schema-compat-check.sh` | Avro-Schemas backward-kompatibel gegen Schema Registry | Exit 1 → Deployment blockiert |
-| `check-freshness.py` | Topic-Lag ≤ SLA-Freshness (5m default) | Exit 1 → Alert im Portal |
+| `partner.yml` | Partner | Nicht-null, Eindeutigkeit, Feldformate |
+| `product.yml` | Product | Nicht-null, Prämienbereiche |
+| `policy.yml` | Policy | Status-Werte, Fremdschlüssel-Konsistenz |
+| `billing.yml` | Billing | Betragsvalidierung, keine Negativwerte |
+| `hr.yml` | HR | Mitarbeiter- und Org-Unit-Vollständigkeit |
 
 ### 8.7 Event-Carried State Transfer (ECST) – `person.v1.state`
 
@@ -1225,7 +1184,7 @@ participant "Debezium CDC" as CDC
 queue "person.v1.created/updated/deleted\n(Delta-Events, unbegrenzte Retention)" as DELTA
 queue "person.v1.state\n(compacted, ein Eintrag pro PersonId)" as STATE
 participant "Policy Service\n(PartnerView Read Model)" as POL
-participant "Platform Consumer\n(raw.person_state)" as PC
+participant "Iceberg Sink\n(person_state table)" as PC
 
 APP -> OUTBOX : INSERT outbox (delta-event + state-event)
 CDC -> OUTBOX : WAL polling
@@ -1233,7 +1192,7 @@ CDC -> DELTA : publish PersonCreated/Updated
 CDC -> STATE : publish PersonState (key=personId)
 
 STATE -> POL : Consumer liest aktuellen State\nbeim Start (kein Replay nötig)
-STATE -> PC : UPSERT in raw.person_state
+STATE -> PC : Iceberg Sink schreibt\nSTATE -> person_state (Parquet)
 
 note right of STATE
   Tombstone-Event (deleted=true):
@@ -1325,6 +1284,7 @@ PersonApplicationService
 ```
 
 **Konsequenzen:**
+
 - Garantierte at-least-once Delivery (keine Events gehen verloren)
 - Leichte Erhöhung der End-to-End-Latenz (WAL-Polling-Intervall von Debezium, typisch < 500ms)
 - Debezium Connect ist eine neue Infrastrukturkomponente (eigener Container, Port 8083)
@@ -1432,7 +1392,6 @@ GDPR Erasure Request:
 2. **Circuit Breaker & Timeout mandatory** – MicroProfile Fault Tolerance (`@CircuitBreaker`, `@Timeout`, `@Retry`) auf jedem gRPC-Client
 3. **Graceful Degradation** – bei Nichterreichbarkeit wird der Use Case mit einer benutzerfreundlichen Fehlermeldung abgebrochen (kein Fallback-Wert)
 4. **Kein Write auf dem Server** – der gRPC-Call ist eine reine Query/Berechnung. Schreibende Operationen laufen weiterhin über Kafka
-5. **Lineage-Registrierung** – jeder gRPC-Call wird als synchrone Datenfluss-Kante in OpenLineage/Marquez erfasst
 
 **Anwendungsfälle:**
 
@@ -1517,7 +1476,5 @@ D --> D2
 | R-3 | Kafka Single Point of Failure | Alle Domänen betroffen | Multi-AZ Kafka Cluster, Replikationsfaktor 3 |
 | R-4 | ~~REST Claims->Policy synchrone Abhängigkeit~~ | ~~Claims bei Policy-Ausfall nicht nutzbar~~ | **Mitigiert durch ADR-008**: Deckungsprüfung erfolgt jetzt über lokalen Policy-Snapshot (kein REST). |
 | R-5 | Data Mesh Governance-Overhead | Teams umgehen ODC | Automatisierte ODC-Validierung in CI/CD-Pipeline |
-| R-6 | **🚨 RELEASE BLOCKER: Sprachinkonsistenz Partner-Service** | Deutsche Payload-Felder (`vorname`, `gueltigVon` etc.) sickern in ODC-Verträge ein – Breaking Change nach v1.0-Release schmerzhaft | Refactoring **vor** ODC v1.0-Freigabe zwingend. Details: [`partner/specs/business_spec.md`](../partner/specs/business_spec.md) |
-| R-7 | **🚨 RELEASE BLOCKER: Sprachinkonsistenz Policy-Service** | Deutsche Enums (`ENTWURF`, `AKTIV`) in Kafka-Events brechen ADR-005 direkt an der Schnittstelle | Refactoring **vor** ODC v1.0-Freigabe zwingend. Details: [`policy/specs/business_spec.md`](../policy/specs/business_spec.md) |
 | R-8 | **DSGVO-Compliance: PII in Delta-Events** | Tombstone im State-Topic löscht keine historischen PII-Daten im Delta-Log (7 Jahre Retention) | Crypto-Shredding implementieren (ADR-009): PII-Felder mit partnerindividuellem Schlüssel verschlüsseln; Löschung = Schlüssel-Invalidierung im KMS |
 | R-9 | **Synchrone Abhängigkeit Policy → Product (gRPC)** | Bei Product-Service-Ausfall können keine neuen Policen erstellt werden | Mitigiert durch ADR-010: Circuit Breaker + Timeout + Retry. Graceful Degradation mit Benutzerhinweis «Versuchen Sie es später». Product-Service hat hohe Verfügbarkeit (>99.9%). |

@@ -80,7 +80,7 @@ spec:
     spec:
       containers:
         - name: grafana
-          image: grafana/grafana:10.2.0
+          image: grafana/grafana:12.4.2
           imagePullPolicy: IfNotPresent
           env:
             - name: GF_SECURITY_ADMIN_PASSWORD
@@ -152,7 +152,7 @@ spec:
     spec:
       containers:
         - name: jaeger
-          image: jaegertracing/jaeger:2.4.0
+          image: jaegertracing/jaeger:2.16.0
           imagePullPolicy: IfNotPresent
           env:
             - name: COLLECTOR_OTLP_ENABLED

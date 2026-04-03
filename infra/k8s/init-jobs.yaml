@@ -71,7 +71,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: kafka-init
-          image: confluentinc/cp-kafka:7.5.0
+          image: confluentinc/cp-kafka:7.9.2
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
           args:

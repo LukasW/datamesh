@@ -1,8 +1,8 @@
 services:
 
-  # Kafka mit KRaft (kein Zookeeper nötig ab Confluent 7.x)
+  # Kafka mit KRaft (kein Zookeeper nötig ab Confluent 7.x, KRaft dynamic controllers ab 7.9)
   kafka:
-    image: confluentinc/cp-kafka:7.5.0
+    image: confluentinc/cp-kafka:7.9.2
     restart: unless-stopped
     ports:
       - "9092:9092"
@@ -36,7 +36,7 @@ services:
           memory: 1500M
 
   schema-registry:
-    image: confluentinc/cp-schema-registry:7.5.0
+    image: confluentinc/cp-schema-registry:7.9.2
     restart: unless-stopped
     depends_on:
       kafka:
@@ -116,20 +116,19 @@ services:
           memory: 512M
 
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0
+    image: quay.io/keycloak/keycloak:26.5.2
     command: start-dev --import-realm --health-enabled=true
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-      KC_HOSTNAME: localhost
-      KC_HOSTNAME_PORT: 8180
-      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: true
+      KC_HOSTNAME: http://localhost:8280
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "false"
     ports:
-      - "8180:8080"
+      - "8280:8080"
     volumes:
       - ./infra/keycloak/yuno-realm.json:/opt/keycloak/data/import/yuno-realm.json:ro
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q '200 OK'"]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -144,7 +143,7 @@ services:
           memory: 768M
 
   partner-db:
-    image: postgres:16
+    image: postgres:17
     command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
     environment:
       POSTGRES_DB: partner_db
@@ -168,7 +167,7 @@ services:
           memory: 256M
 
   kafka-init:
-    image: confluentinc/cp-kafka:7.5.0
+    image: confluentinc/cp-kafka:7.9.2
     depends_on:
       kafka:
         condition: service_healthy
@@ -298,7 +297,7 @@ services:
           --topic billing-claims-settled-dlq \
           --partitions 1 \
           --replication-factor 1 \
-          && echo 'billing-claims-settled-dlq topic created.'
+          && echo 'billing-claims-settled-dlq topic created.' \
         && kafka-topics --bootstrap-server kafka:29092 \
           --create --if-not-exists \
           --topic hr.v1.employee.state \
@@ -385,17 +384,13 @@ services:
       KAFKA_HEAP_OPTS: "-Xms256M -Xmx768M"
       CONNECT_CONFIG_PROVIDERS: env
       CONNECT_CONFIG_PROVIDERS_ENV_CLASS: org.apache.kafka.common.config.provider.EnvVarConfigProvider
-      # OpenLineage integration — emit CDC/Iceberg lineage events to Marquez
-      OPENLINEAGE_URL: http://marquez:5050
-      OPENLINEAGE_NAMESPACE: kafka-connect
-      OPENLINEAGE_TRANSPORT_TYPE: http
-      OPENLINEAGE_TRANSPORT_URL: http://marquez:5050
       CONNECT_CONNECTOR_CLIENT_CONFIG_OVERRIDE_POLICY: All
       PARTNER_DB_PASSWORD: ${PARTNER_DB_PASSWORD}
       PRODUCT_DB_PASSWORD: ${PRODUCT_DB_PASSWORD}
       POLICY_DB_PASSWORD: ${POLICY_DB_PASSWORD}
       BILLING_DB_PASSWORD: ${BILLING_DB_PASSWORD}
       CLAIMS_DB_PASSWORD: ${CLAIMS_DB_PASSWORD}
+      AWS_REGION: us-east-1
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors || exit 1"]
       interval: 10s
@@ -458,7 +453,7 @@ services:
       - backend
 
   product-db:
-    image: postgres:16
+    image: postgres:17
     command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
     environment:
       POSTGRES_DB: product_db
@@ -482,14 +477,14 @@ services:
           memory: 256M
 
   policy-db:
-    image: postgres:16
+    image: postgres:17
     command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
     environment:
       POSTGRES_DB: policy_db
       POSTGRES_USER: policy_user
       POSTGRES_PASSWORD: ${POLICY_DB_PASSWORD}
     ports:
-      - "5434:5432"
+      - "5435:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U policy_user -d policy_db"]
       interval: 5s
@@ -527,6 +522,7 @@ services:
       DATABASE_USER: partner_user
       DATABASE_PASSWORD: ${PARTNER_DB_PASSWORD}
       KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_FRONTEND_URL: http://localhost:8280
       OIDC_CLIENT_SECRET: secret
       VAULT_URL: http://vault:8200
       VAULT_TOKEN: dev-root-token
@@ -562,8 +558,8 @@ services:
       DATABASE_USER: product_user
       DATABASE_PASSWORD: ${PRODUCT_DB_PASSWORD}
       KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_FRONTEND_URL: http://localhost:8280
       OIDC_CLIENT_SECRET: secret
-      OPENLINEAGE_URL: http://marquez:5050
       QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5006"
     networks:
@@ -599,10 +595,10 @@ services:
       DATABASE_USER: policy_user
       DATABASE_PASSWORD: ${POLICY_DB_PASSWORD}
       KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_FRONTEND_URL: http://localhost:8280
       OIDC_CLIENT_SECRET: secret
       GRPC_PREMIUM_HOST: product-service
       GRPC_PREMIUM_PORT: "9181"
-      OPENLINEAGE_URL: http://marquez:5050
       QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5007"
     networks:
@@ -641,8 +637,8 @@ services:
       DATABASE_USER: claims_user
       DATABASE_PASSWORD: ${CLAIMS_DB_PASSWORD}
       KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_FRONTEND_URL: http://localhost:8280
       OIDC_CLIENT_SECRET: secret
-      OPENLINEAGE_URL: http://marquez:5050
       VAULT_URL: http://vault:8200
       VAULT_TOKEN: dev-root-token
       QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
@@ -657,7 +653,7 @@ services:
           memory: 512M
 
   claims-db:
-    image: postgres:16
+    image: postgres:17
     command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
     environment:
       POSTGRES_DB: claims_db
@@ -681,7 +677,7 @@ services:
           memory: 256M
 
   billing-db:
-    image: postgres:16
+    image: postgres:17
     command: postgres -c wal_level=logical -c max_replication_slots=5 -c max_wal_senders=5
     environment:
       POSTGRES_DB: billing_db
@@ -727,8 +723,8 @@ services:
       DATABASE_USER: billing_user
       DATABASE_PASSWORD: ${BILLING_DB_PASSWORD}
       KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_FRONTEND_URL: http://localhost:8280
       OIDC_CLIENT_SECRET: secret
-      OPENLINEAGE_URL: http://marquez:5050
       QUARKUS_OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
     networks:
@@ -743,7 +739,7 @@ services:
   # ── HR System (COTS Stub) + Integration ────────────────────────────────────
 
   hr-db:
-    image: postgres:16
+    image: postgres:17
     environment:
       POSTGRES_DB: hr_db
       POSTGRES_USER: hr_user
@@ -817,7 +813,7 @@ services:
   # ── Observability (Prometheus + Grafana) ─────────────────────────────────────
 
   prometheus:
-    image: prom/prometheus:v2.48.0
+    image: prom/prometheus:v3.10.0
     restart: unless-stopped
     ports:
       - "9090:9090"
@@ -833,7 +829,7 @@ services:
           memory: 512M
 
   grafana:
-    image: grafana/grafana:10.2.0
+    image: grafana/grafana:12.4.2
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -854,7 +850,7 @@ services:
           memory: 256M
 
   jaeger:
-    image: jaegertracing/jaeger:2.4.0
+    image: jaegertracing/jaeger:2.16.0
     restart: unless-stopped
     ports:
       - "16686:16686"
@@ -922,12 +918,13 @@ services:
   # ── Nessie (Git-like Iceberg Catalog) ──────────────────────────────────────
 
   nessie:
-    image: projectnessie/nessie:0.76.0
+    image: ghcr.io/projectnessie/nessie:0.107.4
     restart: unless-stopped
     ports:
       - "19120:19120"
     environment:
       NESSIE_VERSION_STORE_TYPE: IN_MEMORY
+      QUARKUS_OTEL_ENABLED: "false"
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:19120/api/v2/config || exit 1"]
       interval: 10s
@@ -945,7 +942,7 @@ services:
   # ── Trino (Distributed SQL Query Engine on Iceberg) ────────────────────────
 
   trino:
-    image: trinodb/trino
+    image: trinodb/trino:474
     restart: unless-stopped
     depends_on:
       minio:
@@ -984,7 +981,7 @@ services:
   # ── Apache Superset (Self-Service BI on Trino) ─────────────────────────────
 
   superset-db:
-    image: postgres:16
+    image: postgres:17
     environment:
       POSTGRES_DB: superset
       POSTGRES_USER: superset
@@ -1127,7 +1124,7 @@ services:
   # ── OpenMetadata (Unified Metadata Catalog) ────────────────────────────────
 
   openmetadata-db:
-    image: postgres:16
+    image: postgres:17
     environment:
       POSTGRES_DB: openmetadata
       POSTGRES_USER: openmetadata
@@ -1149,7 +1146,8 @@ services:
           memory: 256M
 
   openmetadata-elasticsearch:
-    image: opensearchproject/opensearch:2.11.1
+    image: opensearchproject/opensearch:2.19.0
+    platform: linux/amd64
     environment:
       - discovery.type=single-node
       - plugins.security.disabled=true
@@ -1157,10 +1155,10 @@ services:
       - DISABLE_INSTALL_DEMO_CONFIG=true
     healthcheck:
       test: ["CMD-SHELL", "curl -sf 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1"]
-      interval: 10s
-      timeout: 5s
+      interval: 15s
+      timeout: 10s
       retries: 20
-      start_period: 30s
+      start_period: 180s
     ports:
       - "9200:9200"
     volumes:
@@ -1170,10 +1168,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 2G
 
   openmetadata-migrate:
-    image: openmetadata/server:1.6.13
+    image: openmetadata/server:1.12.4
     depends_on:
       openmetadata-db:
         condition: service_healthy
@@ -1201,7 +1199,7 @@ services:
       - backend
 
   openmetadata-server:
-    image: openmetadata/server:1.6.13
+    image: openmetadata/server:1.12.4
     restart: unless-stopped
     depends_on:
       openmetadata-db:
@@ -1242,10 +1240,10 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 1G
+          memory: 2G
 
   openmetadata-ingestion:
-    image: openmetadata/ingestion:1.6.13
+    image: openmetadata/ingestion:1.12.4
     restart: unless-stopped
     depends_on:
       openmetadata-server:
@@ -1274,7 +1272,6 @@ services:
       - ./infra/openmetadata/trino-ingestion.json:/config/trino-ingestion.json:ro
       - ./infra/openmetadata/pii-classification.json:/config/pii-classification.json:ro
       - ./infra/openmetadata/odc-ingestion.json:/config/odc-ingestion.json:ro
-      - ./infra/openmetadata/marquez-lineage.json:/config/marquez-lineage.json:ro
       - ./partner/src/main/resources/contracts:/contracts/partner:ro
       - ./product/src/main/resources/contracts:/contracts/product:ro
       - ./policy/src/main/resources/contracts:/contracts/policy:ro
@@ -1287,81 +1284,6 @@ services:
         limits:
           cpus: '1.5'
           memory: 3G
-
-  # ── Marquez / OpenLineage (Lineage Tracking) ───────────────────────────────
-
-  marquez-db:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: marquez
-      POSTGRES_USER: marquez
-      POSTGRES_PASSWORD: marquez
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U marquez -d marquez"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    volumes:
-      - marquez-db-data:/var/lib/postgresql/data
-    networks:
-      - backend
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-
-  marquez:
-    image: marquezproject/marquez
-    restart: unless-stopped
-    depends_on:
-      marquez-db:
-        condition: service_healthy
-    ports:
-      - "5050:5050"
-      - "5051:5051"
-    environment:
-      MARQUEZ_PORT: "5050"
-      MARQUEZ_ADMIN_PORT: "5051"
-      POSTGRES_HOST: marquez-db
-      POSTGRES_PORT: "5432"
-      POSTGRES_DB: marquez
-      POSTGRES_USER: marquez
-      POSTGRES_PASSWORD: marquez
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:5050/api/v1/namespaces || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 15s
-    networks:
-      - backend
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-
-  marquez-web:
-    image: marquezproject/marquez-web
-    restart: unless-stopped
-    depends_on:
-      marquez:
-        condition: service_healthy
-    ports:
-      - "3001:3000"
-    environment:
-      MARQUEZ_HOST: marquez
-      MARQUEZ_PORT: "5050"
-      WEB_PORT: "3000"
-    networks:
-      - backend
-      - frontend
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
 
   # ── HashiCorp Vault (Crypto-Shredding / ADR-009) ───────────────────────────
 
@@ -1440,7 +1362,6 @@ volumes:
   superset-db-data:
   openmetadata-db-data:
   openmetadata-esdata:
-  marquez-db-data:
 
 networks:
   backend:

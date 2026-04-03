@@ -91,12 +91,6 @@
             <artifactId>quarkus-opentelemetry</artifactId>
         </dependency>
 
-        <!-- OpenLineage (data lineage tracking to Marquez) -->
-        <dependency>
-            <groupId>io.openlineage</groupId>
-            <artifactId>openlineage-java</artifactId>
-        </dependency>
-
         <!-- Vert.x Web (for Router-based redirect) -->
         <dependency>
             <groupId>io.quarkus</groupId>

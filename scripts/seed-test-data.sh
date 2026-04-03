@@ -3,7 +3,7 @@
 # Intended for local dev / demo environments only.
 set -euo pipefail
 
-KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8180}"
+KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:8280}"
 PARTNER_URL="${PARTNER_URL:-http://localhost:9080}"
 PRODUCT_URL="${PRODUCT_URL:-http://localhost:9081}"
 POLICY_URL="${POLICY_URL:-http://localhost:9082}"

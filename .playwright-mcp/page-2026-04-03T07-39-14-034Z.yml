@@ -1,0 +1,159 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link "Apache Superset" [ref=e8] [cursor=pointer]:
+          - /url: /
+          - img "Apache Superset" [ref=e10]
+        - menu [ref=e11]:
+          - menuitem "Dashboards" [ref=e12] [cursor=pointer]:
+            - button "Dashboards" [ref=e14]
+          - menuitem "Charts" [ref=e15] [cursor=pointer]:
+            - button "Charts" [ref=e17]
+          - menuitem "Datasets" [ref=e18] [cursor=pointer]:
+            - button "Datasets" [ref=e20]
+          - menuitem "down SQL" [ref=e21] [cursor=pointer]:
+            - img "down" [ref=e22]:
+              - img [ref=e23]
+            - generic [ref=e25]: SQL
+      - menu [ref=e28]:
+        - menuitem "down plus" [ref=e29] [cursor=pointer]:
+          - img "down" [ref=e30]:
+            - img [ref=e31]
+          - img "plus" [ref=e34]:
+            - img [ref=e35]
+        - menuitem "down format-painter" [ref=e38] [cursor=pointer]:
+          - img "down" [ref=e39]:
+            - img [ref=e40]
+          - img "format-painter" [ref=e43]:
+            - img [ref=e44]
+        - menuitem "down Settings" [ref=e46] [cursor=pointer]:
+          - img "down" [ref=e47]:
+            - img [ref=e48]
+          - generic [ref=e50]: Settings
+  - main [ref=e52]:
+    - generic [ref=e54]:
+      - button "vertical-align filter" [ref=e58] [cursor=pointer]:
+        - img "vertical-align" [ref=e59]:
+          - img [ref=e60]
+        - img "filter" [ref=e62]:
+          - img [ref=e63]
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - textbox "Dashboard title" [disabled] [ref=e72]:
+              - /placeholder: Add the name of the dashboard
+              - text: Datamesh Platform – Übersicht
+            - generic [ref=e73]: Datamesh Platform – Übersicht
+          - generic [ref=e74]:
+            - button "unstarred" [ref=e75] [cursor=pointer]:
+              - img "unstarred" [ref=e76]:
+                - img [ref=e77]
+            - button "check-circle Published" [ref=e80] [cursor=pointer]:
+              - img "check-circle" [ref=e81]:
+                - img [ref=e82]
+              - generic [ref=e85]: Published
+            - generic [ref=e86]:
+              - generic [ref=e87]:
+                - img "user" [ref=e88]:
+                  - img [ref=e89]
+                - generic [ref=e91]: Not available
+              - generic [ref=e92]:
+                - img "edit" [ref=e93]:
+                  - img [ref=e94]
+                - generic [ref=e96]: 8 minutes ago
+        - generic [ref=e97]:
+          - button "Edit dashboard" [ref=e100] [cursor=pointer]:
+            - generic [ref=e101]: Edit dashboard
+          - button "Menu actions trigger" [ref=e103] [cursor=pointer]:
+            - img "ellipsis" [ref=e104]:
+              - img [ref=e105]
+      - tabpanel [ref=e115]:
+        - generic [ref=e117]:
+          - generic [ref=e119]:
+            - generic [ref=e123]:
+              - generic [ref=e124]:
+                - link "Policen nach Ereignistyp" [ref=e128] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=N6b-nIYNK32hM7DlA9hyV&slice_id=1
+                - button "More Options" [ref=e130] [cursor=pointer]:
+                  - img "ellipsis" [ref=e131]:
+                    - img [ref=e132]
+              - generic [ref=e138]:
+                - img "empty" [ref=e139]:
+                  - img [ref=e142]
+                - generic [ref=e145]:
+                  - paragraph [ref=e146]: No results were returned for this query
+                  - paragraph [ref=e147]: There is currently no information to display.
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - link "Schäden nach Ereignistyp" [ref=e156] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=N6b-nIYNK32hM7DlA9hyV&slice_id=2
+                - button "More Options" [ref=e158] [cursor=pointer]:
+                  - img "ellipsis" [ref=e159]:
+                    - img [ref=e160]
+              - generic [ref=e166]:
+                - img "empty" [ref=e167]:
+                  - img [ref=e170]
+                - generic [ref=e173]:
+                  - paragraph [ref=e174]: No results were returned for this query
+                  - paragraph [ref=e175]: There is currently no information to display.
+          - generic [ref=e181]:
+            - generic [ref=e182]:
+              - link "Abrechnung – Events nach Typ" [ref=e186] [cursor=pointer]:
+                - /url: /explore/?dashboard_page_id=N6b-nIYNK32hM7DlA9hyV&slice_id=3
+              - button "More Options" [ref=e188] [cursor=pointer]:
+                - img "ellipsis" [ref=e189]:
+                  - img [ref=e190]
+            - generic [ref=e196]:
+              - img "empty" [ref=e197]:
+                - img [ref=e200]
+              - generic [ref=e203]:
+                - paragraph [ref=e204]: No results were returned for this query
+                - paragraph [ref=e205]: There is currently no information to display.
+          - generic [ref=e207]:
+            - generic [ref=e211]:
+              - generic [ref=e212]:
+                - link "Schadenmeldungen Total" [ref=e216] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=N6b-nIYNK32hM7DlA9hyV&slice_id=8
+                - button "More Options" [ref=e218] [cursor=pointer]:
+                  - img "ellipsis" [ref=e219]:
+                    - img [ref=e220]
+              - generic [ref=e228]:
+                - generic [ref=e229]: "0"
+                - generic [ref=e230]: Claims Events in Iceberg
+            - generic [ref=e234]:
+              - generic [ref=e235]:
+                - link "Rechnungen Total" [ref=e239] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=N6b-nIYNK32hM7DlA9hyV&slice_id=5
+                - button "More Options" [ref=e241] [cursor=pointer]:
+                  - img "ellipsis" [ref=e242]:
+                    - img [ref=e243]
+              - generic [ref=e251]:
+                - generic [ref=e252]: "0"
+                - generic [ref=e253]: Billing Events in Iceberg
+            - generic [ref=e257]:
+              - generic [ref=e258]:
+                - link "Partner Event-Übersicht" [ref=e262] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=N6b-nIYNK32hM7DlA9hyV&slice_id=6
+                - button "More Options" [ref=e264] [cursor=pointer]:
+                  - img "ellipsis" [ref=e265]:
+                    - img [ref=e266]
+              - generic [ref=e272]:
+                - img "empty" [ref=e273]:
+                  - img [ref=e276]
+                - generic [ref=e279]:
+                  - paragraph [ref=e280]: No results were returned for this query
+                  - paragraph [ref=e281]: There is currently no information to display.
+          - generic [ref=e287]:
+            - generic [ref=e288]:
+              - link "Produkte – aktuelle Events" [ref=e292] [cursor=pointer]:
+                - /url: /explore/?dashboard_page_id=N6b-nIYNK32hM7DlA9hyV&slice_id=7
+              - button "More Options" [ref=e294] [cursor=pointer]:
+                - img "ellipsis" [ref=e295]:
+                  - img [ref=e296]
+            - generic [ref=e302]:
+              - img "empty" [ref=e303]:
+                - img [ref=e306]
+              - generic [ref=e309]:
+                - paragraph [ref=e310]: No results were returned for this query
+                - paragraph [ref=e311]: There is currently no information to display.

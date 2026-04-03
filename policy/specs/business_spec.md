@@ -210,8 +210,6 @@ The Policy Service calls the Product Service's gRPC endpoint to calculate the ri
 **Graceful degradation:** If the Product Service is unreachable, the policy creation/update is aborted with a user-facing error message:
 > «Die Prämienberechnung ist momentan nicht verfügbar. Bitte versuchen Sie es später erneut.»
 
-**Data flow (Lineage):** This synchronous call is tracked in OpenLineage/Marquez as a direct dependency edge between the Policy and Product domains.
-
 ---
 
 ## 9. UI

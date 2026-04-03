@@ -1,0 +1,174 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link "Apache Superset" [ref=e8] [cursor=pointer]:
+          - /url: /
+          - img "Apache Superset" [ref=e10]
+        - menu [ref=e11]:
+          - menuitem "Dashboards" [ref=e12] [cursor=pointer]:
+            - button "Dashboards" [ref=e14]
+          - menuitem "Charts" [ref=e15] [cursor=pointer]:
+            - button "Charts" [ref=e17]
+          - menuitem "Datasets" [ref=e18] [cursor=pointer]:
+            - button "Datasets" [ref=e20]
+          - menuitem "down SQL" [ref=e21] [cursor=pointer]:
+            - img "down" [ref=e22]:
+              - img [ref=e23]
+            - generic [ref=e25]: SQL
+      - menu [ref=e28]:
+        - menuitem "down plus" [ref=e29] [cursor=pointer]:
+          - img "down" [ref=e30]:
+            - img [ref=e31]
+          - img "plus" [ref=e34]:
+            - img [ref=e35]
+        - menuitem "down format-painter" [ref=e38] [cursor=pointer]:
+          - img "down" [ref=e39]:
+            - img [ref=e40]
+          - img "format-painter" [ref=e43]:
+            - img [ref=e44]
+        - menuitem "down Settings" [ref=e46] [cursor=pointer]:
+          - img "down" [ref=e47]:
+            - img [ref=e48]
+          - generic [ref=e50]: Settings
+  - main [ref=e52]:
+    - generic [ref=e54]:
+      - button "vertical-align filter" [ref=e58] [cursor=pointer]:
+        - img "vertical-align" [ref=e59]:
+          - img [ref=e60]
+        - img "filter" [ref=e62]:
+          - img [ref=e63]
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - textbox "Dashboard title" [disabled] [ref=e72]:
+              - /placeholder: Add the name of the dashboard
+              - text: Datamesh Platform – Übersicht
+            - generic [ref=e73]: Datamesh Platform – Übersicht
+          - generic [ref=e74]:
+            - button "unstarred" [ref=e75] [cursor=pointer]:
+              - img "unstarred" [ref=e76]:
+                - img [ref=e77]
+            - button "check-circle Published" [ref=e80] [cursor=pointer]:
+              - img "check-circle" [ref=e81]:
+                - img [ref=e82]
+              - generic [ref=e85]: Published
+            - generic [ref=e86]:
+              - generic [ref=e87]:
+                - img "user" [ref=e88]:
+                  - img [ref=e89]
+                - generic [ref=e91]: Not available
+              - generic [ref=e92]:
+                - img "edit" [ref=e93]:
+                  - img [ref=e94]
+                - generic [ref=e96]: 5 minutes ago
+        - generic [ref=e97]:
+          - button "Edit dashboard" [ref=e100] [cursor=pointer]:
+            - generic [ref=e101]: Edit dashboard
+          - button "Menu actions trigger" [ref=e103] [cursor=pointer]:
+            - img "ellipsis" [ref=e104]:
+              - img [ref=e105]
+      - tabpanel [ref=e115]:
+        - generic [ref=e117]:
+          - generic [ref=e119]:
+            - generic [ref=e123]:
+              - generic [ref=e124]:
+                - link "Policen nach Ereignistyp" [ref=e128] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=OrqZIYKDBJPMQmic8ErqL&slice_id=1
+                - button "More Options" [ref=e130] [cursor=pointer]:
+                  - img "ellipsis" [ref=e131]:
+                    - img [ref=e132]
+              - alert [ref=e135]:
+                - img "close-circle" [ref=e136]:
+                  - img [ref=e137]
+                - generic [ref=e139]:
+                  - generic [ref=e140]: Data error
+                  - generic [ref=e143]: "Error: Columns missing in dataset: ['event_type']"
+                - button "close" [ref=e144] [cursor=pointer]:
+                  - img "close" [ref=e145]:
+                    - img [ref=e146]
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - link "Schäden nach Ereignistyp" [ref=e156] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=OrqZIYKDBJPMQmic8ErqL&slice_id=2
+                - button "More Options" [ref=e158] [cursor=pointer]:
+                  - img "ellipsis" [ref=e159]:
+                    - img [ref=e160]
+              - alert [ref=e163]:
+                - img "close-circle" [ref=e164]:
+                  - img [ref=e165]
+                - generic [ref=e167]:
+                  - generic [ref=e168]: Data error
+                  - generic [ref=e171]: "Error: Columns missing in dataset: ['event_type']"
+                - button "close" [ref=e172] [cursor=pointer]:
+                  - img "close" [ref=e173]:
+                    - img [ref=e174]
+          - generic [ref=e181]:
+            - generic [ref=e182]:
+              - link "Abrechnung – Events nach Typ" [ref=e186] [cursor=pointer]:
+                - /url: /explore/?dashboard_page_id=OrqZIYKDBJPMQmic8ErqL&slice_id=3
+              - button "More Options" [ref=e188] [cursor=pointer]:
+                - img "ellipsis" [ref=e189]:
+                  - img [ref=e190]
+            - alert [ref=e193]:
+              - img "close-circle" [ref=e194]:
+                - img [ref=e195]
+              - generic [ref=e197]:
+                - generic [ref=e198]: Data error
+                - generic [ref=e201]: "Error: Columns missing in dataset: ['event_type']"
+              - button "close" [ref=e202] [cursor=pointer]:
+                - img "close" [ref=e203]:
+                  - img [ref=e204]
+          - generic [ref=e207]:
+            - generic [ref=e211]:
+              - generic [ref=e212]:
+                - link "Schadenmeldungen Total" [ref=e216] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=OrqZIYKDBJPMQmic8ErqL&slice_id=8
+                - button "More Options" [ref=e218] [cursor=pointer]:
+                  - img "ellipsis" [ref=e219]:
+                    - img [ref=e220]
+              - generic [ref=e228]:
+                - generic [ref=e229]: "0"
+                - generic [ref=e230]: Claims Events in Iceberg
+            - generic [ref=e234]:
+              - generic [ref=e235]:
+                - link "Rechnungen Total" [ref=e239] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=OrqZIYKDBJPMQmic8ErqL&slice_id=5
+                - button "More Options" [ref=e241] [cursor=pointer]:
+                  - img "ellipsis" [ref=e242]:
+                    - img [ref=e243]
+              - generic [ref=e251]:
+                - generic [ref=e252]: "0"
+                - generic [ref=e253]: Billing Events in Iceberg
+            - generic [ref=e257]:
+              - generic [ref=e258]:
+                - link "Partner Event-Übersicht" [ref=e262] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=OrqZIYKDBJPMQmic8ErqL&slice_id=6
+                - button "More Options" [ref=e264] [cursor=pointer]:
+                  - img "ellipsis" [ref=e265]:
+                    - img [ref=e266]
+              - alert [ref=e269]:
+                - img "close-circle" [ref=e270]:
+                  - img [ref=e271]
+                - generic [ref=e273]:
+                  - generic [ref=e274]: Data error
+                  - generic [ref=e277]: "Error: Columns missing in dataset: ['event_type']"
+                - button "close" [ref=e278] [cursor=pointer]:
+                  - img "close" [ref=e279]:
+                    - img [ref=e280]
+          - generic [ref=e287]:
+            - generic [ref=e288]:
+              - link "Produkte – aktuelle Events" [ref=e292] [cursor=pointer]:
+                - /url: /explore/?dashboard_page_id=OrqZIYKDBJPMQmic8ErqL&slice_id=7
+              - button "More Options" [ref=e294] [cursor=pointer]:
+                - img "ellipsis" [ref=e295]:
+                  - img [ref=e296]
+            - alert [ref=e299]:
+              - img "close-circle" [ref=e300]:
+                - img [ref=e301]
+              - generic [ref=e303]:
+                - generic [ref=e304]: Data error
+                - generic [ref=e307]: "Error: Columns missing in dataset: ['event_type', 'product_name']"
+              - button "close" [ref=e308] [cursor=pointer]:
+                - img "close" [ref=e309]:
+                  - img [ref=e310]

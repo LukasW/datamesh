@@ -1073,14 +1073,7 @@ Das **Data Product Portal** ist die Self-Service-Oberfläche für Datenkonsument
 |---|---|
 | **Katalog** (/) | Alle Data Products mit Quality Score, Schema-Status, Domain-Filter |
 | **Demo** (/demo) | Live-Abfrage der `mart_portfolio_summary` |
-| **Lineage** (/lineage) | Interaktiver Graph: Welcher Service produziert welchen Topic? Wer konsumiert? |
 | **Governance** (/governance) | Schema Registry Status, ODC Quality Scores, Architekturregeln |
-
-#### Lineage-Graph – Warum wichtig?
-
-Der Lineage-Graph beantwortet Fragen wie:
-- «Ich sehe falsche Daten in `mart_financial_summary`. Woher kommen sie?» → Lineage rückwärts verfolgen
-- «Wenn wir `person.v1.created` umbenennen, wer ist betroffen?» → Alle Downstream-Consumer sehen
 
 ---
 
@@ -1095,7 +1088,6 @@ Der Lineage-Graph beantwortet Fragen wie:
 | Feature | Data Product Portal | DataHub |
 |---|---|---|
 | Schema-Extraktion | Manuell via ODC | **Automatisch** aus Schema Registry |
-| Lineage | Einfacher Graph | **Vollständige Lineage** (Kafka → dbt → Dashboard) |
 | Zugriffskontrollen | Keine | **Fein granular** (Rolle, Team, Entity-Typ) |
 | Suchindex | Einfach | **Elasticsearch-powered** |
 | Integrationen | ODC + Schema Registry | Kafka, dbt, Airflow, Spark, S3, ... |
@@ -1124,7 +1116,6 @@ for contract in glob("**/contracts/*.odcontract.yaml"):
 
 1. **Discovery**: Suche nach «invoice» → alle billing-Topics erscheinen mit Beschreibung
 2. **Schema**: Tab «Schema» eines Topics → alle Avro-Felder mit Typen
-3. **Lineage**: Tab «Lineage» → upstream (billing-service → outbox → Debezium) und downstream (Platform Consumer → dbt → Mart)
 4. **Ownership**: Wer owned diesen Dataset? (Owner-Feld aus ODC)
 
 ---

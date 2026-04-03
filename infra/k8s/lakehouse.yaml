@@ -101,7 +101,7 @@ spec:
     spec:
       containers:
         - name: nessie
-          image: projectnessie/nessie:0.76.0
+          image: projectnessie/nessie:0.107.2
           imagePullPolicy: IfNotPresent
           env:
             - name: NESSIE_VERSION_STORE_TYPE

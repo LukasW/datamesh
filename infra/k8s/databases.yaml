@@ -1,7 +1,7 @@
-# ── Domain Databases (PostgreSQL 16 with logical replication) ─────────────────
+# ── Domain Databases (PostgreSQL 17 with logical replication) ─────────────────
 # partner-db, product-db, policy-db, claims-db, billing-db, hr-db
 # ── Infrastructure Databases ─────────────────────────────────────────────────
-# superset-db, openmetadata-db, marquez-db
+# superset-db, openmetadata-db
 
 # ── Helper template: each DB is a StatefulSet + headless Service ─────────────
 
@@ -38,7 +38,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:17
           imagePullPolicy: IfNotPresent
           args: ["-c", "wal_level=logical", "-c", "max_replication_slots=5", "-c", "max_wal_senders=5"]
           env:
@@ -107,7 +107,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:17
           imagePullPolicy: IfNotPresent
           args: ["-c", "wal_level=logical", "-c", "max_replication_slots=5", "-c", "max_wal_senders=5"]
           env:
@@ -176,7 +176,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:17
           imagePullPolicy: IfNotPresent
           args: ["-c", "wal_level=logical", "-c", "max_replication_slots=5", "-c", "max_wal_senders=5"]
           env:
@@ -245,7 +245,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:17
           imagePullPolicy: IfNotPresent
           args: ["-c", "wal_level=logical", "-c", "max_replication_slots=5", "-c", "max_wal_senders=5"]
           env:
@@ -314,7 +314,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:17
           imagePullPolicy: IfNotPresent
           args: ["-c", "wal_level=logical", "-c", "max_replication_slots=5", "-c", "max_wal_senders=5"]
           env:
@@ -383,7 +383,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:17
           imagePullPolicy: IfNotPresent
           env:
             - name: POSTGRES_DB
@@ -451,7 +451,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:17
           imagePullPolicy: IfNotPresent
           env:
             - name: POSTGRES_DB
@@ -516,7 +516,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:17
           imagePullPolicy: IfNotPresent
           env:
             - name: POSTGRES_DB
@@ -544,71 +544,6 @@ spec:
         - name: init-sql
           configMap:
             name: openmetadata-db-init
-  volumeClaimTemplates:
-    - metadata:
-        name: data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 1Gi
----
-# ═══════════════════════════════════════════════════════════
-# marquez-db
-# ═══════════════════════════════════════════════════════════
-apiVersion: v1
-kind: Service
-metadata:
-  name: marquez-db
-  namespace: datamesh
-spec:
-  clusterIP: None
-  selector:
-    app: marquez-db
-  ports:
-    - port: 5432
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: marquez-db
-  namespace: datamesh
-spec:
-  serviceName: marquez-db
-  replicas: 1
-  selector:
-    matchLabels:
-      app: marquez-db
-  template:
-    metadata:
-      labels:
-        app: marquez-db
-    spec:
-      containers:
-        - name: postgres
-          image: postgres:16
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: POSTGRES_DB
-              value: marquez
-            - name: POSTGRES_USER
-              value: marquez
-            - name: POSTGRES_PASSWORD
-              value: marquez
-          ports:
-            - containerPort: 5432
-          readinessProbe:
-            exec:
-              command: ["pg_isready", "-U", "marquez", "-d", "marquez"]
-            initialDelaySeconds: 5
-            periodSeconds: 5
-          resources:
-            limits:
-              memory: 128Mi
-          volumeMounts:
-            - name: data
-              mountPath: /var/lib/postgresql/data
-              subPath: pgdata
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -651,7 +586,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:16
+          image: postgres:17
           imagePullPolicy: IfNotPresent
           env:
             - name: POSTGRES_DB

@@ -52,8 +52,6 @@ spec:
                 secretKeyRef:
                   name: keycloak-config
                   key: oidc-client-secret
-            - name: OPENLINEAGE_URL
-              value: http://marquez:5050
             - name: VAULT_URL
               value: http://vault:8200
             - name: VAULT_TOKEN

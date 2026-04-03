@@ -49,7 +49,7 @@ quarkus:
     enabled: true
 
   oidc:
-    auth-server-url: http://localhost:8180/realms/yuno
+    auth-server-url: http://localhost:8280/realms/yuno
     client-id: claims-service
     credentials:
       secret: secret

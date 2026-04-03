@@ -24,7 +24,6 @@ Eine moderne Sachversicherungs-Plattform basierend auf **Domain-Driven Design (D
 | **Transformations** | SQLMesh | Incremental models on Iceberg via Trino |
 | **BI / Dashboards** | Apache Superset | Self-Service BI on Trino, Keycloak SSO, Row-Level Security |
 | **Metadata Catalog** | OpenMetadata | Self-service catalog, PII tags, retention |
-| **Data Lineage** | OpenLineage / Marquez | Active lineage tracking |
 | **Data Quality** | Soda Core | Contract testing via SodaCL on Trino |
 | **Data Privacy** | HashiCorp Vault | Crypto-Shredding per ADR-009 |
 | **Frontend** | Qute + htmx + Bootstrap | Server-side Rendering (SSR), kein schwerfälliges SPA-Framework |
@@ -40,7 +39,8 @@ Eine moderne Sachversicherungs-Plattform basierend auf **Domain-Driven Design (D
 ## Tooling & Commands
 
 ### Build & Lifecycle
-* **Full Stack Build:** `./build.sh` (Kompiliert alle Module, baut Images, startet Compose neu).
+* **Images bauen:** `./build.sh` (Kompiliert alle Module, baut Container Images).
+* **Deploy (Compose):** `./deploy-compose.sh -d` (Baut Images + startet Docker Compose Stack).
 * **Single Service (Dev):** `mvn quarkus:dev` (im Service-Verzeichnis).
 * **Container Image:** `mvn clean package -Dquarkus.container-image.build=true`.
 

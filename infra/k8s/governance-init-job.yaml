@@ -80,7 +80,7 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: openmetadata-init
-          image: openmetadata/ingestion:1.6.13
+          image: openmetadata/ingestion:1.12.4
           imagePullPolicy: IfNotPresent
           command: ["python3", "-c"]
           args:

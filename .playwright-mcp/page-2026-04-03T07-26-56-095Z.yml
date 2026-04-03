@@ -1,0 +1,53 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link "Apache Superset" [ref=e8] [cursor=pointer]:
+          - /url: /
+          - img "Apache Superset" [ref=e10]
+        - menu
+      - generic [ref=e12]:
+        - menu [ref=e13]:
+          - menuitem "down format-painter" [ref=e14] [cursor=pointer]:
+            - img "down" [ref=e15]:
+              - img [ref=e16]
+            - img "format-painter" [ref=e19]:
+              - img [ref=e20]
+          - menuitem "down Settings" [ref=e22] [cursor=pointer]:
+            - img "down" [ref=e23]:
+              - img [ref=e24]
+            - generic [ref=e26]: Settings
+        - link "login Login" [ref=e27] [cursor=pointer]:
+          - /url: /login/
+          - img "login" [ref=e28]:
+            - img [ref=e29]
+          - text: Login
+  - main [ref=e32]:
+    - generic [ref=e34]:
+      - generic [ref=e37]: Sign in
+      - generic [ref=e39]:
+        - generic [ref=e40]: "Enter your login and password below:"
+        - generic [ref=e41]:
+          - generic [ref=e43]:
+            - generic [ref=e46]: "Username:"
+            - generic [ref=e50]:
+              - img "user" [ref=e52]:
+                - img [ref=e53]
+              - textbox "Username:" [active] [ref=e55]
+          - generic [ref=e57]:
+            - generic [ref=e60]: "Password:"
+            - generic [ref=e64]:
+              - img "key" [ref=e66]:
+                - img [ref=e67]
+              - textbox "Password:" [ref=e69]
+              - img "eye-invisible" [ref=e71] [cursor=pointer]:
+                - img [ref=e72]
+          - button "Sign in" [ref=e81] [cursor=pointer]:
+            - generic [ref=e82]: Sign in
+  - alert [ref=e84]:
+    - generic [ref=e85]:
+      - img "exclamation-circle" [ref=e86]:
+        - img [ref=e87]
+      - generic [ref=e89]: Access is Denied
+    - button "Close" [ref=e90] [cursor=pointer]:
+      - img [ref=e91]

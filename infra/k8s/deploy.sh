@@ -347,7 +347,6 @@ cat <<'SUMMARY'
 ║  OpenMetadata            http://openmetadata.localhost               ║
 ║  Apache Superset         http://superset.localhost                   ║
 ║  Trino                   http://trino.localhost                      ║
-║  Marquez (Lineage)       http://marquez.localhost                    ║
 ║  MinIO Console           http://minio.localhost                      ║
 ║  Nessie Catalog          http://nessie.localhost                     ║
 ║  Vault                   http://vault.localhost                      ║

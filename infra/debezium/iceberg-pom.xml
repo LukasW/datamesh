@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>ch.yuno.datamesh</groupId>
@@ -14,25 +14,71 @@
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-kafka-connect</artifactId>
-            <version>1.7.1</version>
+            <version>1.10.1</version>
         </dependency>
         <!-- S3 FileIO for writing Parquet to MinIO -->
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-aws</artifactId>
-            <version>1.7.1</version>
+            <version>1.10.1</version>
         </dependency>
-        <!-- AWS SDK bundle for S3FileIO (MinIO) -->
+        <!-- AWS SDK v2 modules for S3FileIO (MinIO) – individual artifacts instead of the ~500 MB
+        bundle -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
-            <artifactId>bundle</artifactId>
-            <version>2.29.51</version>
+            <artifactId>s3</artifactId>
+            <version>2.42.25</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+            <version>2.42.25</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>url-connection-client</artifactId>
+            <version>2.42.25</version>
         </dependency>
         <!-- Nessie catalog client -->
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-nessie</artifactId>
-            <version>1.7.1</version>
+            <version>1.10.1</version>
+        </dependency>
+        <!-- Parquet support (required for PARQUET file format writing) -->
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-parquet</artifactId>
+            <version>1.10.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-avro</artifactId>
+            <version>1.16.0</version>
+        </dependency>
+        <!-- Hadoop common required by parquet-hadoop (Configuration class) -->
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-common</artifactId>
+            <version>3.4.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-auth</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jersey</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.servlet</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 </project>

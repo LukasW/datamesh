@@ -1,4 +1,4 @@
-# ── OpenMetadata, Marquez, Superset ───────────────────────────────────────────
+# ── OpenMetadata, Superset ────────────────────────────────────────────────────
 
 # ═══════════════════════════════════════════════════════════
 # OpenMetadata Elasticsearch (OpenSearch)
@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: opensearch
-          image: opensearchproject/opensearch:2.11.1
+          image: opensearchproject/opensearch:2.19.0
           imagePullPolicy: IfNotPresent
           env:
             - name: discovery.type
@@ -100,7 +100,7 @@ spec:
     spec:
       initContainers:
         - name: migrate
-          image: openmetadata/server:1.6.13
+          image: openmetadata/server:1.12.4
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c", "/opt/openmetadata/bootstrap/openmetadata-ops.sh migrate && (/opt/openmetadata/bootstrap/openmetadata-ops.sh reindex || echo 'Reindex skipped (will run on first server start)')"]
           env:
@@ -148,7 +148,7 @@ spec:
               memory: 2Gi
       containers:
         - name: openmetadata
-          image: openmetadata/server:1.6.13
+          image: openmetadata/server:1.12.4
           imagePullPolicy: IfNotPresent
           env:
             - name: OPENMETADATA_CLUSTER_NAME
@@ -251,7 +251,7 @@ spec:
     spec:
       containers:
         - name: ingestion
-          image: openmetadata/ingestion:1.6.13
+          image: openmetadata/ingestion:1.12.4
           imagePullPolicy: IfNotPresent
           command: ["/bin/bash", "-c"]
           args:
@@ -276,126 +276,11 @@ spec:
               value: http://openmetadata-server:8585/api
             - name: AIRFLOW__OPENMETADATA__AUTH_PROVIDER
               value: openmetadata
-            - name: AIRFLOW__LINEAGE__OPENLINEAGE_URL
-              value: http://marquez:5050
           ports:
             - containerPort: 8080
           resources:
             limits:
               memory: 3Gi
----
-# ═══════════════════════════════════════════════════════════
-# Marquez (OpenLineage backend)
-# ═══════════════════════════════════════════════════════════
-apiVersion: v1
-kind: Service
-metadata:
-  name: marquez
-  namespace: datamesh
-spec:
-  selector:
-    app: marquez
-  ports:
-    - name: api
-      port: 5050
-      targetPort: 5050
-    - name: admin
-      port: 5051
-      targetPort: 5051
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: marquez
-  namespace: datamesh
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: marquez
-  template:
-    metadata:
-      labels:
-        app: marquez
-    spec:
-      containers:
-        - name: marquez
-          image: marquezproject/marquez
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: MARQUEZ_PORT
-              value: "5050"
-            - name: MARQUEZ_ADMIN_PORT
-              value: "5051"
-            - name: POSTGRES_HOST
-              value: marquez-db
-            - name: POSTGRES_PORT
-              value: "5432"
-            - name: POSTGRES_DB
-              value: marquez
-            - name: POSTGRES_USER
-              value: marquez
-            - name: POSTGRES_PASSWORD
-              value: marquez
-          ports:
-            - containerPort: 5050
-            - containerPort: 5051
-          readinessProbe:
-            httpGet:
-              path: /api/v1/namespaces
-              port: 5050
-            initialDelaySeconds: 15
-            periodSeconds: 10
-          resources:
-            limits:
-              memory: 512Mi
----
-# ═══════════════════════════════════════════════════════════
-# Marquez Web UI
-# ═══════════════════════════════════════════════════════════
-apiVersion: v1
-kind: Service
-metadata:
-  name: marquez-web
-  namespace: datamesh
-spec:
-  selector:
-    app: marquez-web
-  ports:
-    - port: 3000
-      targetPort: 3000
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: marquez-web
-  namespace: datamesh
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: marquez-web
-  template:
-    metadata:
-      labels:
-        app: marquez-web
-    spec:
-      containers:
-        - name: marquez-web
-          image: marquezproject/marquez-web
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: MARQUEZ_HOST
-              value: marquez
-            - name: MARQUEZ_PORT
-              value: "5050"
-            - name: WEB_PORT
-              value: "3000"
-          ports:
-            - containerPort: 3000
-          resources:
-            limits:
-              memory: 256Mi
 ---
 # ═══════════════════════════════════════════════════════════
 # Superset

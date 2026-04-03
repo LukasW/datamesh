@@ -205,16 +205,6 @@ spec:
                 name: superset
                 port:
                   number: 8088
-    - host: marquez.localhost
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: marquez-web
-                port:
-                  number: 3000
     - host: vault.localhost
       http:
         paths:

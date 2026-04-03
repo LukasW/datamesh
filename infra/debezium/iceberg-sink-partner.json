@@ -20,6 +20,9 @@
     "iceberg.control.commit.interval-ms": "10000",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-    "value.converter.schemas.enable": "false"
+    "value.converter.schemas.enable": "false",
+    "consumer.auto.offset.reset": "earliest",
+    "consumer.session.timeout.ms": "60000",
+    "consumer.heartbeat.interval.ms": "10000"
   }
 }
