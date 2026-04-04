@@ -5,9 +5,10 @@ import ch.yuno.claims.domain.model.ClaimId;
 import ch.yuno.claims.domain.model.ClaimStatus;
 import ch.yuno.claims.domain.model.PartnerSearchView;
 import ch.yuno.claims.domain.model.PolicySnapshot;
-import ch.yuno.claims.domain.service.ClaimApplicationService;
-import ch.yuno.claims.domain.service.ClaimNotFoundException;
-import ch.yuno.claims.domain.service.CoverageCheckFailedException;
+import ch.yuno.claims.application.ClaimNotFoundException;
+import ch.yuno.claims.application.CoverageCheckFailedException;
+import ch.yuno.claims.domain.port.in.ClaimCommandUseCase;
+import ch.yuno.claims.domain.port.in.ClaimQueryUseCase;
 import ch.yuno.claims.infrastructure.persistence.ClaimJpaAdapter;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
@@ -41,7 +42,10 @@ public class ClaimUiController {
     Template listTableFragment;
 
     @Inject
-    ClaimApplicationService claimService;
+    ClaimCommandUseCase claimCommandService;
+
+    @Inject
+    ClaimQueryUseCase claimQueryService;
 
     @Inject
     ClaimJpaAdapter claimJpaAdapter;
@@ -102,13 +106,13 @@ public class ClaimUiController {
 
         List<PartnerSearchView> partners;
         if (vnQuery != null && !vnQuery.isBlank()) {
-            partners = claimService.findPartnerByInsuredNumber(vnQuery)
+            partners = claimQueryService.findPartnerByInsuredNumber(vnQuery)
                     .map(List::of).orElse(List.of());
         } else if (ahvQuery != null && !ahvQuery.isBlank()) {
-            partners = claimService.findPartnerBySocialSecurityNumber(ahvQuery)
+            partners = claimQueryService.findPartnerBySocialSecurityNumber(ahvQuery)
                     .map(List::of).orElse(List.of());
         } else {
-            partners = claimService.searchPartners(nameQuery);
+            partners = claimQueryService.searchPartners(nameQuery);
         }
         return partnerSearchResults.data("partners", partners);
     }
@@ -116,7 +120,7 @@ public class ClaimUiController {
     @GET
     @Path("/fragments/partner/{partnerId}/policies")
     public TemplateInstance partnerPolicies(@PathParam("partnerId") String partnerId) {
-        List<PolicySnapshot> policies = claimService.findPoliciesForPartner(partnerId);
+        List<PolicySnapshot> policies = claimQueryService.findPoliciesForPartner(partnerId);
         return policyPicker.data("policies", policies);
     }
 
@@ -124,7 +128,7 @@ public class ClaimUiController {
     @Path("/fragments/{id}/review")
     public Response startReview(@PathParam("id") String claimId) {
         try {
-            Claim claim = claimService.startReview(ClaimId.of(claimId));
+            Claim claim = claimCommandService.startReview(ClaimId.of(claimId));
             return Response.ok(renderRow(claim)).type(MediaType.TEXT_HTML).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(404).entity("<tr><td colspan='6' class='text-danger'>Schadenfall nicht gefunden</td></tr>").build();
@@ -137,7 +141,7 @@ public class ClaimUiController {
     @Path("/fragments/{id}/settle")
     public Response settle(@PathParam("id") String claimId) {
         try {
-            Claim claim = claimService.settle(ClaimId.of(claimId));
+            Claim claim = claimCommandService.settle(ClaimId.of(claimId));
             return Response.ok(renderRow(claim)).type(MediaType.TEXT_HTML).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(404).entity("<tr><td colspan='6' class='text-danger'>Schadenfall nicht gefunden</td></tr>").build();
@@ -150,7 +154,7 @@ public class ClaimUiController {
     @Path("/fragments/{id}/reject")
     public Response reject(@PathParam("id") String claimId) {
         try {
-            Claim claim = claimService.reject(ClaimId.of(claimId));
+            Claim claim = claimCommandService.reject(ClaimId.of(claimId));
             return Response.ok(renderRow(claim)).type(MediaType.TEXT_HTML).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(404).entity("<tr><td colspan='6' class='text-danger'>Schadenfall nicht gefunden</td></tr>").build();
@@ -176,7 +180,7 @@ public class ClaimUiController {
             @FormParam("claimDate") String claimDateStr) {
         try {
             LocalDate claimDate = LocalDate.parse(claimDateStr);
-            claimService.openClaim(policyId, description, claimDate);
+            claimCommandService.openClaim(policyId, description, claimDate);
             return Response.seeOther(URI.create("/claims")).build();
         } catch (CoverageCheckFailedException e) {
             return Response.ok(formTemplate
@@ -202,7 +206,7 @@ public class ClaimUiController {
     @Path("/fragments/{id}/edit")
     public Response editRow(@PathParam("id") String claimId) {
         try {
-            Claim c = claimService.findById(ClaimId.of(claimId));
+            Claim c = claimQueryService.findById(ClaimId.of(claimId));
             return Response.ok(renderEditRow(c)).type(MediaType.TEXT_HTML).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(404)
@@ -221,14 +225,14 @@ public class ClaimUiController {
             @FormParam("claimDate") String claimDateStr) {
         try {
             LocalDate claimDate = LocalDate.parse(claimDateStr);
-            Claim updated = claimService.updateClaim(ClaimId.of(claimId), description, claimDate);
+            Claim updated = claimCommandService.updateClaim(ClaimId.of(claimId), description, claimDate);
             return Response.ok(renderRow(updated)).type(MediaType.TEXT_HTML).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(404)
                     .entity("<tr><td colspan='6' class='text-danger'>Schadenfall nicht gefunden</td></tr>")
                     .type(MediaType.TEXT_HTML).build();
         } catch (IllegalStateException | IllegalArgumentException e) {
-            Claim c = claimService.findById(ClaimId.of(claimId));
+            Claim c = claimQueryService.findById(ClaimId.of(claimId));
             return Response.ok(renderEditRowWithError(c, e.getMessage())).type(MediaType.TEXT_HTML).build();
         }
     }
@@ -238,7 +242,7 @@ public class ClaimUiController {
     @Path("/fragments/{id}/row")
     public Response viewRow(@PathParam("id") String claimId) {
         try {
-            Claim c = claimService.findById(ClaimId.of(claimId));
+            Claim c = claimQueryService.findById(ClaimId.of(claimId));
             return Response.ok(renderRow(c)).type(MediaType.TEXT_HTML).build();
         } catch (ClaimNotFoundException e) {
             return Response.status(404)
@@ -249,7 +253,7 @@ public class ClaimUiController {
 
     private List<Claim> loadClaims(String policyId, String status, int page, int size) {
         if (policyId != null && !policyId.isBlank()) {
-            return claimService.findByPolicyId(policyId);
+            return claimQueryService.findByPolicyId(policyId);
         }
         if (status != null && !status.isBlank()) {
             // filter in-memory from full page for simplicity

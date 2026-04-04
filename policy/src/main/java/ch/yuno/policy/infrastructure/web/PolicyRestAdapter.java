@@ -9,9 +9,9 @@ import ch.yuno.policy.domain.model.Policy;
 import ch.yuno.policy.domain.model.PolicyId;
 import ch.yuno.policy.domain.model.PolicyStatus;
 import ch.yuno.policy.domain.service.CoverageNotFoundException;
-import ch.yuno.policy.domain.service.PolicyCommandService;
-import ch.yuno.policy.domain.service.PolicyNotFoundException;
-import ch.yuno.policy.domain.service.PolicyQueryService;
+import ch.yuno.policy.application.PolicyNotFoundException;
+import ch.yuno.policy.domain.port.in.PolicyCommandUseCase;
+import ch.yuno.policy.domain.port.in.PolicyQueryUseCase;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -31,10 +31,10 @@ import java.util.Map;
 public class PolicyRestAdapter {
 
     @Inject
-    PolicyCommandService policyCommandService;
+    PolicyCommandUseCase policyCommandService;
 
     @Inject
-    PolicyQueryService policyQueryService;
+    PolicyQueryUseCase policyQueryService;
 
     // ── Policy CRUD ───────────────────────────────────────────────────────────
 

@@ -2,7 +2,7 @@ package ch.yuno.policy.infrastructure.grpc;
 
 import ch.yuno.policy.domain.model.PremiumCalculationResult;
 import ch.yuno.policy.domain.port.out.PremiumCalculationPort;
-import ch.yuno.policy.domain.service.PremiumCalculationUnavailableException;
+import ch.yuno.policy.application.PremiumCalculationUnavailableException;
 import ch.yuno.product.grpc.PremiumCalculationGrpc;
 import ch.yuno.product.grpc.PremiumCalculationProto.PremiumCalculationRequest;
 import ch.yuno.product.grpc.PremiumCalculationProto.PremiumCalculationResponse;

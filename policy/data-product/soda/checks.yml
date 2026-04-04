@@ -1,0 +1,16 @@
+checks for policy_raw.policy_events:
+  - row_count > 0:
+      name: Policy events exist
+  - duplicate_count(eventid) = 0:
+      name: No duplicate policy event IDs
+  - missing_count(policyid) = 0:
+      name: No null policyid
+
+checks for policy_silver.policy:
+  - row_count > 0:
+      name: policy_silver.policy is not empty
+  - duplicate_count(policy_id) = 0:
+      name: No duplicate policy_id in silver
+  - invalid_count(policy_status) = 0:
+      name: policy_status has valid values
+      valid: [ACTIVE, CANCELLED]

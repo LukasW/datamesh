@@ -1,6 +1,6 @@
 package ch.yuno.billing.infrastructure.messaging;
 
-import ch.yuno.billing.domain.service.InvoiceCommandService;
+import ch.yuno.billing.domain.port.in.InvoiceCommandUseCase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
@@ -18,7 +18,7 @@ public class ClaimsEventConsumer {
     private static final Logger LOG = Logger.getLogger(ClaimsEventConsumer.class);
 
     @Inject
-    InvoiceCommandService invoiceCommandService;
+    InvoiceCommandUseCase invoiceCommandService;
 
     @Incoming("claims-settled-in")
     public void onClaimSettled(String payload) {

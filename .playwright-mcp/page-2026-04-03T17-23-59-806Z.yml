@@ -1,0 +1,230 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - link "Apache Superset" [ref=e8] [cursor=pointer]:
+          - /url: /
+          - img "Apache Superset" [ref=e10]
+        - menu [ref=e11]:
+          - menuitem "Dashboards" [ref=e12] [cursor=pointer]:
+            - button "Dashboards" [ref=e14]
+          - menuitem "Charts" [ref=e15] [cursor=pointer]:
+            - button "Charts" [ref=e17]
+          - menuitem "Datasets" [ref=e18] [cursor=pointer]:
+            - button "Datasets" [ref=e20]
+          - menuitem "down SQL" [ref=e21] [cursor=pointer]:
+            - img "down" [ref=e22]:
+              - img [ref=e23]
+            - generic [ref=e25]: SQL
+      - menu [ref=e28]:
+        - menuitem "down plus" [ref=e29] [cursor=pointer]:
+          - img "down" [ref=e30]:
+            - img [ref=e31]
+          - img "plus" [ref=e34]:
+            - img [ref=e35]
+        - menuitem "down format-painter" [ref=e38] [cursor=pointer]:
+          - img "down" [ref=e39]:
+            - img [ref=e40]
+          - img "format-painter" [ref=e43]:
+            - img [ref=e44]
+        - menuitem "down Settings" [ref=e46] [cursor=pointer]:
+          - img "down" [ref=e47]:
+            - img [ref=e48]
+          - generic [ref=e50]: Settings
+  - main [ref=e52]:
+    - generic [ref=e53]:
+      - button "vertical-align filter" [ref=e57] [cursor=pointer]:
+        - img "vertical-align" [ref=e58]:
+          - img [ref=e59]
+        - img "filter" [ref=e61]:
+          - img [ref=e62]
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - generic [ref=e70]:
+            - textbox "Dashboard title" [disabled] [ref=e71]:
+              - /placeholder: Add the name of the dashboard
+              - text: Datamesh Platform – Übersicht
+            - generic [ref=e72]: Datamesh Platform – Übersicht
+          - generic [ref=e73]:
+            - button "unstarred" [ref=e74] [cursor=pointer]:
+              - img "unstarred" [ref=e75]:
+                - img [ref=e76]
+            - button "check-circle Published" [ref=e79] [cursor=pointer]:
+              - img "check-circle" [ref=e80]:
+                - img [ref=e81]
+              - generic [ref=e84]: Published
+            - generic [ref=e85]:
+              - generic [ref=e86]:
+                - img "user" [ref=e87]:
+                  - img [ref=e88]
+                - generic [ref=e90]: Not available
+              - generic [ref=e91]:
+                - img "edit" [ref=e92]:
+                  - img [ref=e93]
+                - generic [ref=e95]: 2 hours ago
+        - generic [ref=e96]:
+          - button "Edit dashboard" [ref=e99] [cursor=pointer]:
+            - generic [ref=e100]: Edit dashboard
+          - button "Menu actions trigger" [ref=e102] [cursor=pointer]:
+            - img "ellipsis" [ref=e103]:
+              - img [ref=e104]
+      - tabpanel [ref=e114]:
+        - generic [ref=e116]:
+          - generic [ref=e118]:
+            - generic [ref=e123]:
+              - link "Policen nach Status" [ref=e127] [cursor=pointer]:
+                - /url: /explore/?dashboard_page_id=rcpccnx2gbxXRSHZ1lyTy&slice_id=1
+              - button "More Options" [ref=e129] [cursor=pointer]:
+                - img "ellipsis" [ref=e130]:
+                  - img [ref=e131]
+            - generic [ref=e145]:
+              - link "Schäden nach Status" [ref=e149] [cursor=pointer]:
+                - /url: /explore/?dashboard_page_id=rcpccnx2gbxXRSHZ1lyTy&slice_id=2
+              - button "More Options" [ref=e151] [cursor=pointer]:
+                - img "ellipsis" [ref=e152]:
+                  - img [ref=e153]
+          - generic [ref=e168]:
+            - generic [ref=e169]:
+              - link "Abrechnung – Rechnungen nach Status" [ref=e173] [cursor=pointer]:
+                - /url: /explore/?dashboard_page_id=rcpccnx2gbxXRSHZ1lyTy&slice_id=3
+              - button "More Options" [ref=e175] [cursor=pointer]:
+                - img "ellipsis" [ref=e176]:
+                  - img [ref=e177]
+            - table [ref=e186]:
+              - row "invoice_status COUNT(*)" [ref=e190]:
+                - columnheader "invoice_status" [ref=e191] [cursor=pointer]:
+                  - generic [ref=e192]:
+                    - generic [ref=e193]: invoice_status
+                    - img [ref=e194]
+                - columnheader "COUNT(*)" [ref=e196] [cursor=pointer]:
+                  - generic [ref=e197]:
+                    - generic [ref=e198]: COUNT(*)
+                    - img [ref=e199]
+              - rowgroup [ref=e204]:
+                - row "invoice_status COUNT(*)" [ref=e205]:
+                  - cell "invoice_status" [ref=e206] [cursor=pointer]: OPEN
+                  - cell "COUNT(*)" [ref=e207]: "37"
+                - row "invoice_status COUNT(*)" [ref=e208]:
+                  - cell "invoice_status" [ref=e209] [cursor=pointer]: PAID
+                  - cell "COUNT(*)" [ref=e210]: "6"
+                - row "invoice_status COUNT(*)" [ref=e211]:
+                  - cell "invoice_status" [ref=e212] [cursor=pointer]: OVERDUE
+                  - cell "COUNT(*)" [ref=e213]: "2"
+          - generic [ref=e215]:
+            - generic [ref=e219]:
+              - generic [ref=e220]:
+                - link "Schadenmeldungen Total" [ref=e224] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=rcpccnx2gbxXRSHZ1lyTy&slice_id=4
+                - button "More Options" [ref=e226] [cursor=pointer]:
+                  - img "ellipsis" [ref=e227]:
+                    - img [ref=e228]
+              - generic [ref=e236]:
+                - generic [ref=e237]: "8"
+                - generic [ref=e238]: Claims in Iceberg (Silver)
+            - generic [ref=e242]:
+              - generic [ref=e243]:
+                - link "Rechnungen Total" [ref=e247] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=rcpccnx2gbxXRSHZ1lyTy&slice_id=5
+                - button "More Options" [ref=e249] [cursor=pointer]:
+                  - img "ellipsis" [ref=e250]:
+                    - img [ref=e251]
+              - generic [ref=e259]:
+                - generic [ref=e260]: "45"
+                - generic [ref=e261]: Invoices in Iceberg (Silver)
+            - generic [ref=e265]:
+              - generic [ref=e266]:
+                - link "Partner – Übersicht nach Status" [ref=e270] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=rcpccnx2gbxXRSHZ1lyTy&slice_id=6
+                - button "More Options" [ref=e272] [cursor=pointer]:
+                  - img "ellipsis" [ref=e273]:
+                    - img [ref=e274]
+              - table [ref=e283]:
+                - row "partner_status COUNT(*)" [ref=e287]:
+                  - columnheader "partner_status" [ref=e288] [cursor=pointer]:
+                    - generic [ref=e289]:
+                      - generic [ref=e290]: partner_status
+                      - img [ref=e291]
+                  - columnheader "COUNT(*)" [ref=e293] [cursor=pointer]:
+                    - generic [ref=e294]:
+                      - generic [ref=e295]: COUNT(*)
+                      - img [ref=e296]
+                - rowgroup [ref=e301]:
+                  - row "partner_status COUNT(*)" [ref=e302]:
+                    - cell "partner_status" [ref=e303] [cursor=pointer]: INSURED
+                    - cell "COUNT(*)" [ref=e304]: "14"
+                  - row "partner_status COUNT(*)" [ref=e305]:
+                    - cell "partner_status" [ref=e306] [cursor=pointer]: PROSPECT
+                    - cell "COUNT(*)" [ref=e307]: "8"
+          - generic [ref=e313]:
+            - generic [ref=e314]:
+              - link "Produkte – aktuelle Übersicht" [ref=e318] [cursor=pointer]:
+                - /url: /explore/?dashboard_page_id=rcpccnx2gbxXRSHZ1lyTy&slice_id=7
+              - button "More Options" [ref=e320] [cursor=pointer]:
+                - img "ellipsis" [ref=e321]:
+                  - img [ref=e322]
+            - table [ref=e331]:
+              - row "product_line product_name COUNT(*)" [ref=e336]:
+                - columnheader "product_line" [ref=e337] [cursor=pointer]:
+                  - generic [ref=e338]:
+                    - generic [ref=e339]: product_line
+                    - img [ref=e340]
+                - columnheader "product_name" [ref=e342] [cursor=pointer]:
+                  - generic [ref=e343]:
+                    - generic [ref=e344]: product_name
+                    - img [ref=e345]
+                - columnheader "COUNT(*)" [ref=e347] [cursor=pointer]:
+                  - generic [ref=e348]:
+                    - generic [ref=e349]: COUNT(*)
+                    - img [ref=e350]
+              - rowgroup [ref=e356]:
+                - row "product_line product_name COUNT(*)" [ref=e357]:
+                  - cell "product_line" [ref=e358] [cursor=pointer]: LEGAL_EXPENSES
+                  - cell "product_name" [ref=e359] [cursor=pointer]: Rechtsschutz
+                  - cell "COUNT(*)" [ref=e360]: "1"
+                - row "product_line product_name COUNT(*)" [ref=e361]:
+                  - cell "product_line" [ref=e362] [cursor=pointer]: LIABILITY
+                  - cell "product_name" [ref=e363] [cursor=pointer]: Haftpflicht Privat
+                  - cell "COUNT(*)" [ref=e364]: "1"
+                - row "product_line product_name COUNT(*)" [ref=e365]:
+                  - cell "product_line" [ref=e366] [cursor=pointer]: HOUSEHOLD_CONTENTS
+                  - cell "product_name" [ref=e367] [cursor=pointer]: Hausrat Basis
+                  - cell "COUNT(*)" [ref=e368]: "1"
+                - row "product_line product_name COUNT(*)" [ref=e369]:
+                  - cell "product_line" [ref=e370] [cursor=pointer]: MOTOR_VEHICLE
+                  - cell "product_name" [ref=e371] [cursor=pointer]: Motorfahrzeug Vollkasko
+                  - cell "COUNT(*)" [ref=e372]: "1"
+                - row "product_line product_name COUNT(*)" [ref=e373]:
+                  - cell "product_line" [ref=e374] [cursor=pointer]: TRAVEL
+                  - cell "product_name" [ref=e375] [cursor=pointer]: Reiseversicherung
+                  - cell "COUNT(*)" [ref=e376]: "1"
+          - generic [ref=e378]:
+            - generic [ref=e382]:
+              - generic [ref=e383]:
+                - link "Schadendetails (Gold)" [ref=e387] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=rcpccnx2gbxXRSHZ1lyTy&slice_id=8
+                - button "More Options" [ref=e389] [cursor=pointer]:
+                  - img "ellipsis" [ref=e390]:
+                    - img [ref=e391]
+              - generic [ref=e396]:
+                - status "Loading" [ref=e397]
+                - generic [ref=e398]: Waiting on Iceberg (Trino)
+            - generic [ref=e402]:
+              - generic [ref=e403]:
+                - link "Policendetails (Gold)" [ref=e407] [cursor=pointer]:
+                  - /url: /explore/?dashboard_page_id=rcpccnx2gbxXRSHZ1lyTy&slice_id=9
+                - button "More Options" [ref=e409] [cursor=pointer]:
+                  - img "ellipsis" [ref=e410]:
+                    - img [ref=e411]
+              - generic [ref=e416]:
+                - status "Loading" [ref=e417]
+                - generic [ref=e418]: Waiting on Iceberg (Trino)
+          - generic [ref=e424]:
+            - generic [ref=e425]:
+              - link "Finanzzusammenfassung (Gold)" [ref=e429] [cursor=pointer]:
+                - /url: /explore/?dashboard_page_id=rcpccnx2gbxXRSHZ1lyTy&slice_id=10
+              - button "More Options" [ref=e431] [cursor=pointer]:
+                - img "ellipsis" [ref=e432]:
+                  - img [ref=e433]
+            - generic [ref=e438]:
+              - status "Loading" [ref=e439]
+              - generic [ref=e440]: Waiting on Iceberg (Trino)

@@ -1,12 +1,12 @@
 package ch.yuno.policy.domain;
 
+import ch.yuno.policy.application.PolicyCommandService;
+import ch.yuno.policy.application.PremiumCalculationUnavailableException;
 import ch.yuno.policy.domain.model.PremiumCalculationResult;
 import ch.yuno.policy.domain.model.PolicyId;
-import ch.yuno.policy.domain.port.out.OutboxRepository;
+import ch.yuno.policy.domain.port.out.PolicyEventPublisher;
 import ch.yuno.policy.domain.port.out.PolicyRepository;
 import ch.yuno.policy.domain.port.out.PremiumCalculationPort;
-import ch.yuno.policy.domain.service.PolicyCommandService;
-import ch.yuno.policy.domain.service.PremiumCalculationUnavailableException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +30,7 @@ import static org.mockito.Mockito.*;
 class PolicyCommandServicePremiumTest {
 
     @Mock PolicyRepository policyRepository;
-    @Mock OutboxRepository outboxRepository;
+    @Mock PolicyEventPublisher policyEventPublisher;
     @Mock PremiumCalculationPort premiumCalculationPort;
     @InjectMocks PolicyCommandService service;
 

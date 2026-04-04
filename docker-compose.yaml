@@ -1075,7 +1075,7 @@ services:
           echo 'Debezium not ready yet, retrying in 3s...'
           sleep 3
         done
-        for domain in partner product policy billing claims hr; do
+        for domain in partner product policy billing claims hr-employee hr-orgunit; do
           curl -f -X POST http://debezium-connect:8083/connectors \
             -H 'Content-Type: application/json' \
             -d @/config/iceberg-sink-$${domain}.json \
@@ -1083,14 +1083,35 @@ services:
             || echo "$${domain} Iceberg sink registration failed (may already exist)."
         done
     volumes:
-      - ./infra/debezium/iceberg-sink-partner.json:/config/iceberg-sink-partner.json:ro
-      - ./infra/debezium/iceberg-sink-product.json:/config/iceberg-sink-product.json:ro
-      - ./infra/debezium/iceberg-sink-policy.json:/config/iceberg-sink-policy.json:ro
-      - ./infra/debezium/iceberg-sink-billing.json:/config/iceberg-sink-billing.json:ro
-      - ./infra/debezium/iceberg-sink-claims.json:/config/iceberg-sink-claims.json:ro
-      - ./infra/debezium/iceberg-sink-hr.json:/config/iceberg-sink-hr.json:ro
+      - ./partner/data-product/debezium/iceberg-sink.json:/config/iceberg-sink-partner.json:ro
+      - ./product/data-product/debezium/iceberg-sink.json:/config/iceberg-sink-product.json:ro
+      - ./policy/data-product/debezium/iceberg-sink.json:/config/iceberg-sink-policy.json:ro
+      - ./billing/data-product/debezium/iceberg-sink.json:/config/iceberg-sink-billing.json:ro
+      - ./claims/data-product/debezium/iceberg-sink.json:/config/iceberg-sink-claims.json:ro
+      - ./hr-system/data-product/debezium/iceberg-sink-employee.json:/config/iceberg-sink-hr-employee.json:ro
+      - ./hr-system/data-product/debezium/iceberg-sink-orgunit.json:/config/iceberg-sink-hr-orgunit.json:ro
     networks:
       - backend
+
+  # ── Transform Init (Silver & Gold tables via Trino CTAS) ──────────────────
+  transform-init:
+    image: python:3.12-alpine
+    depends_on:
+      trino:
+        condition: service_healthy
+    restart: "no"
+    profiles:
+      - tools
+    entrypoint: ["python3", "/scripts/transform-init.py"]
+    volumes:
+      - ./infra/trino/transform-init.py:/scripts/transform-init.py:ro
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
   # ══════════════════════════════════════════════════════════════════════════════
   # ── Phase 2: Transformation Layer (SQLMesh) ────────────────────────────────
@@ -1098,8 +1119,8 @@ services:
 
   sqlmesh:
     build:
-      context: infra/sqlmesh
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: infra/sqlmesh/Dockerfile
     restart: "no"
     profiles:
       - tools
@@ -1108,7 +1129,24 @@ services:
         condition: service_healthy
     volumes:
       - ./infra/sqlmesh/config.yaml:/sqlmesh/config.yaml:ro
-      - ./infra/sqlmesh/models:/sqlmesh/models:ro
+      # Domain-owned silver models
+      - ./partner/data-product/sqlmesh/silver:/sqlmesh/models/silver/partner:ro
+      - ./product/data-product/sqlmesh/silver:/sqlmesh/models/silver/product:ro
+      - ./policy/data-product/sqlmesh/silver:/sqlmesh/models/silver/policy:ro
+      - ./billing/data-product/sqlmesh/silver:/sqlmesh/models/silver/billing:ro
+      - ./claims/data-product/sqlmesh/silver:/sqlmesh/models/silver/claims:ro
+      - ./hr-system/data-product/sqlmesh/silver:/sqlmesh/models/silver/hr:ro
+      # Domain-owned gold models
+      - ./partner/data-product/sqlmesh/gold:/sqlmesh/models/gold/partner:ro
+      - ./policy/data-product/sqlmesh/gold:/sqlmesh/models/gold/policy:ro
+      - ./billing/data-product/sqlmesh/gold:/sqlmesh/models/gold/billing:ro
+      - ./claims/data-product/sqlmesh/gold:/sqlmesh/models/gold/claims:ro
+      - ./hr-system/data-product/sqlmesh/gold:/sqlmesh/models/gold/hr:ro
+      # Cross-domain analytics (central)
+      - ./infra/sqlmesh/models/gold/analytics:/sqlmesh/models/gold/analytics:ro
+      # Audits & tests
+      - ./policy/data-product/sqlmesh/audits:/sqlmesh/audits:ro
+      - ./hr-system/data-product/sqlmesh/tests:/sqlmesh/models/tests:ro
     networks:
       - backend
     deploy:
@@ -1332,8 +1370,8 @@ services:
 
   soda-core:
     build:
-      context: infra/soda
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: infra/soda/Dockerfile
     restart: "no"
     profiles:
       - tools
@@ -1342,7 +1380,11 @@ services:
         condition: service_healthy
     volumes:
       - ./infra/soda/configuration.yml:/soda/configuration.yml:ro
-      - ./infra/soda/checks:/soda/checks:ro
+      - ./partner/data-product/soda/checks.yml:/soda/checks/partner.yml:ro
+      - ./product/data-product/soda/checks.yml:/soda/checks/product.yml:ro
+      - ./policy/data-product/soda/checks.yml:/soda/checks/policy.yml:ro
+      - ./billing/data-product/soda/checks.yml:/soda/checks/billing.yml:ro
+      - ./hr-system/data-product/soda/checks.yml:/soda/checks/hr.yml:ro
     networks:
       - backend
     deploy:

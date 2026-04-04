@@ -6,7 +6,7 @@ import ch.yuno.product.domain.model.RiskProfile;
 import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.port.out.ProductRepository;
 import ch.yuno.product.domain.service.PremiumCalculationService;
-import ch.yuno.product.domain.service.ProductNotFoundException;
+import ch.yuno.product.application.ProductNotFoundException;
 import ch.yuno.product.grpc.PremiumCalculationProto.PremiumCalculationRequest;
 import ch.yuno.product.grpc.PremiumCalculationProto.PremiumCalculationResponse;
 import ch.yuno.product.grpc.PremiumCalculationGrpc;

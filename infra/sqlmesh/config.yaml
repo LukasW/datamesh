@@ -5,12 +5,36 @@ gateways:
       host: trino
       port: 8086
       catalog: iceberg
-      schema: analytics
       user: sqlmesh
+      http_scheme: http
+    state_connection:
+      type: duckdb
+      database: /tmp/sqlmesh_state.db
 
 default_gateway: trino
 
 model_defaults:
   dialect: trino
   start: "2024-01-01"
-  cron: "@hourly"
+
+# ── Backfill Strategy ────────────────────────────────────────────────────────
+#
+# Silver models use INCREMENTAL_BY_UNIQUE_KEY (entity-state) or
+# INCREMENTAL_BY_TIME_RANGE (append-only). On first deployment, SQLMesh
+# backfills from model_defaults.start (2024-01-01) to now in hourly/daily
+# intervals matching each model's cron.
+#
+# To trigger a full backfill for a specific model after schema changes:
+#   sqlmesh plan --restate-model <schema>.<model>
+#
+# To backfill a specific date range:
+#   sqlmesh plan --start 2024-06-01 --end 2024-06-30
+#
+# Gold models remain kind FULL and are rebuilt entirely on each cron tick,
+# reading from the incrementally maintained silver tables.
+#
+# Cron schedule overview:
+#   @hourly  — partner, policy, claim, invoice, coverage (operational)
+#   @hourly  — claim_detail, policy_detail, partner_decrypted, portfolio_summary (gold)
+#   @daily   — product, employee, org_unit, address (reference data)
+#   @daily   — financial_summary, management_kpi, org_hierarchy (reporting)

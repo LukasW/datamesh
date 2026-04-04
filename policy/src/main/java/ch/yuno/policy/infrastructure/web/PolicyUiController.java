@@ -9,10 +9,10 @@ import ch.yuno.policy.domain.model.PartnerView;
 import ch.yuno.policy.domain.model.Policy;
 import ch.yuno.policy.domain.model.PolicyId;
 import ch.yuno.policy.domain.service.CoverageNotFoundException;
-import ch.yuno.policy.domain.service.PolicyCommandService;
-import ch.yuno.policy.domain.service.PolicyNotFoundException;
-import ch.yuno.policy.domain.service.PolicyQueryService;
-import ch.yuno.policy.domain.service.PremiumCalculationUnavailableException;
+import ch.yuno.policy.application.PolicyNotFoundException;
+import ch.yuno.policy.domain.port.in.PolicyCommandUseCase;
+import ch.yuno.policy.domain.port.in.PolicyQueryUseCase;
+import ch.yuno.policy.application.PremiumCalculationUnavailableException;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
@@ -34,10 +34,10 @@ import java.util.List;
 public class PolicyUiController {
 
     @Inject
-    PolicyCommandService policyCommandService;
+    PolicyCommandUseCase policyCommandService;
 
     @Inject
-    PolicyQueryService policyQueryService;
+    PolicyQueryUseCase policyQueryService;
 
     @Inject
     @Location("policen/list")

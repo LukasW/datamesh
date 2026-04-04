@@ -1,9 +1,0 @@
-checks for product_raw.product_events:
-  - row_count > 0:
-      name: Product events exist
-  - duplicate_count(event_id) = 0:
-      name: No duplicate product event IDs
-  - missing_count(product_id) = 0:
-      name: No null product_id
-  - freshness(consumed_at) < 24h:
-      name: Product events are fresh (< 24h)

@@ -4,9 +4,9 @@ import ch.yuno.billing.domain.model.Invoice;
 import ch.yuno.billing.domain.model.InvoiceId;
 import ch.yuno.billing.domain.model.InvoiceStatus;
 import ch.yuno.billing.domain.model.PolicyholderView;
-import ch.yuno.billing.domain.service.InvoiceCommandService;
-import ch.yuno.billing.domain.service.InvoiceNotFoundException;
-import ch.yuno.billing.domain.service.InvoiceQueryService;
+import ch.yuno.billing.application.InvoiceNotFoundException;
+import ch.yuno.billing.domain.port.in.InvoiceCommandUseCase;
+import ch.yuno.billing.domain.port.in.InvoiceQueryUseCase;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
@@ -27,10 +27,10 @@ public class BillingUiController {
     Template listTemplate;
 
     @Inject
-    InvoiceCommandService commandService;
+    InvoiceCommandUseCase commandService;
 
     @Inject
-    InvoiceQueryService queryService;
+    InvoiceQueryUseCase queryService;
 
     // ── Full Pages ────────────────────────────────────────────────────────────
 

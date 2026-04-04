@@ -1,0 +1,18 @@
+checks for billing_raw.billing_events:
+  - row_count > 0:
+      name: Billing events exist
+  - duplicate_count(eventid) = 0:
+      name: No duplicate billing event IDs
+  - missing_count(invoiceid) = 0:
+      name: No null invoiceid
+
+checks for billing_silver.invoice:
+  - row_count > 0:
+      name: billing_silver.invoice is not empty
+  - duplicate_count(invoice_id) = 0:
+      name: No duplicate invoice_id in silver
+  - missing_count(policy_id) = 0:
+      name: Every invoice has a policy_id
+  - invalid_count(invoice_status) = 0:
+      name: invoice_status has valid values
+      valid: [OPEN, PAID, OVERDUE, PAYOUT]

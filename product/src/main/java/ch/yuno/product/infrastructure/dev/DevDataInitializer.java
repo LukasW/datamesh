@@ -2,8 +2,8 @@ package ch.yuno.product.infrastructure.dev;
 
 import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.model.ProductLine;
-import ch.yuno.product.domain.service.ProductCommandService;
-import ch.yuno.product.domain.service.ProductQueryService;
+import ch.yuno.product.application.ProductCommandService;
+import ch.yuno.product.application.ProductQueryService;
 import io.quarkus.arc.profile.IfBuildProfile;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;

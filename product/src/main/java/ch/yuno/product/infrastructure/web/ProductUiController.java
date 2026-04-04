@@ -5,9 +5,9 @@ import ch.yuno.product.domain.model.PageResult;
 import ch.yuno.product.domain.model.Product;
 import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.model.ProductLine;
-import ch.yuno.product.domain.service.ProductCommandService;
-import ch.yuno.product.domain.service.ProductNotFoundException;
-import ch.yuno.product.domain.service.ProductQueryService;
+import ch.yuno.product.application.ProductNotFoundException;
+import ch.yuno.product.domain.port.in.ProductCommandUseCase;
+import ch.yuno.product.domain.port.in.ProductQueryUseCase;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.quarkus.qute.TemplateInstance;
@@ -28,10 +28,10 @@ import java.util.List;
 public class ProductUiController {
 
     @Inject
-    ProductCommandService productCommandService;
+    ProductCommandUseCase productCommandService;
 
     @Inject
-    ProductQueryService productQueryService;
+    ProductQueryUseCase productQueryService;
 
     @Inject
     @Location("products/list")

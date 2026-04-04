@@ -5,9 +5,9 @@ import ch.yuno.product.domain.model.PageResult;
 import ch.yuno.product.domain.model.Product;
 import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.model.ProductLine;
-import ch.yuno.product.domain.service.ProductCommandService;
-import ch.yuno.product.domain.service.ProductNotFoundException;
-import ch.yuno.product.domain.service.ProductQueryService;
+import ch.yuno.product.application.ProductNotFoundException;
+import ch.yuno.product.domain.port.in.ProductCommandUseCase;
+import ch.yuno.product.domain.port.in.ProductQueryUseCase;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -27,10 +27,10 @@ import java.util.Map;
 public class ProductRestAdapter {
 
     @Inject
-    ProductCommandService productCommandService;
+    ProductCommandUseCase productCommandService;
 
     @Inject
-    ProductQueryService productQueryService;
+    ProductQueryUseCase productQueryService;
 
     // ── Product CRUD ───────────────────────────────────────────────────────────
 

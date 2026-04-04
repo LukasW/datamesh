@@ -2,7 +2,7 @@ package ch.yuno.partner.integration;
 
 import ch.yuno.partner.domain.model.Gender;
 import ch.yuno.partner.domain.model.PersonId;
-import ch.yuno.partner.domain.service.PersonCommandService;
+import ch.yuno.partner.application.PersonCommandService;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;

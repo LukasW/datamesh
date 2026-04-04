@@ -1,0 +1,17 @@
+checks for partner_raw.person_events:
+  - row_count > 0:
+      name: Partner events exist
+  - duplicate_count(eventid) = 0:
+      name: No duplicate partner event IDs
+  - missing_count(personid) = 0:
+      name: No null personid
+
+checks for partner_silver.partner:
+  - row_count > 0:
+      name: partner_silver.partner is not empty
+  - duplicate_count(partner_id) = 0:
+      name: No duplicate partner_id in silver
+  - invalid_count(insured_number) = 0:
+      name: insured_number matches VN-XXXXXXXX format
+      valid regex: "VN-\\d{8}"
+      filter: insured_number IS NOT NULL

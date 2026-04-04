@@ -10,9 +10,9 @@ import ch.yuno.partner.domain.model.Person;
 import ch.yuno.partner.domain.model.PersonId;
 import ch.yuno.partner.domain.service.AddressOverlapException;
 import ch.yuno.partner.domain.service.AddressNotFoundException;
-import ch.yuno.partner.domain.service.PersonCommandService;
-import ch.yuno.partner.domain.service.PersonNotFoundException;
-import ch.yuno.partner.domain.service.PersonQueryService;
+import ch.yuno.partner.application.PersonNotFoundException;
+import ch.yuno.partner.domain.port.in.PersonCommandUseCase;
+import ch.yuno.partner.domain.port.in.PersonQueryUseCase;
 import ch.yuno.partner.infrastructure.persistence.PersonAuditAdapter;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -33,10 +33,10 @@ import java.util.Map;
 public class PersonRestAdapter {
 
     @Inject
-    PersonCommandService personCommandService;
+    PersonCommandUseCase personCommandService;
 
     @Inject
-    PersonQueryService personQueryService;
+    PersonQueryUseCase personQueryService;
 
     @Inject
     PersonAuditAdapter auditAdapter;

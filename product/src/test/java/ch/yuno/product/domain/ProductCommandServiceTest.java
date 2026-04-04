@@ -4,11 +4,10 @@ import ch.yuno.product.domain.model.Product;
 import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.model.ProductLine;
 import ch.yuno.product.domain.model.ProductStatus;
-import ch.yuno.product.domain.port.out.OutboxRepository;
+import ch.yuno.product.domain.port.out.ProductEventPublisher;
 import ch.yuno.product.domain.port.out.ProductRepository;
-import ch.yuno.product.domain.service.ProductCommandService;
-import ch.yuno.product.domain.service.ProductNotFoundException;
-import ch.yuno.product.infrastructure.messaging.outbox.OutboxEvent;
+import ch.yuno.product.application.ProductCommandService;
+import ch.yuno.product.application.ProductNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,7 +32,7 @@ class ProductCommandServiceTest {
     ProductRepository productRepository;
 
     @Mock
-    OutboxRepository outboxRepository;
+    ProductEventPublisher productEventPublisher;
 
     @InjectMocks
     ProductCommandService service;
@@ -53,7 +52,7 @@ class ProductCommandServiceTest {
 
         assertNotNull(id);
         verify(productRepository).save(any(Product.class));
-        verify(outboxRepository, times(2)).save(any(OutboxEvent.class));
+        verify(productEventPublisher).productDefined(any(Product.class));
     }
 
     @Test
@@ -62,7 +61,7 @@ class ProductCommandServiceTest {
                 ProductLine.LIABILITY, new BigDecimal("300.00"));
 
         verify(productRepository).save(existingProduct);
-        verify(outboxRepository, times(2)).save(any(OutboxEvent.class));
+        verify(productEventPublisher).productUpdated(any(Product.class));
         assertEquals("Geändert", existingProduct.getName());
     }
 
@@ -79,7 +78,7 @@ class ProductCommandServiceTest {
         service.deprecateProduct(existingProduct.getProductId());
 
         verify(productRepository).save(existingProduct);
-        verify(outboxRepository, times(2)).save(any(OutboxEvent.class));
+        verify(productEventPublisher).productDeprecated(any(Product.class));
         assertEquals(ProductStatus.DEPRECATED, existingProduct.getStatus());
     }
 
@@ -88,5 +87,6 @@ class ProductCommandServiceTest {
         service.deleteProduct(existingProduct.getProductId());
 
         verify(productRepository).delete(existingProduct.getProductId());
+        verify(productEventPublisher).productDeleted(any(ProductId.class));
     }
 }

@@ -90,9 +90,21 @@ Eine moderne Sachversicherungs-Plattform basierend auf **Domain-Driven Design (D
 │   │   ├── grpc/              <-- gRPC Server/Client Adapters (ADR-010)
 │   │   └── web/               <-- JAX-RS Resources, Qute Controller, htmx
 │   └── application/           <-- Orchestration & Use Cases
+├── data-product/              <-- DOMAIN-OWNED DATA PRODUCT
+│   ├── sqlmesh/
+│   │   ├── silver/            <-- Silver layer models (event → current state)
+│   │   ├── gold/              <-- Gold layer models (enriched/aggregated)
+│   │   ├── audits/            <-- SQLMesh audit assertions
+│   │   └── tests/             <-- SQLMesh test assertions
+│   ├── soda/
+│   │   └── checks.yml         <-- SodaCL data quality checks
+│   └── debezium/
+│       └── iceberg-sink.json  <-- Iceberg sink connector config
 └── src/main/resources/
     ├── templates/             <-- Qute HTML (Deutsch)
     └── contracts/             <-- ODC YAML Definitions
+
+infra/sqlmesh/models/gold/analytics/   <-- Cross-domain gold models (central)
 ```
 
 ---

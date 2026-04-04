@@ -1,0 +1,13 @@
+checks for product_raw.product_events:
+  - row_count > 0:
+      name: Product events exist
+  - duplicate_count(eventid) = 0:
+      name: No duplicate product event IDs
+  - missing_count(productid) = 0:
+      name: No null productid
+
+checks for product_silver.product:
+  - row_count > 0:
+      name: product_silver.product is not empty
+  - duplicate_count(product_id) = 0:
+      name: No duplicate product_id in silver

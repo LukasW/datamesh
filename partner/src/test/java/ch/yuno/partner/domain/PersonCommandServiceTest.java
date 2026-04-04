@@ -4,18 +4,15 @@ import ch.yuno.partner.domain.model.*;
 import ch.yuno.partner.domain.model.AddressId;
 import ch.yuno.partner.domain.model.PersonId;
 import ch.yuno.partner.domain.port.out.InsuredNumberGenerator;
-import ch.yuno.partner.domain.port.out.OutboxRepository;
+import ch.yuno.partner.domain.port.out.PersonEventPublisher;
 import ch.yuno.partner.domain.port.out.PersonRepository;
 import ch.yuno.partner.domain.port.out.PiiEncryptor;
-import ch.yuno.partner.domain.service.PersonCommandService;
-import ch.yuno.partner.domain.service.PersonNotFoundException;
-import ch.yuno.partner.infrastructure.messaging.outbox.OutboxEvent;
+import ch.yuno.partner.application.PersonCommandService;
+import ch.yuno.partner.application.PersonNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -36,7 +33,7 @@ class PersonCommandServiceTest {
     PersonRepository personRepository;
 
     @Mock
-    OutboxRepository outboxRepository;
+    PersonEventPublisher personEventPublisher;
 
     @Mock
     PiiEncryptor piiEncryptor;
@@ -46,9 +43,6 @@ class PersonCommandServiceTest {
 
     @InjectMocks
     PersonCommandService service;
-
-    @Captor
-    ArgumentCaptor<OutboxEvent> outboxCaptor;
 
     private static final String SSN_RAW = "756.1234.5678.97";
     private static final SocialSecurityNumber SSN = new SocialSecurityNumber(SSN_RAW);
@@ -66,8 +60,8 @@ class PersonCommandServiceTest {
     // ── createPerson ──────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("createPerson – Person wird gespeichert und Outbox-Event geschrieben")
-    void createPerson_savesAndWritesOutboxEvent() {
+    @DisplayName("createPerson – Person wird gespeichert und Event publiziert")
+    void createPerson_savesAndPublishesEvent() {
         when(personRepository.existsBySocialSecurityNumber(SSN)).thenReturn(false);
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -75,18 +69,11 @@ class PersonCommandServiceTest {
 
         assertNotNull(id);
         verify(personRepository).save(any(Person.class));
-        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
-        OutboxEvent event = outboxCaptor.getAllValues().stream()
-                .filter(e -> "PersonCreated".equals(e.getEventType())).findFirst().orElseThrow();
-        assertEquals("person.v1.created", event.getTopic());
-        assertEquals("person", event.getAggregateType());
-        assertEquals(id.value(), event.getAggregateId());
-        assertNotNull(event.getPayload());
-        assertTrue(event.getPayload().contains("\"eventType\":\"PersonCreated\""));
+        verify(personEventPublisher).personCreated(any(Person.class));
     }
 
     @Test
-    @DisplayName("createPerson – doppelte AHV-Nummer → IllegalArgumentException, kein Outbox-Event")
+    @DisplayName("createPerson – doppelte AHV-Nummer → IllegalArgumentException, kein Event")
     void createPerson_duplicateAhv_throws() {
         when(personRepository.existsBySocialSecurityNumber(SSN)).thenReturn(true);
 
@@ -94,7 +81,7 @@ class PersonCommandServiceTest {
                 () -> service.createPerson("Muster", "Hans", Gender.MALE, DATE_OF_BIRTH, SSN_RAW));
 
         verify(personRepository, never()).save(any());
-        verify(outboxRepository, never()).save(any());
+        verifyNoInteractions(personEventPublisher);
     }
 
     @Test
@@ -107,7 +94,7 @@ class PersonCommandServiceTest {
         assertNotNull(id);
         verify(personRepository, never()).existsBySocialSecurityNumber(any());
         verify(personRepository).save(any(Person.class));
-        verify(outboxRepository, times(2)).save(any(OutboxEvent.class));
+        verify(personEventPublisher).personCreated(any(Person.class));
     }
 
     @Test
@@ -121,8 +108,8 @@ class PersonCommandServiceTest {
     // ── updatePersonalData ────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("updatePersonalData – Personalien werden aktualisiert und Outbox-Event geschrieben")
-    void updatePersonalData_updatesAndWritesOutboxEvent() {
+    @DisplayName("updatePersonalData – Personalien werden aktualisiert und Event publiziert")
+    void updatePersonalData_updatesAndPublishesEvent() {
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -130,11 +117,7 @@ class PersonCommandServiceTest {
                 Gender.FEMALE, LocalDate.of(1990, 1, 1));
 
         assertEquals("Neuer", testPerson.getName());
-        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
-        OutboxEvent event = outboxCaptor.getAllValues().stream()
-                .filter(e -> "PersonUpdated".equals(e.getEventType())).findFirst().orElseThrow();
-        assertEquals("person.v1.updated", event.getTopic());
-        assertTrue(event.getPayload().contains("\"name\":\"Neuer\""));
+        verify(personEventPublisher).personUpdated(any(Person.class));
     }
 
     @Test
@@ -150,17 +133,14 @@ class PersonCommandServiceTest {
     // ── deletePerson ──────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("deletePerson – Person wird gelöscht, Outbox-Event geschrieben und Vault-Key gelöscht (ADR-009)")
-    void deletePerson_deletesAndWritesOutboxEvent() {
+    @DisplayName("deletePerson – Person wird gelöscht, Event publiziert und Vault-Key gelöscht (ADR-009)")
+    void deletePerson_deletesAndPublishesEvent() {
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
 
         service.deletePerson(testPerson.getPersonId());
 
         verify(personRepository).delete(testPerson.getPersonId());
-        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
-        OutboxEvent event = outboxCaptor.getAllValues().stream()
-                .filter(e -> "PersonDeleted".equals(e.getEventType())).findFirst().orElseThrow();
-        assertEquals("person.v1.deleted", event.getTopic());
+        verify(personEventPublisher).personDeleted(testPerson.getPersonId());
         // ADR-009: Verify crypto-shredding — Vault key must be deleted
         verify(piiEncryptor).deleteKey(testPerson.getPersonId().value());
     }
@@ -176,8 +156,8 @@ class PersonCommandServiceTest {
     // ── addAddress ────────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("addAddress – Adresse wird hinzugefügt und Outbox-Event geschrieben")
-    void addAddress_addsAndWritesOutboxEvent() {
+    @DisplayName("addAddress – Adresse wird hinzugefügt und Event publiziert")
+    void addAddress_addsAndPublishesEvent() {
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -188,11 +168,9 @@ class PersonCommandServiceTest {
 
         assertNotNull(addressId);
         assertEquals(1, testPerson.getAddresses().size());
-        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
-        OutboxEvent event = outboxCaptor.getAllValues().stream()
-                .filter(e -> "AddressAdded".equals(e.getEventType())).findFirst().orElseThrow();
-        assertEquals("person.v1.address-added", event.getTopic());
-        assertTrue(event.getPayload().contains("\"addressType\":\"RESIDENCE\""));
+        verify(personEventPublisher).addressAdded(any(Person.class), any(AddressId.class),
+                eq(AddressType.RESIDENCE), eq("Musterstr."), eq("1"), eq("8001"),
+                eq("Zürich"), eq("Schweiz"), eq(LocalDate.of(2020, 1, 1)), isNull());
     }
 
     @Test
@@ -217,8 +195,8 @@ class PersonCommandServiceTest {
     // ── updateAddressValidity ─────────────────────────────────────────────────
 
     @Test
-    @DisplayName("updateAddressValidity – Gültigkeit wird aktualisiert und Outbox-Event geschrieben")
-    void updateAddressValidity_updatesAndWritesOutboxEvent() {
+    @DisplayName("updateAddressValidity – Gültigkeit wird aktualisiert und Event publiziert")
+    void updateAddressValidity_updatesAndPublishesEvent() {
         testPerson.addAddress(AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
         AddressId addressId = testPerson.getAddresses().get(0).getAddressId();
@@ -231,16 +209,14 @@ class PersonCommandServiceTest {
 
         assertEquals(LocalDate.of(2022, 12, 31),
                 testPerson.getAddresses().get(0).getValidTo());
-        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
-        OutboxEvent event = outboxCaptor.getAllValues().stream()
-                .filter(e -> "AddressUpdated".equals(e.getEventType())).findFirst().orElseThrow();
-        assertEquals("person.v1.address-updated", event.getTopic());
+        verify(personEventPublisher).addressUpdated(any(Person.class), any(AddressId.class),
+                any(LocalDate.class), any(LocalDate.class));
     }
 
     // ── deleteAddress ─────────────────────────────────────────────────────────
 
     @Test
-    @DisplayName("deleteAddress – Adresse wird entfernt, kein Outbox-Event")
+    @DisplayName("deleteAddress – Adresse wird entfernt, stateChanged publiziert")
     void deleteAddress_removes() {
         testPerson.addAddress(AddressType.RESIDENCE, "Str", "1", "8001", "Zürich", "Schweiz",
                 LocalDate.of(2020, 1, 1), null);
@@ -252,14 +228,13 @@ class PersonCommandServiceTest {
         service.deleteAddress(testPerson.getPersonId(), addressId);
 
         assertTrue(testPerson.getAddresses().isEmpty());
-        verify(outboxRepository).save(outboxCaptor.capture());
-        assertEquals("PersonState", outboxCaptor.getValue().getEventType());
+        verify(personEventPublisher).stateChanged(any(Person.class));
     }
 
     // ── assignInsuredNumberIfAbsent ───────────────────────────────────────────
 
     @Test
-    @DisplayName("assignInsuredNumberIfAbsent – Person ohne Nummer → Nummer wird zugewiesen, 2 Outbox-Events")
+    @DisplayName("assignInsuredNumberIfAbsent – Person ohne Nummer → Nummer wird zugewiesen, Event publiziert")
     void assignInsuredNumber_newAssignment() {
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
         when(personRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -271,18 +246,11 @@ class PersonCommandServiceTest {
         assertEquals(new InsuredNumber("VN-00000042"), testPerson.getInsuredNumber());
         assertTrue(testPerson.isInsured());
         verify(personRepository).save(testPerson);
-        verify(outboxRepository, times(2)).save(outboxCaptor.capture());
-        var events = outboxCaptor.getAllValues();
-        assertTrue(events.stream().anyMatch(e -> "PersonUpdated".equals(e.getEventType())));
-        assertTrue(events.stream().anyMatch(e -> "PersonState".equals(e.getEventType())));
-        // Verify insuredNumber is in the event payloads
-        OutboxEvent updatedEvent = events.stream()
-                .filter(e -> "PersonUpdated".equals(e.getEventType())).findFirst().orElseThrow();
-        assertTrue(updatedEvent.getPayload().contains("VN-00000042"));
+        verify(personEventPublisher).personUpdated(any(Person.class));
     }
 
     @Test
-    @DisplayName("assignInsuredNumberIfAbsent – Person hat bereits Nummer → idempotent, keine Outbox-Events")
+    @DisplayName("assignInsuredNumberIfAbsent – Person hat bereits Nummer → idempotent, kein Event")
     void assignInsuredNumber_alreadyInsured_skips() {
         testPerson.assignInsuredNumber(InsuredNumber.fromSequence(1));
         when(personRepository.findById(testPerson.getPersonId())).thenReturn(Optional.of(testPerson));
@@ -291,7 +259,7 @@ class PersonCommandServiceTest {
 
         assertFalse(assigned);
         verify(personRepository, never()).save(any());
-        verify(outboxRepository, never()).save(any());
+        verifyNoInteractions(personEventPublisher);
         verify(insuredNumberGenerator, never()).nextInsuredNumber();
     }
 

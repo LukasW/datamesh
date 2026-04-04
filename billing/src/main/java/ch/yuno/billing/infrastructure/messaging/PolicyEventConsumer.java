@@ -2,7 +2,7 @@ package ch.yuno.billing.infrastructure.messaging;
 
 import ch.yuno.billing.domain.model.BillingCycle;
 import ch.yuno.billing.domain.model.InvoiceId;
-import ch.yuno.billing.domain.service.InvoiceCommandService;
+import ch.yuno.billing.domain.port.in.InvoiceCommandUseCase;
 import ch.yuno.billing.infrastructure.messaging.acl.PolicyEventTranslator;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -20,7 +20,7 @@ public class PolicyEventConsumer {
     private static final Logger log = Logger.getLogger(PolicyEventConsumer.class);
 
     @Inject
-    InvoiceCommandService invoiceCommandService;
+    InvoiceCommandUseCase invoiceCommandService;
 
     @Incoming("policy-issued-in")
     public void onPolicyIssued(String message) {

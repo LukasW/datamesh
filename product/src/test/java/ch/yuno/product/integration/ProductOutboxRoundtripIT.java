@@ -2,7 +2,7 @@ package ch.yuno.product.integration;
 
 import ch.yuno.product.domain.model.ProductId;
 import ch.yuno.product.domain.model.ProductLine;
-import ch.yuno.product.domain.service.ProductCommandService;
+import ch.yuno.product.application.ProductCommandService;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;

@@ -223,12 +223,13 @@ create_cm debezium-connectors \
 
 # Iceberg sink connectors
 create_cm iceberg-sinks \
-  --from-file=iceberg-sink-partner.json="$PROJECT_ROOT/infra/debezium/iceberg-sink-partner.json" \
-  --from-file=iceberg-sink-product.json="$PROJECT_ROOT/infra/debezium/iceberg-sink-product.json" \
-  --from-file=iceberg-sink-policy.json="$PROJECT_ROOT/infra/debezium/iceberg-sink-policy.json" \
-  --from-file=iceberg-sink-billing.json="$PROJECT_ROOT/infra/debezium/iceberg-sink-billing.json" \
-  --from-file=iceberg-sink-claims.json="$PROJECT_ROOT/infra/debezium/iceberg-sink-claims.json" \
-  --from-file=iceberg-sink-hr.json="$PROJECT_ROOT/infra/debezium/iceberg-sink-hr.json"
+  --from-file=iceberg-sink-partner.json="$PROJECT_ROOT/partner/data-product/debezium/iceberg-sink.json" \
+  --from-file=iceberg-sink-product.json="$PROJECT_ROOT/product/data-product/debezium/iceberg-sink.json" \
+  --from-file=iceberg-sink-policy.json="$PROJECT_ROOT/policy/data-product/debezium/iceberg-sink.json" \
+  --from-file=iceberg-sink-billing.json="$PROJECT_ROOT/billing/data-product/debezium/iceberg-sink.json" \
+  --from-file=iceberg-sink-claims.json="$PROJECT_ROOT/claims/data-product/debezium/iceberg-sink.json" \
+  --from-file=iceberg-sink-hr-employee.json="$PROJECT_ROOT/hr-system/data-product/debezium/iceberg-sink-employee.json" \
+  --from-file=iceberg-sink-hr-orgunit.json="$PROJECT_ROOT/hr-system/data-product/debezium/iceberg-sink-orgunit.json"
 
 # Governance (optional files)
 if [[ -f "$PROJECT_ROOT/infra/openmetadata/init-airflow-db.sql" ]]; then

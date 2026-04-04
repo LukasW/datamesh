@@ -186,12 +186,12 @@ spec:
                 echo 'Debezium not ready, retrying in 5s...'; sleep 5
               done
 
-              for domain in partner product policy billing claims hr; do
+              for domain in partner product policy billing claims hr-employee hr-orgunit; do
                 curl -f -X POST http://debezium-connect:8083/connectors \
                   -H 'Content-Type: application/json' \
                   -d @/config/iceberg-sink-${domain}.json \
                   && echo "${domain} Iceberg sink registered." \
-                  || echo "${domain} Iceberg sink failed (may already exist)."
+                  || echo "${domain} Iceberg sink failed (may already exist.)."
               done
           volumeMounts:
             - name: sink-configs

@@ -1,0 +1,40 @@
+checks for hr_raw.employee_events:
+  - row_count > 0:
+      name: HR employee events exist
+  - missing_count(employeeid) = 0:
+      name: No null employeeid in raw events
+
+checks for hr_raw.org_unit_events:
+  - row_count > 0:
+      name: HR org unit events exist
+  - missing_count(orgunitid) = 0:
+      name: No null orgunitid in raw events
+
+checks for hr_silver.employee:
+  - row_count > 0:
+      name: hr_silver.employee is not empty
+  - duplicate_count(employee_id) = 0:
+      name: No duplicate employee_id in hr_silver
+  - missing_count(last_name) = 0:
+      name: Every employee has a last_name
+  - missing_count(entry_date) = 0:
+      name: Every employee has an entry_date
+  - invalid_count(employment_status) = 0:
+      name: employment_status has valid values
+      valid: [ACTIVE, INACTIVE, DELETED]
+  - invalid_count(email) = 0:
+      name: Employee emails match expected format
+      valid regex: "^[\\w.+-]+@[\\w-]+\\.[\\w.-]+$"
+      filter: email IS NOT NULL
+
+checks for hr_silver.org_unit:
+  - row_count > 0:
+      name: hr_silver.org_unit is not empty
+  - duplicate_count(org_unit_id) = 0:
+      name: No duplicate org_unit_id in hr_silver
+  - missing_count(name) = 0:
+      name: Every org unit has a name
+
+checks for analytics.org_hierarchy:
+  - row_count > 0:
+      name: analytics.org_hierarchy is not empty

@@ -3,9 +3,9 @@ package ch.yuno.billing.infrastructure.web;
 import ch.yuno.billing.domain.model.Invoice;
 import ch.yuno.billing.domain.model.InvoiceId;
 import ch.yuno.billing.domain.model.InvoiceStatus;
-import ch.yuno.billing.domain.service.InvoiceCommandService;
-import ch.yuno.billing.domain.service.InvoiceNotFoundException;
-import ch.yuno.billing.domain.service.InvoiceQueryService;
+import ch.yuno.billing.application.InvoiceNotFoundException;
+import ch.yuno.billing.domain.port.in.InvoiceCommandUseCase;
+import ch.yuno.billing.domain.port.in.InvoiceQueryUseCase;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -23,10 +23,10 @@ import java.util.Map;
 public class BillingRestAdapter {
 
     @Inject
-    InvoiceCommandService commandService;
+    InvoiceCommandUseCase commandService;
 
     @Inject
-    InvoiceQueryService queryService;
+    InvoiceQueryUseCase queryService;
 
     @GET
     @Operation(summary = "List invoices with optional status filter")

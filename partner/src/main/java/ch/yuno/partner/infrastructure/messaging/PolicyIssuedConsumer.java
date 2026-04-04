@@ -1,8 +1,8 @@
 package ch.yuno.partner.infrastructure.messaging;
 
 import ch.yuno.partner.domain.model.PersonId;
-import ch.yuno.partner.domain.service.PersonCommandService;
-import ch.yuno.partner.domain.service.PersonNotFoundException;
+import ch.yuno.partner.domain.port.in.PersonCommandUseCase;
+import ch.yuno.partner.application.PersonNotFoundException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -26,7 +26,7 @@ public class PolicyIssuedConsumer {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Inject
-    PersonCommandService personCommandService;
+    PersonCommandUseCase personCommandService;
 
     @Incoming("policy-issued-in")
     @Transactional

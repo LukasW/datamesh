@@ -81,6 +81,33 @@ if [[ "$DAEMON_MODE" == true ]]; then
     echo ""
     echo "▶ Seeding test data..."
     scripts/seed-test-data.sh
+
+    echo ""
+    echo "▶ Restarting Debezium outbox connectors (re-snapshot for Iceberg)…"
+    for conn in partner-outbox-connector product-outbox-connector policy-outbox-connector billing-outbox-connector claims-outbox-connector; do
+      curl -sf -X POST "http://localhost:8083/connectors/${conn}/restart?includeTasks=true" > /dev/null 2>&1 \
+        && echo "  ✓ ${conn}" || echo "  ⚠ ${conn} (may not exist yet)"
+    done
+
+    echo ""
+    echo "▶ Waiting for Debezium Iceberg sinks to commit raw data…"
+    for attempt in $(seq 1 60); do
+      # Check Nessie directly for raw table entries
+      NESSIE_TABLES=$(curl -sf "http://localhost:19120/api/v2/trees/main/entries" 2>/dev/null \
+        | python3 -c "import sys,json; d=json.load(sys.stdin); print(sum(1 for e in d.get('entries',[]) if e['type']=='ICEBERG_TABLE' and '_raw.' in '.'.join(e['name']['elements'])))" 2>/dev/null || echo "0")
+      if [[ "${NESSIE_TABLES}" -ge 5 ]] 2>/dev/null; then
+        echo "  ✓ Raw tables committed to Nessie (${NESSIE_TABLES} tables)"
+        # Give sinks a few more seconds to flush remaining data
+        sleep 10
+        break
+      fi
+      echo "  Waiting… (${NESSIE_TABLES}/5 raw tables in Nessie, attempt $attempt/60)"
+      sleep 5
+    done
+
+    echo ""
+    echo "▶ Running Silver/Gold transformations (Iceberg → Trino)..."
+    ${=COMPOSE_CMD} run --rm transform-init
   fi
 
   echo ""
