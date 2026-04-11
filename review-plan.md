@@ -87,10 +87,10 @@
 
 ### Gold Layer JOINs
 
-- [ ] `policy_gold.policy_detail` von INNER JOIN auf LEFT JOIN umstellen
-- [ ] Sicherstellen, dass Policies ohne Partner/Product nicht verloren gehen
-- [ ] NULL-Handling fuer fehlende Partner/Product-Daten in Superset-Dashboards pruefen
-- [ ] Soda Check fuer Vollstaendigkeit der Gold-Tabelle ergaenzen
+- [x] `policy_gold.policy_detail` von INNER JOIN auf LEFT JOIN umstellen
+- [x] Sicherstellen, dass Policies ohne Partner/Product nicht verloren gehen
+- [x] NULL-Handling fuer fehlende Partner/Product-Daten in Superset-Dashboards pruefen
+- [x] Soda Check fuer Vollstaendigkeit der Gold-Tabelle ergaenzen
 
 ---
 

@@ -10,10 +10,10 @@ SELECT
     p.policy_number,
     p.policy_status,
     pa.partner_id,
-    pa.insured_number,
+    COALESCE(pa.insured_number, 'UNKNOWN')    AS insured_number,
     pa.partner_status,
-    pr.product_name,
-    pr.product_line,
+    COALESCE(pr.product_name, 'UNKNOWN')      AS product_name,
+    COALESCE(pr.product_line, 'UNKNOWN')      AS product_line,
     p.coverage_start_date,
     p.premium_chf,
     pr.base_premium_chf,
@@ -23,5 +23,5 @@ SELECT
     p.issued_at,
     p.updated_at
 FROM policy_silver.policy p
-JOIN partner_silver.partner pa ON p.partner_id = pa.partner_id
-JOIN product_silver.product pr ON p.product_id = pr.product_id
+LEFT JOIN partner_silver.partner pa ON p.partner_id = pa.partner_id
+LEFT JOIN product_silver.product pr ON p.product_id = pr.product_id

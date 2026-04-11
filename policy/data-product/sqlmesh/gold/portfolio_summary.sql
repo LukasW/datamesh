@@ -6,15 +6,15 @@ MODEL (
 );
 
 SELECT
-    pr.product_line,
-    pr.product_name,
+    COALESCE(pr.product_line, 'UNKNOWN')      AS product_line,
+    COALESCE(pr.product_name, 'UNKNOWN')      AS product_name,
     COUNT(p.policy_id)                        AS active_policies,
     SUM(p.premium_chf)                        AS total_premium_chf,
     ROUND(AVG(p.premium_chf), 2)              AS avg_premium_chf,
     MIN(p.coverage_start_date)                AS earliest_coverage_start,
     MAX(p.coverage_start_date)                AS latest_coverage_start
 FROM policy_silver.policy p
-JOIN product_silver.product pr ON p.product_id = pr.product_id
+LEFT JOIN product_silver.product pr ON p.product_id = pr.product_id
 WHERE p.policy_status = 'ACTIVE'
-  AND NOT pr.is_deprecated
-GROUP BY pr.product_line, pr.product_name
+  AND (pr.is_deprecated IS NULL OR NOT pr.is_deprecated)
+GROUP BY COALESCE(pr.product_line, 'UNKNOWN'), COALESCE(pr.product_name, 'UNKNOWN')

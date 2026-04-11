@@ -14,3 +14,11 @@ checks for policy_silver.policy:
   - invalid_count(policy_status) = 0:
       name: policy_status has valid values
       valid: [ACTIVE, CANCELLED]
+
+checks for policy_gold.policy_detail:
+  - row_count > 0:
+      name: policy_detail gold is not empty
+  - duplicate_count(policy_id) = 0:
+      name: No duplicate policy_id in gold
+  - row_count same as policy_silver.policy:
+      name: Gold completeness — every silver policy present in gold
