@@ -30,6 +30,7 @@ WITH ranked AS (
     FROM iceberg.hr_raw.employee_events
     WHERE employeeid IS NOT NULL
       AND employeeid != ''
+      AND (eventtype = 'employee.updated' OR eventtype IS NULL)
       AND from_iso8601_timestamp(timestamp) BETWEEN @start_date AND @end_date
 )
 

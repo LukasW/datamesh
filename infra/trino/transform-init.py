@@ -245,7 +245,9 @@ WITH ranked AS (
         COALESCE(active, true) AS active, COALESCE(deleted, false) AS deleted, version,
         from_iso8601_timestamp(timestamp) AS updated_at,
         ROW_NUMBER() OVER (PARTITION BY employeeid ORDER BY from_iso8601_timestamp(timestamp) DESC NULLS LAST, version DESC NULLS LAST) AS rn
-    FROM iceberg.hr_raw.employee_events WHERE employeeid IS NOT NULL AND employeeid != ''
+    FROM iceberg.hr_raw.employee_events
+    WHERE employeeid IS NOT NULL AND employeeid != ''
+      AND (eventtype = 'employee.updated' OR eventtype IS NULL)
 )
 SELECT employee_id, external_id, first_name, last_name,
     TRIM(COALESCE(first_name,'')||' '||COALESCE(last_name,'')) AS full_name,
@@ -262,7 +264,8 @@ WITH ranked AS (
         from_iso8601_timestamp(timestamp) AS updated_at,
         ROW_NUMBER() OVER (PARTITION BY orgunitid ORDER BY from_iso8601_timestamp(timestamp) DESC NULLS LAST, version DESC NULLS LAST) AS rn
     FROM iceberg.hr_raw.org_unit_events
-    WHERE orgunitid IS NOT NULL AND name IS NOT NULL AND eventtype IN ('OrgUnitState','OrgUnitChanged')
+    WHERE orgunitid IS NOT NULL AND name IS NOT NULL
+      AND (eventtype = 'org-unit.updated' OR eventtype IS NULL)
 )
 SELECT org_unit_id, external_id, name, parent_org_unit_id, level, active, deleted, updated_at
 FROM ranked WHERE rn = 1
