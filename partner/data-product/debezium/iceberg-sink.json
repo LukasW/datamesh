@@ -17,6 +17,7 @@
     "iceberg.tables": "partner_raw.person_events",
     "iceberg.tables.auto-create-enabled": "true",
     "iceberg.tables.evolve-schema-enabled": "true",
+    "iceberg.control.topic": "control-iceberg-partner",
     "iceberg.control.commit.interval-ms": "10000",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
