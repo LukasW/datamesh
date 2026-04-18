@@ -11,7 +11,8 @@ import time
 import urllib.request
 import urllib.error
 
-TRINO = "http://trino:8086"
+TRINO = os.environ.get("TRINO_URL", "http://trino:8086")
+NESSIE = os.environ.get("NESSIE_URL", "http://nessie:19120")
 
 
 def trino_exec(sql: str, quiet: bool = False) -> int | None:
@@ -76,7 +77,7 @@ def create_table(name: str, sql: str):
 def has_raw_table(schema: str) -> bool:
     """Check if an Iceberg raw schema exists in Nessie."""
     try:
-        req = urllib.request.Request("http://nessie:19120/api/v2/trees/main/entries")
+        req = urllib.request.Request(f"{NESSIE}/api/v2/trees/main/entries")
         resp = urllib.request.urlopen(req)
         entries = json.loads(resp.read()).get("entries", [])
         for e in entries:
