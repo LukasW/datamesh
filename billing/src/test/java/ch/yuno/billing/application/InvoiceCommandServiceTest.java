@@ -44,6 +44,7 @@ class InvoiceCommandServiceTest {
 
     @Test
     void createInvoiceForPolicySavesInvoiceAndPublishesEvent() {
+        when(invoiceRepository.findByPolicyId("policy-1")).thenReturn(List.of());
         when(invoiceRepository.existsByInvoiceNumber(anyString())).thenReturn(false);
         when(lineItemLabelProvider.labelForCycle(any())).thenReturn("Jahresprämie");
 
@@ -54,6 +55,23 @@ class InvoiceCommandServiceTest {
         assertNotNull(invoiceId);
         verify(invoiceRepository).save(any(Invoice.class));
         verify(billingEventPublisher).invoiceCreated(any(Invoice.class));
+    }
+
+    @Test
+    void createInvoiceForPolicyIsIdempotentOnRedelivery() {
+        Invoice existing = new Invoice("INV-001", "policy-1", "POL-2024-001",
+                "partner-1", BillingCycle.ANNUAL, new BigDecimal("1200.00"),
+                LocalDate.now(), LocalDate.now().plusDays(30));
+        when(invoiceRepository.findByPolicyId("policy-1")).thenReturn(List.of(existing));
+
+        InvoiceId invoiceId = service.createInvoiceForPolicy(
+                "policy-1", "POL-2024-001", "partner-1",
+                new BigDecimal("1200.00"), BillingCycle.ANNUAL);
+
+        assertEquals(existing.getInvoiceId(), invoiceId);
+        verify(invoiceRepository, never()).save(any(Invoice.class));
+        verify(billingEventPublisher, never()).invoiceCreated(any(Invoice.class));
+        verify(invoiceRepository, never()).existsByInvoiceNumber(anyString());
     }
 
     @Test

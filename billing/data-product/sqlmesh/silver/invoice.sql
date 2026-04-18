@@ -1,23 +1,7 @@
 MODEL (
     name billing_silver.invoice,
     kind INCREMENTAL_BY_UNIQUE_KEY (
-        unique_key invoice_id,
-        when_matched (
-            WHEN MATCHED AND source.updated_at > target.updated_at THEN UPDATE SET
-                target.invoice_number = source.invoice_number,
-                target.policy_id = source.policy_id,
-                target.partner_id = source.partner_id,
-                target.policy_number = source.policy_number,
-                target.billing_cycle = source.billing_cycle,
-                target.total_amount_chf = source.total_amount_chf,
-                target.due_date = source.due_date,
-                target.invoice_status = source.invoice_status,
-                target.amount_paid_chf = source.amount_paid_chf,
-                target.paid_at = source.paid_at,
-                target.dunning_level = source.dunning_level,
-                target.created_at = COALESCE(target.created_at, source.created_at),
-                target.updated_at = source.updated_at
-        )
+        unique_key invoice_id
     ),
     cron '@hourly',
     description 'Current state of every invoice. Status derived from latest billing event.'
