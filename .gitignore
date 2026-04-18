@@ -54,3 +54,6 @@ logs/
 # Docker
 docker-compose.override.yml
 
+# Implementierungs-Pläne (lokal, nicht versioniert)
+/plan/
+
