@@ -101,7 +101,7 @@ if [[ "$DAEMON_MODE" == true ]]; then
 
     echo ""
     echo "▶ Running Silver/Gold transformations (Iceberg → Trino)..."
-    ${=COMPOSE_CMD} run --rm transform-init
+    ${=COMPOSE_CMD} run --rm --no-deps transform-init
   fi
 
   echo ""
