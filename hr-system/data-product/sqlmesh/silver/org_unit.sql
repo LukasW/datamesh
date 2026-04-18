@@ -26,7 +26,7 @@ WITH ranked AS (
     FROM iceberg.hr_raw.org_unit_events
     WHERE orgunitid IS NOT NULL
       AND name IS NOT NULL
-      AND eventtype IN ('OrgUnitState', 'OrgUnitChanged')
+      AND (eventtype = 'org-unit.updated' OR eventtype IS NULL)
       AND from_iso8601_timestamp(timestamp) BETWEEN @start_date AND @end_date
 )
 
