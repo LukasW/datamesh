@@ -1078,21 +1078,24 @@ services:
           echo 'Debezium not ready yet, retrying in 3s...'
           sleep 3
         done
-        for domain in partner product policy billing claims hr-employee hr-orgunit; do
-          curl -f -X POST http://debezium-connect:8083/connectors \
+        for config in /config/iceberg-sinks/*/*.json; do
+          name=$$(basename "$$config" .json)
+          code=$$(curl -s -o /tmp/resp -w '%{http_code}' -X POST http://debezium-connect:8083/connectors \
             -H 'Content-Type: application/json' \
-            -d @/config/iceberg-sink-$${domain}.json \
-            && echo "$${domain} Iceberg sink registered." \
-            || echo "$${domain} Iceberg sink registration failed (may already exist)."
+            -d @"$$config")
+          case "$$code" in
+            201|200) echo "$$name registered.";;
+            409)     echo "$$name already exists (409, skipping).";;
+            *)       echo "$$name registration failed (HTTP $$code):"; cat /tmp/resp; echo;;
+          esac
         done
     volumes:
-      - ./partner/data-product/debezium/iceberg-sink.json:/config/iceberg-sink-partner.json:ro
-      - ./product/data-product/debezium/iceberg-sink.json:/config/iceberg-sink-product.json:ro
-      - ./policy/data-product/debezium/iceberg-sink.json:/config/iceberg-sink-policy.json:ro
-      - ./billing/data-product/debezium/iceberg-sink.json:/config/iceberg-sink-billing.json:ro
-      - ./claims/data-product/debezium/iceberg-sink.json:/config/iceberg-sink-claims.json:ro
-      - ./hr-system/data-product/debezium/iceberg-sink-employee.json:/config/iceberg-sink-hr-employee.json:ro
-      - ./hr-system/data-product/debezium/iceberg-sink-orgunit.json:/config/iceberg-sink-hr-orgunit.json:ro
+      - ./partner/data-product/debezium/iceberg-sinks:/config/iceberg-sinks/partner:ro
+      - ./product/data-product/debezium/iceberg-sinks:/config/iceberg-sinks/product:ro
+      - ./policy/data-product/debezium/iceberg-sinks:/config/iceberg-sinks/policy:ro
+      - ./billing/data-product/debezium/iceberg-sinks:/config/iceberg-sinks/billing:ro
+      - ./claims/data-product/debezium/iceberg-sinks:/config/iceberg-sinks/claims:ro
+      - ./hr-system/data-product/debezium/iceberg-sinks:/config/iceberg-sinks/hr-system:ro
     networks:
       - backend
 

@@ -99,7 +99,7 @@ Eine moderne Sachversicherungs-Plattform basierend auf **Domain-Driven Design (D
 │   ├── soda/
 │   │   └── checks.yml         <-- SodaCL data quality checks
 │   └── debezium/
-│       └── iceberg-sink.json  <-- Iceberg sink connector config
+│       └── iceberg-sinks/     <-- One Iceberg sink connector config per topic
 └── src/main/resources/
     ├── templates/             <-- Qute HTML (Deutsch)
     └── contracts/             <-- ODC YAML Definitions
