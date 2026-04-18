@@ -99,12 +99,28 @@ if [[ "$DAEMON_MODE" == true ]]; then
       echo "      ./scripts/reset-iceberg-sinks.sh <domain>…  # specific sinks" >&2
       exit 1
     fi
+    if ! scripts/check-raw-event-coverage.sh; then
+      echo "  ✗ Aborting: some event types are missing from the raw layer." >&2
+      echo "    A sink is likely committing only a subset of its assigned topics (cf. issues #14/#15)." >&2
+      echo "    Reset the affected sinks and verify producer output:" >&2
+      echo "      ./scripts/reset-iceberg-sinks.sh <domain>…" >&2
+      exit 1
+    fi
     # Give sinks a few more seconds to flush remaining data
     sleep 10
 
     echo ""
     echo "▶ Running Silver/Gold transformations (Iceberg → Trino)..."
     ${=COMPOSE_CMD} run --rm --no-deps transform-init
+
+    echo ""
+    echo "▶ Verifying Silver layer completeness (policy coverage + cancellations)…"
+    if ! scripts/check-silver-completeness.sh; then
+      echo "  ✗ Aborting: Silver layer is incomplete." >&2
+      echo "    Dashboards would hide coverages or cancelled policies (cf. issue #15)." >&2
+      echo "    Re-run transforms after verifying raw event-type coverage." >&2
+      exit 1
+    fi
   fi
 
   echo ""
