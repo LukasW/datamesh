@@ -38,11 +38,21 @@ public class InvoiceCommandService implements InvoiceCommandUseCase {
     /**
      * Creates an invoice when a policy is issued (consumed from policy.v1.issued).
      * Defaults to ANNUAL billing cycle.
+     *
+     * Idempotent: a policy is issued exactly once, so at-least-once delivery of
+     * policy.v1.issued (e.g. when Debezium re-snapshots the policy outbox) must
+     * not create additional invoices. If an invoice already exists for the
+     * policy, the existing InvoiceId is returned.
      */
     @Transactional
     public InvoiceId createInvoiceForPolicy(String policyId, String policyNumber,
                                          String partnerId, BigDecimal annualPremium,
                                          BillingCycle billingCycle) {
+        List<Invoice> existing = invoiceRepository.findByPolicyId(policyId);
+        if (!existing.isEmpty()) {
+            return existing.get(0).getInvoiceId();
+        }
+
         String invoiceNumber = generateInvoiceNumber();
         LocalDate today = LocalDate.now();
         LocalDate dueDate = today.plusDays(30);
