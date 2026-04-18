@@ -91,19 +91,13 @@ if [[ "$DAEMON_MODE" == true ]]; then
 
     echo ""
     echo "▶ Waiting for Debezium Iceberg sinks to commit raw data…"
-    for attempt in $(seq 1 60); do
-      # Check Nessie directly for raw table entries
-      NESSIE_TABLES=$(curl -sf "http://localhost:19120/api/v2/trees/main/entries" 2>/dev/null \
-        | python3 -c "import sys,json; d=json.load(sys.stdin); print(sum(1 for e in d.get('entries',[]) if e['type']=='ICEBERG_TABLE' and '_raw.' in '.'.join(e['name']['elements'])))" 2>/dev/null || echo "0")
-      if [[ "${NESSIE_TABLES}" -ge 5 ]] 2>/dev/null; then
-        echo "  ✓ Raw tables committed to Nessie (${NESSIE_TABLES} tables)"
-        # Give sinks a few more seconds to flush remaining data
-        sleep 10
-        break
-      fi
-      echo "  Waiting… (${NESSIE_TABLES}/5 raw tables in Nessie, attempt $attempt/60)"
-      sleep 5
-    done
+    if ! scripts/check-raw-tables.sh; then
+      echo "  ✗ Aborting: raw tables have no data — transform-init would build empty Silver/Gold." >&2
+      echo "    Inspect Kafka Connect logs and iceberg-sink connector status before retrying." >&2
+      exit 1
+    fi
+    # Give sinks a few more seconds to flush remaining data
+    sleep 10
 
     echo ""
     echo "▶ Running Silver/Gold transformations (Iceberg → Trino)..."
