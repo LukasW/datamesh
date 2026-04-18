@@ -62,12 +62,16 @@ public class ClaimApplicationService implements ClaimCommandUseCase, ClaimQueryU
 
     /**
      * Start review of an open claim. Transitions OPEN → IN_REVIEW.
+     * Publishes claims.v1.under-review via the outbox.
      */
     @RolesAllowed({"CLAIMS_AGENT"})
     public Claim startReview(ClaimId claimId) {
         Claim claim = findOrThrow(claimId);
         claim.startReview();
         claimRepository.save(claim);
+
+        claimEventPublisher.claimUnderReview(claim);
+
         return claim;
     }
 
@@ -88,12 +92,16 @@ public class ClaimApplicationService implements ClaimCommandUseCase, ClaimQueryU
 
     /**
      * Reject a claim (OPEN or IN_REVIEW → REJECTED).
+     * Publishes claims.v1.rejected via the outbox.
      */
     @RolesAllowed({"CLAIMS_AGENT"})
     public Claim reject(ClaimId claimId) {
         Claim claim = findOrThrow(claimId);
         claim.reject();
         claimRepository.save(claim);
+
+        claimEventPublisher.claimRejected(claim);
+
         return claim;
     }
 
