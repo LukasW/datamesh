@@ -94,6 +94,9 @@ if [[ "$DAEMON_MODE" == true ]]; then
     if ! scripts/check-raw-tables.sh; then
       echo "  ✗ Aborting: raw tables have no data — transform-init would build empty Silver/Gold." >&2
       echo "    Inspect Kafka Connect logs and iceberg-sink connector status before retrying." >&2
+      echo "    To reset stuck sinks without tearing down volumes:" >&2
+      echo "      ./scripts/reset-iceberg-sinks.sh            # all sinks" >&2
+      echo "      ./scripts/reset-iceberg-sinks.sh <domain>…  # specific sinks" >&2
       exit 1
     fi
     # Give sinks a few more seconds to flush remaining data
