@@ -4,5 +4,18 @@
       "Bash(grep -r \"mp.messaging.incoming\\\\|mp.messaging.outgoing\" /Users/lukasweibel/src/css/datamesh --include=*.yml --include=*.yaml)",
       "Bash(podman compose:*)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/reviewer-reminder.sh"
+          }
+        ]
+      }
+    ]
   }
 }
