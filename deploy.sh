@@ -121,6 +121,11 @@ if [[ "$DAEMON_MODE" == true ]]; then
       echo "    Re-run transforms after verifying raw event-type coverage." >&2
       exit 1
     fi
+
+    echo ""
+    echo "▶ Refreshing Superset dataset columns (post-transform-init)…"
+    scripts/refresh-superset-datasets.sh \
+      || echo "  ⚠ Superset dataset refresh failed (non-blocking — refresh manually via dashboard if charts show 'Columns missing')"
   fi
 
   echo ""
