@@ -11,8 +11,10 @@ import java.util.UUID;
  */
 public final class ClaimsEventPayloadBuilder {
 
-    public static final String TOPIC_CLAIM_OPENED  = "claims.v1.opened";
-    public static final String TOPIC_CLAIM_SETTLED = "claims.v1.settled";
+    public static final String TOPIC_CLAIM_OPENED       = "claims.v1.opened";
+    public static final String TOPIC_CLAIM_UNDER_REVIEW = "claims.v1.under-review";
+    public static final String TOPIC_CLAIM_SETTLED      = "claims.v1.settled";
+    public static final String TOPIC_CLAIM_REJECTED     = "claims.v1.rejected";
 
     private ClaimsEventPayloadBuilder() {}
 
@@ -31,9 +33,37 @@ public final class ClaimsEventPayloadBuilder {
                 );
     }
 
+    public static String buildClaimUnderReview(Claim claim) {
+        return """
+                {"eventId":"%s","eventType":"ClaimUnderReview","claimId":"%s","claimNumber":"%s","policyId":"%s","claimDate":"%s","status":"%s","timestamp":"%s"}"""
+                .formatted(
+                        UUID.randomUUID(),
+                        claim.getClaimId(),
+                        claim.getClaimNumber(),
+                        claim.getPolicyId(),
+                        claim.getClaimDate(),
+                        claim.getStatus().name(),
+                        OffsetDateTime.now()
+                );
+    }
+
     public static String buildClaimSettled(Claim claim) {
         return """
                 {"eventId":"%s","eventType":"ClaimSettled","claimId":"%s","claimNumber":"%s","policyId":"%s","claimDate":"%s","status":"%s","timestamp":"%s"}"""
+                .formatted(
+                        UUID.randomUUID(),
+                        claim.getClaimId(),
+                        claim.getClaimNumber(),
+                        claim.getPolicyId(),
+                        claim.getClaimDate(),
+                        claim.getStatus().name(),
+                        OffsetDateTime.now()
+                );
+    }
+
+    public static String buildClaimRejected(Claim claim) {
+        return """
+                {"eventId":"%s","eventType":"ClaimRejected","claimId":"%s","claimNumber":"%s","policyId":"%s","claimDate":"%s","status":"%s","timestamp":"%s"}"""
                 .formatted(
                         UUID.randomUUID(),
                         claim.getClaimId(),

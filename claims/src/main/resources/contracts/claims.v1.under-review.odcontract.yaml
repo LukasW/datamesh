@@ -1,0 +1,111 @@
+apiVersion: v2.3.0
+kind: DataContract
+id: claims-under-review-v1
+version: 1.0.0
+
+info:
+  title: Claim Under Review Event
+  description: Published when a claim transitions from OPEN to IN_REVIEW
+  owner: claims-team@insurance.example.com
+  domain: claims
+  tags: ["claims", "lifecycle", "core"]
+  contact:
+    email: claims-team@insurance.example.com
+  sla:
+    freshness: "< 5 minutes"
+    availability: "99.9%"
+    qualityScore: 0.95
+
+servers:
+  production:
+    type: kafka
+    host: kafka.insurance.internal:9092
+    topic: claims.v1.under-review
+  development:
+    type: kafka
+    host: localhost:9092
+    topic: claims.v1.under-review
+
+schema:
+  type: json
+  specification: |
+    {
+      "type": "record",
+      "name": "ClaimUnderReview",
+      "namespace": "ch.yuno.claims.events",
+      "fields": [
+        {
+          "name": "eventId",
+          "type": "string",
+          "doc": "Unique event identifier (UUID)"
+        },
+        {
+          "name": "eventType",
+          "type": "string",
+          "doc": "Event type (ClaimUnderReview)"
+        },
+        {
+          "name": "claimId",
+          "type": "string",
+          "doc": "Unique claim identifier (UUID)"
+        },
+        {
+          "name": "policyId",
+          "type": "string",
+          "doc": "Policy identifier the claim is filed against"
+        },
+        {
+          "name": "claimNumber",
+          "type": "string",
+          "doc": "Human-readable claim number"
+        },
+        {
+          "name": "claimDate",
+          "type": "string",
+          "doc": "ISO 8601 date when the damage occurred"
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "doc": "Claim status at event time (IN_REVIEW)"
+        },
+        {
+          "name": "timestamp",
+          "type": "string",
+          "doc": "ISO 8601 timestamp when event was created"
+        }
+      ]
+    }
+
+quality:
+  type: SodaCL
+  specification: |
+    checks for claims.v1.under-review:
+      - missing_count(claimId) = 0
+      - missing_count(eventId) = 0
+      - missing_count(policyId) = 0
+      - duplicate_count(eventId) = 0
+
+serviceLevel:
+  availability: "99.9%"
+  retention: "7 years"
+  latency: "< 500ms p99"
+  throughput: "300 events/sec"
+  backupRecovery: "24 hours RTO"
+
+dataProduct:
+  accessPatterns:
+    - type: kafka-consumer
+      description: "Subscribe to the topic for real-time event processing"
+      protocol: kafka
+      config:
+        bootstrap.servers: "${KAFKA_BOOTSTRAP_SERVERS}"
+        group.id: "${CONSUMER_GROUP_ID}"
+        auto.offset.reset: earliest
+        key.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+changelog:
+  - version: "1.0.0"
+    date: "2026-04-18"
+    description: "Initial version - Claim moved to IN_REVIEW"

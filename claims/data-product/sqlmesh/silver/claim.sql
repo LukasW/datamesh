@@ -14,7 +14,7 @@ MODEL (
         )
     ),
     cron '@hourly',
-    description 'Current state of every claim. Derived from ClaimOpened/ClaimSettled events.'
+    description 'Current state of every claim. Derived from ClaimOpened/ClaimUnderReview/ClaimSettled/ClaimRejected events.'
 );
 
 WITH ranked AS (
@@ -32,7 +32,7 @@ WITH ranked AS (
             ORDER BY from_iso8601_timestamp(timestamp) DESC
         )                                     AS rn
     FROM iceberg.claims_raw.claims_events
-    WHERE eventtype IN ('ClaimOpened', 'ClaimSettled')
+    WHERE eventtype IN ('ClaimOpened', 'ClaimUnderReview', 'ClaimSettled', 'ClaimRejected')
       AND claimid IS NOT NULL
       AND from_iso8601_timestamp(timestamp) BETWEEN @start_date AND @end_date
 ),

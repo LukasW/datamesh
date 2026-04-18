@@ -30,10 +30,26 @@ public class ClaimEventPublisherAdapter implements ClaimEventPublisher {
     }
 
     @Override
+    public void claimUnderReview(Claim claim) {
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "claims", claim.getClaimId().value(), "ClaimUnderReview",
+                ClaimsEventPayloadBuilder.TOPIC_CLAIM_UNDER_REVIEW,
+                ClaimsEventPayloadBuilder.buildClaimUnderReview(claim)));
+    }
+
+    @Override
     public void claimSettled(Claim claim) {
         outboxRepository.save(new OutboxEvent(
                 UUID.randomUUID(), "claims", claim.getClaimId().value(), "ClaimSettled",
                 ClaimsEventPayloadBuilder.TOPIC_CLAIM_SETTLED,
                 ClaimsEventPayloadBuilder.buildClaimSettled(claim)));
+    }
+
+    @Override
+    public void claimRejected(Claim claim) {
+        outboxRepository.save(new OutboxEvent(
+                UUID.randomUUID(), "claims", claim.getClaimId().value(), "ClaimRejected",
+                ClaimsEventPayloadBuilder.TOPIC_CLAIM_REJECTED,
+                ClaimsEventPayloadBuilder.buildClaimRejected(claim)));
     }
 }

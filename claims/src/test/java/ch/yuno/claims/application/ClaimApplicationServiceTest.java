@@ -67,6 +67,18 @@ class ClaimApplicationServiceTest {
     }
 
     @Test
+    void startReviewPublishesUnderReviewEvent() {
+        Claim claim = Claim.openNew("policy-1", "Damage", LocalDate.now());
+        when(claimRepository.findById(claim.getClaimId())).thenReturn(Optional.of(claim));
+        when(claimRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.startReview(claim.getClaimId());
+
+        assertEquals(ClaimStatus.IN_REVIEW, claim.getStatus());
+        verify(claimEventPublisher).claimUnderReview(any(Claim.class));
+    }
+
+    @Test
     void settleClaimPublishesSettledEvent() {
         Claim claim = Claim.openNew("policy-1", "Damage", LocalDate.now());
         claim.startReview();
@@ -79,7 +91,7 @@ class ClaimApplicationServiceTest {
     }
 
     @Test
-    void rejectClaimNoOutboxEvent() {
+    void rejectClaimPublishesRejectedEvent() {
         Claim claim = Claim.openNew("policy-1", "Damage", LocalDate.now());
         when(claimRepository.findById(claim.getClaimId())).thenReturn(Optional.of(claim));
         when(claimRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -87,7 +99,7 @@ class ClaimApplicationServiceTest {
         service.reject(claim.getClaimId());
 
         assertEquals(ClaimStatus.REJECTED, claim.getStatus());
-        verifyNoInteractions(claimEventPublisher);
+        verify(claimEventPublisher).claimRejected(any(Claim.class));
     }
 
     @Test
