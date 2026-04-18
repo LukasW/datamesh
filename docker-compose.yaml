@@ -923,8 +923,11 @@ services:
     ports:
       - "19120:19120"
     environment:
-      NESSIE_VERSION_STORE_TYPE: IN_MEMORY
+      NESSIE_VERSION_STORE_TYPE: ROCKSDB
+      NESSIE_VERSION_STORE_PERSIST_ROCKS_DATABASE_PATH: /nessie/data
       QUARKUS_OTEL_ENABLED: "false"
+    volumes:
+      - nessie-data:/nessie/data
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:19120/api/v2/config || exit 1"]
       interval: 10s
@@ -1402,6 +1405,7 @@ volumes:
   billing-db-data:
   hr-db-data:
   minio-data:
+  nessie-data:
   superset-db-data:
   openmetadata-db-data:
   openmetadata-esdata:
