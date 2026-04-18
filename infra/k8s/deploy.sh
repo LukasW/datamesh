@@ -221,15 +221,16 @@ create_cm debezium-connectors \
   --from-file=billing-outbox-connector.json="$PROJECT_ROOT/infra/debezium/billing-outbox-connector.json" \
   --from-file=claims-outbox-connector.json="$PROJECT_ROOT/infra/debezium/claims-outbox-connector.json"
 
-# Iceberg sink connectors
+# Iceberg sink connectors — one connector per topic (issue #14).
+# Each domain directory holds N per-topic JSONs; all filenames are globally
+# unique, so flattening six dirs into one ConfigMap is collision-free.
 create_cm iceberg-sinks \
-  --from-file=iceberg-sink-partner.json="$PROJECT_ROOT/partner/data-product/debezium/iceberg-sink.json" \
-  --from-file=iceberg-sink-product.json="$PROJECT_ROOT/product/data-product/debezium/iceberg-sink.json" \
-  --from-file=iceberg-sink-policy.json="$PROJECT_ROOT/policy/data-product/debezium/iceberg-sink.json" \
-  --from-file=iceberg-sink-billing.json="$PROJECT_ROOT/billing/data-product/debezium/iceberg-sink.json" \
-  --from-file=iceberg-sink-claims.json="$PROJECT_ROOT/claims/data-product/debezium/iceberg-sink.json" \
-  --from-file=iceberg-sink-hr-employee.json="$PROJECT_ROOT/hr-system/data-product/debezium/iceberg-sink-employee.json" \
-  --from-file=iceberg-sink-hr-orgunit.json="$PROJECT_ROOT/hr-system/data-product/debezium/iceberg-sink-orgunit.json"
+  --from-file="$PROJECT_ROOT/partner/data-product/debezium/iceberg-sinks" \
+  --from-file="$PROJECT_ROOT/product/data-product/debezium/iceberg-sinks" \
+  --from-file="$PROJECT_ROOT/policy/data-product/debezium/iceberg-sinks" \
+  --from-file="$PROJECT_ROOT/billing/data-product/debezium/iceberg-sinks" \
+  --from-file="$PROJECT_ROOT/claims/data-product/debezium/iceberg-sinks" \
+  --from-file="$PROJECT_ROOT/hr-system/data-product/debezium/iceberg-sinks"
 
 # Governance (optional files)
 if [[ -f "$PROJECT_ROOT/infra/openmetadata/init-airflow-db.sql" ]]; then
