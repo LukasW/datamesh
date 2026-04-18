@@ -1294,7 +1294,7 @@ services:
           --email admin@yuno.ch --role Admin --password admin 2>/dev/null || true
         airflow scheduler &
         SCHEDULER_PID=$$!
-        airflow webserver --port 8080 &
+        airflow api-server --port 8080 &
         WEBSERVER_PID=$$!
         trap "kill $$SCHEDULER_PID $$WEBSERVER_PID 2>/dev/null; exit" SIGTERM SIGINT
         wait -n
@@ -1303,7 +1303,7 @@ services:
     environment:
       AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__WEBSERVER__WORKERS: "2"
+      AIRFLOW__API__WORKERS: "2"
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://openmetadata:openmetadata@openmetadata-db:5432/airflow"
     volumes:
       - ./infra/openmetadata/kafka-ingestion.json:/config/kafka-ingestion.json:ro
@@ -1335,6 +1335,7 @@ services:
     environment:
       VAULT_DEV_ROOT_TOKEN_ID: dev-root-token
       VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      SKIP_SETCAP: "true"
     healthcheck:
       test: ["CMD-SHELL", "vault status -address=http://127.0.0.1:8200 2>/dev/null || wget -qO- http://127.0.0.1:8200/v1/sys/health"]
       interval: 10s
