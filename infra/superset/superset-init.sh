@@ -159,6 +159,25 @@ FROM iceberg.product_silver.product""",
 
     db.session.commit()
 
+    # ── 2b. Sync dataset columns from Trino BEFORE chart creation ────────────
+    # Column metadata must be present before charts reference the dataset —
+    # otherwise dashboard-embedded charts with SUM/aggregate metrics can hang
+    # waiting on columns that were not yet introspected at chart-commit time.
+    # Additionally, every chart uses time_range="No filter" and include_time=False,
+    # so we explicitly disable temporal semantics on all datasets to prevent
+    # Superset from auto-binding the first TIMESTAMP column as main_dttm_col
+    # and applying implicit dashboard-level time filters.
+    for ds in datasets.values():
+        try:
+            ds.fetch_metadata()
+            ds.main_dttm_col = None
+            for col in ds.columns:
+                col.is_dttm = False
+            print(f"  Synced columns for '{ds.table_name}' ({len(ds.columns)} cols, dttm disabled)")
+        except Exception as e:
+            print(f"  ⚠ Column sync failed for '{ds.table_name}': {e}")
+    db.session.commit()
+
     # ── 3. Charts ─────────────────────────────────────────────────────────────
     def count_metric():
         return {
@@ -288,6 +307,8 @@ FROM iceberg.product_silver.product""",
             "groupby": ["collection_status"],
             "row_limit": 100,
             "include_time": False,
+            "query_mode": "aggregate",
+            "adhoc_filters": [],
         },
     )
 
@@ -379,15 +400,6 @@ FROM iceberg.product_silver.product""",
         dash.published = True
         db.session.commit()
         print(f"Dashboard '{DASH_TITLE}' updated.")
-
-    # ── 5. Sync dataset columns from Trino ────────────────────────────────
-    for ds in datasets.values():
-        try:
-            ds.fetch_metadata()
-            print(f"  Synced columns for '{ds.table_name}' ({len(ds.columns)} cols)")
-        except Exception as e:
-            print(f"  ⚠ Column sync failed for '{ds.table_name}': {e}")
-    db.session.commit()
 
 PYEOF
 
