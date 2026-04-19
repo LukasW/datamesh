@@ -23,7 +23,18 @@
           "policy_raw",
           "billing_raw",
           "claims_raw",
-          "hr_raw"
+          "hr_raw",
+          "partner_silver",
+          "product_silver",
+          "policy_silver",
+          "billing_silver",
+          "claims_silver",
+          "hr_silver",
+          "partner_gold",
+          "policy_gold",
+          "billing_gold",
+          "claims_gold",
+          "hr_gold"
         ]
       },
       "includeViews": true,

@@ -88,6 +88,29 @@ _put "$OM_URL/api/v1/services/databaseServices" '{
   }
 }' > /dev/null && ok "Trino service registered"
 
+# ── 2b. Create Superset dashboard service ─────────────────────────────────
+echo ""
+echo "▶ Registering Superset dashboard service…"
+
+_put "$OM_URL/api/v1/services/dashboardServices" '{
+  "name": "superset",
+  "displayName": "Superset Dashboards",
+  "serviceType": "Superset",
+  "connection": {
+    "config": {
+      "type": "Superset",
+      "hostPort": "http://superset:8088",
+      "connection": {
+        "type": "Postgres",
+        "hostPort": "superset-db:5432",
+        "username": "superset",
+        "authType": {"password": "superset"},
+        "database": "superset"
+      }
+    }
+  }
+}' > /dev/null && ok "Superset service registered"
+
 # ── 3. Run Kafka metadata ingestion via CLI ───────────────────────────────
 echo ""
 echo "▶ Running Kafka metadata ingestion…"
@@ -155,6 +178,17 @@ source:
           - billing_raw
           - claims_raw
           - hr_raw
+          - partner_silver
+          - product_silver
+          - policy_silver
+          - billing_silver
+          - claims_silver
+          - hr_silver
+          - partner_gold
+          - policy_gold
+          - billing_gold
+          - claims_gold
+          - hr_gold
       includeViews: true
       markDeletedTables: true
       includeTags: true
@@ -170,6 +204,101 @@ workflowConfig:
 YAML
 metadata ingest -c /tmp/trino-ingest.yaml 2>&1 | tail -5
 " && ok "Trino ingestion complete" || log "Trino ingestion had issues (see above)"
+
+# ── 4a. Run Superset dashboard metadata + lineage ingestion ───────────────
+# Parses Superset dashboards/charts/datasets and links chart → Trino-table
+# lineage automatically via dbServiceNames → trino-iceberg.
+echo ""
+echo "▶ Running Superset dashboard metadata + lineage ingestion…"
+
+$CONTAINER_CMD exec datamesh-openmetadata-ingestion-1 bash -c "
+cat > /tmp/superset-ingest.yaml <<'YAML'
+source:
+  type: superset
+  serviceName: superset
+  serviceConnection:
+    config:
+      type: Superset
+      hostPort: http://superset:8088
+      connection:
+        type: Postgres
+        hostPort: superset-db:5432
+        username: superset
+        authType:
+          password: superset
+        database: superset
+  sourceConfig:
+    config:
+      type: DashboardMetadata
+      includeDraftDashboard: true
+      markDeletedDashboards: true
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: $OM_INTERNAL_URL/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: $TOKEN
+YAML
+metadata ingest -c /tmp/superset-ingest.yaml 2>&1 | tail -8
+" && ok "Superset ingestion complete" || log "Superset ingestion had issues (see above)"
+
+# ── 4b. Run Trino query-lineage ingestion inline ──────────────────────────
+# Parses Trino query history to derive runtime table-level lineage (Superset
+# charts, ad-hoc SQL). Complements the design-time SQLMesh DAG pushed in 6b.
+echo ""
+echo "▶ Running Trino query-lineage ingestion…"
+
+$CONTAINER_CMD exec datamesh-openmetadata-ingestion-1 bash -c "
+cat > /tmp/trino-lineage.yaml <<'YAML'
+source:
+  type: trino-lineage
+  serviceName: trino-iceberg
+  serviceConnection:
+    config:
+      type: Trino
+      hostPort: trino:8086
+      username: openmetadata
+      catalog: iceberg
+  sourceConfig:
+    config:
+      type: DatabaseLineage
+      queryLogDuration: 1
+      resultLimit: 1000
+      schemaFilterPattern:
+        includes:
+          - analytics
+          - partner_raw
+          - product_raw
+          - policy_raw
+          - billing_raw
+          - claims_raw
+          - hr_raw
+          - partner_silver
+          - product_silver
+          - policy_silver
+          - billing_silver
+          - claims_silver
+          - hr_silver
+          - partner_gold
+          - policy_gold
+          - billing_gold
+          - claims_gold
+          - hr_gold
+sink:
+  type: metadata-rest
+  config: {}
+workflowConfig:
+  openMetadataServerConfig:
+    hostPort: $OM_INTERNAL_URL/api
+    authProvider: openmetadata
+    securityConfig:
+      jwtToken: $TOKEN
+YAML
+metadata ingest -c /tmp/trino-lineage.yaml 2>&1 | tail -5
+" && ok "Trino lineage ingestion complete" || log "Trino lineage ingestion had issues (see above)"
 
 # ── 5. Create PII classification & tags ───────────────────────────────────
 echo ""
@@ -218,6 +347,9 @@ KAFKA_ID=$(curl -sf "$OM_URL/api/v1/services/messagingServices/name/kafka" \
 TRINO_ID=$(curl -sf "$OM_URL/api/v1/services/databaseServices/name/trino-iceberg" \
   -H "$AUTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null || echo "")
 
+SUPERSET_ID=$(curl -sf "$OM_URL/api/v1/services/dashboardServices/name/superset" \
+  -H "$AUTH" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null || echo "")
+
 deploy_pipeline() {
   local name="$1" display="$2" type="$3" svc_id="$4" svc_type="$5" fqn="$6" src_cfg="$7"
   # Create pipeline (ignore 409 if already exists)
@@ -249,7 +381,51 @@ fi
 if [[ -n "$TRINO_ID" ]]; then
   deploy_pipeline "trino-metadata-ingestion" "Trino Metadata Ingestion" "metadata" \
     "$TRINO_ID" "databaseService" "trino-iceberg.trino-metadata-ingestion" \
-    '{"config":{"type":"DatabaseMetadata","schemaFilterPattern":{"includes":["analytics","partner_raw","product_raw","policy_raw","billing_raw","claims_raw","hr_raw"]},"includeViews":true,"markDeletedTables":true,"includeTags":true}}'
+    '{"config":{"type":"DatabaseMetadata","schemaFilterPattern":{"includes":["analytics","partner_raw","product_raw","policy_raw","billing_raw","claims_raw","hr_raw","partner_silver","product_silver","policy_silver","billing_silver","claims_silver","hr_silver","partner_gold","policy_gold","billing_gold","claims_gold","hr_gold"]},"includeViews":true,"markDeletedTables":true,"includeTags":true}}'
+
+  # Runtime query-lineage: parses Trino query history to derive table-level
+  # edges for ad-hoc/Superset SQL. Complements the design-time SQLMesh DAG.
+  deploy_pipeline "trino-lineage-ingestion" "Trino Query Lineage" "lineage" \
+    "$TRINO_ID" "databaseService" "trino-iceberg.trino-lineage-ingestion" \
+    '{"config":{"type":"DatabaseLineage","queryLogDuration":1,"resultLimit":1000,"schemaFilterPattern":{"includes":["analytics","partner_silver","product_silver","policy_silver","billing_silver","claims_silver","hr_silver","partner_gold","policy_gold","billing_gold","claims_gold","hr_gold","partner_raw","product_raw","policy_raw","billing_raw","claims_raw","hr_raw"]}}}'
+fi
+
+if [[ -n "$SUPERSET_ID" ]]; then
+  deploy_pipeline "superset-metadata-ingestion" "Superset Metadata & Lineage" "metadata" \
+    "$SUPERSET_ID" "dashboardService" "superset.superset-metadata-ingestion" \
+    '{"config":{"type":"DashboardMetadata","includeDraftDashboard":true,"markDeletedDashboards":true}}'
+fi
+
+# ── 6b. SQLMesh design-time lineage export ────────────────────────────────
+# Runs SQLMesh's model DAG → OpenMetadata REST /api/v1/lineage. Captures the
+# declared silver → gold dependencies (including column lineage) which the
+# Trino query-log pipeline cannot see until queries actually run.
+echo ""
+echo "▶ Exporting SQLMesh model lineage to OpenMetadata…"
+if [[ -x "$(dirname "$0")/export-sqlmesh-lineage.sh" ]]; then
+  OM_URL="$OM_URL" OM_INTERNAL_URL="$OM_INTERNAL_URL" OM_TOKEN="$TOKEN" \
+    CONTAINER_CMD="$CONTAINER_CMD" \
+    "$(dirname "$0")/export-sqlmesh-lineage.sh" \
+    && ok "SQLMesh lineage exported" \
+    || log "SQLMesh lineage export had issues (see above)"
+else
+  log "export-sqlmesh-lineage.sh not found — skipping"
+fi
+
+# ── 6c. Superset downstream lineage export ────────────────────────────────
+# Workaround for OM 1.12.4 ↔ Superset 6.0.1 drift: reads Superset REST API,
+# resolves each dashboard's chart datasets to physical Trino tables (via
+# sqlglot), then PUTs Table → Dashboard lineage edges.
+echo ""
+echo "▶ Exporting Superset dashboard lineage to OpenMetadata…"
+if [[ -x "$(dirname "$0")/export-superset-lineage.sh" ]]; then
+  OM_URL="$OM_URL" OM_INTERNAL_URL="$OM_INTERNAL_URL" OM_TOKEN="$TOKEN" \
+    CONTAINER_CMD="$CONTAINER_CMD" \
+    "$(dirname "$0")/export-superset-lineage.sh" \
+    && ok "Superset lineage exported" \
+    || log "Superset lineage export had issues (see above)"
+else
+  log "export-superset-lineage.sh not found — skipping"
 fi
 
 # ── 7. Report ─────────────────────────────────────────────────────────────
