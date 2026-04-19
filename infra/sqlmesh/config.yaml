@@ -9,7 +9,7 @@ gateways:
       http_scheme: http
     state_connection:
       type: duckdb
-      database: /tmp/sqlmesh_state.db
+      database: /state/sqlmesh_state.db
 
 default_gateway: trino
 
@@ -34,7 +34,8 @@ model_defaults:
 # reading from the incrementally maintained silver tables.
 #
 # Cron schedule overview:
-#   @hourly  — partner, policy, claim, invoice, coverage (operational)
-#   @hourly  — claim_detail, policy_detail, partner_decrypted, portfolio_summary (gold)
-#   @daily   — product, employee, org_unit, address (reference data)
-#   @daily   — financial_summary, management_kpi, org_hierarchy (reporting)
+#   */5 * * * *  — partner, policy, invoice (high-traffic operational, dev feedback)
+#   @hourly      — claim, coverage (operational)
+#   @hourly      — claim_detail, policy_detail, partner_decrypted, portfolio_summary (gold)
+#   @daily       — product, employee, org_unit, address (reference data)
+#   @daily       — financial_summary, management_kpi, org_hierarchy (reporting)

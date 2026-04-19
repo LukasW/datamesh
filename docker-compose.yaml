@@ -1102,15 +1102,13 @@ services:
     networks:
       - backend
 
-  # ── Transform Init (Silver & Gold tables via Trino CTAS) ──────────────────
+  # ── Transform Init (Silver & Gold schemas only — tables come from SQLMesh) ─
   transform-init:
     image: python:3.12-alpine
     depends_on:
       trino:
         condition: service_healthy
     restart: "no"
-    profiles:
-      - tools
     entrypoint: ["python3", "/scripts/transform-init.py"]
     volumes:
       - ./infra/trino/transform-init.py:/scripts/transform-init.py:ro
@@ -1126,18 +1124,81 @@ services:
   # ── Phase 2: Transformation Layer (SQLMesh) ────────────────────────────────
   # ══════════════════════════════════════════════════════════════════════════════
 
-  sqlmesh:
+  # ── SQLMesh Init (one-shot bootstrap: plan --auto-apply, run on demand) ───
+  # Runs only via `compose run --rm sqlmesh-init` (e.g. from deploy-compose.sh
+  # after raw data has been seeded). Source raw tables must exist before the
+  # initial plan can backfill the silver/gold models.
+  sqlmesh-init:
     build:
       context: .
       dockerfile: infra/sqlmesh/Dockerfile
+    image: datamesh/sqlmesh:latest
     restart: "no"
     profiles:
       - tools
     depends_on:
       trino:
         condition: service_healthy
+      transform-init:
+        condition: service_completed_successfully
+    command: ["plan", "--auto-apply", "--no-prompts"]
     volumes:
       - ./infra/sqlmesh/config.yaml:/sqlmesh/config.yaml:ro
+      - sqlmesh-state:/state
+      # Domain-owned silver models
+      - ./partner/data-product/sqlmesh/silver:/sqlmesh/models/silver/partner:ro
+      - ./product/data-product/sqlmesh/silver:/sqlmesh/models/silver/product:ro
+      - ./policy/data-product/sqlmesh/silver:/sqlmesh/models/silver/policy:ro
+      - ./billing/data-product/sqlmesh/silver:/sqlmesh/models/silver/billing:ro
+      - ./claims/data-product/sqlmesh/silver:/sqlmesh/models/silver/claims:ro
+      - ./hr-system/data-product/sqlmesh/silver:/sqlmesh/models/silver/hr:ro
+      # Domain-owned gold models
+      - ./partner/data-product/sqlmesh/gold:/sqlmesh/models/gold/partner:ro
+      - ./policy/data-product/sqlmesh/gold:/sqlmesh/models/gold/policy:ro
+      - ./billing/data-product/sqlmesh/gold:/sqlmesh/models/gold/billing:ro
+      - ./claims/data-product/sqlmesh/gold:/sqlmesh/models/gold/claims:ro
+      - ./hr-system/data-product/sqlmesh/gold:/sqlmesh/models/gold/hr:ro
+      # Cross-domain analytics (central)
+      - ./infra/sqlmesh/models/gold/analytics:/sqlmesh/models/gold/analytics:ro
+      # Audits & tests
+      - ./policy/data-product/sqlmesh/audits:/sqlmesh/audits:ro
+      - ./hr-system/data-product/sqlmesh/tests:/sqlmesh/models/tests:ro
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  # ── SQLMesh Scheduler (long-running: executes models per cron) ─────────────
+  # Each tick runs `sqlmesh run` then sleeps. Failures (e.g. missing raw
+  # tables before the initial bootstrap) are tolerated — the next tick retries.
+  # Bootstrap (`sqlmesh-init`, profile `tools`) must run once before any model
+  # state exists; until then `sqlmesh run` is a no-op.
+  sqlmesh-scheduler:
+    build:
+      context: .
+      dockerfile: infra/sqlmesh/Dockerfile
+    image: datamesh/sqlmesh:latest
+    restart: unless-stopped
+    depends_on:
+      trino:
+        condition: service_healthy
+      transform-init:
+        condition: service_completed_successfully
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        INTERVAL="$${SQLMESH_RUN_INTERVAL_SECONDS:-60}"
+        echo "▶ SQLMesh scheduler: interval=$${INTERVAL}s"
+        while true; do
+          sqlmesh run --no-prompts || echo "  sqlmesh run failed (will retry)"
+          sleep "$$INTERVAL"
+        done
+    volumes:
+      - ./infra/sqlmesh/config.yaml:/sqlmesh/config.yaml:ro
+      - sqlmesh-state:/state
       # Domain-owned silver models
       - ./partner/data-product/sqlmesh/silver:/sqlmesh/models/silver/partner:ro
       - ./product/data-product/sqlmesh/silver:/sqlmesh/models/silver/product:ro
@@ -1415,6 +1476,7 @@ volumes:
   superset-db-data:
   openmetadata-db-data:
   openmetadata-esdata:
+  sqlmesh-state:
 
 networks:
   backend:

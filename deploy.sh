@@ -110,20 +110,21 @@ if [[ "$DAEMON_MODE" == true ]]; then
     sleep 10
 
     echo ""
-    echo "▶ Running Silver/Gold transformations (Iceberg → Trino)..."
-    ${=COMPOSE_CMD} run --rm --no-deps transform-init
+    echo "▶ Bootstrapping SQLMesh (initial plan + backfill of all silver/gold models)…"
+    echo "  After this, the sqlmesh-scheduler service keeps Silver/Gold near-realtime."
+    ${=COMPOSE_CMD} run --rm sqlmesh-init
 
     echo ""
     echo "▶ Verifying Silver layer completeness (policy coverage + cancellations)…"
     if ! scripts/check-silver-completeness.sh; then
       echo "  ✗ Aborting: Silver layer is incomplete." >&2
       echo "    Dashboards would hide coverages or cancelled policies (cf. issue #15)." >&2
-      echo "    Re-run transforms after verifying raw event-type coverage." >&2
+      echo "    Re-run SQLMesh: '${COMPOSE_CMD} run --rm sqlmesh-init'." >&2
       exit 1
     fi
 
     echo ""
-    echo "▶ Refreshing Superset dataset columns (post-transform-init)…"
+    echo "▶ Refreshing Superset dataset columns (post-bootstrap)…"
     scripts/refresh-superset-datasets.sh \
       || echo "  ⚠ Superset dataset refresh failed (non-blocking — refresh manually via dashboard if charts show 'Columns missing')"
   fi

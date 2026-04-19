@@ -3,7 +3,7 @@ MODEL (
     kind INCREMENTAL_BY_UNIQUE_KEY (
         unique_key invoice_id
     ),
-    cron '@hourly',
+    cron '*/5 * * * *',
     description 'Current state of every invoice. Status derived from latest billing event.'
 );
 
