@@ -2,6 +2,7 @@ package ch.yuno.claims.infrastructure.messaging;
 
 import ch.yuno.claims.domain.model.Claim;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -47,9 +48,9 @@ public final class ClaimsEventPayloadBuilder {
                 );
     }
 
-    public static String buildClaimSettled(Claim claim) {
+    public static String buildClaimSettled(Claim claim, BigDecimal settlementAmount) {
         return """
-                {"eventId":"%s","eventType":"ClaimSettled","claimId":"%s","claimNumber":"%s","policyId":"%s","claimDate":"%s","status":"%s","timestamp":"%s"}"""
+                {"eventId":"%s","eventType":"ClaimSettled","claimId":"%s","claimNumber":"%s","policyId":"%s","claimDate":"%s","status":"%s","settlementAmount":%s,"timestamp":"%s"}"""
                 .formatted(
                         UUID.randomUUID(),
                         claim.getClaimId(),
@@ -57,6 +58,7 @@ public final class ClaimsEventPayloadBuilder {
                         claim.getPolicyId(),
                         claim.getClaimDate(),
                         claim.getStatus().name(),
+                        settlementAmount.toPlainString(),
                         OffsetDateTime.now()
                 );
     }

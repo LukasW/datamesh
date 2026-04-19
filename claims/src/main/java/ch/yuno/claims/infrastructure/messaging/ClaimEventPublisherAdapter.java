@@ -6,6 +6,7 @@ import ch.yuno.claims.domain.port.out.OutboxRepository;
 import ch.yuno.claims.infrastructure.messaging.outbox.OutboxEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
@@ -38,11 +39,11 @@ public class ClaimEventPublisherAdapter implements ClaimEventPublisher {
     }
 
     @Override
-    public void claimSettled(Claim claim) {
+    public void claimSettled(Claim claim, BigDecimal settlementAmount) {
         outboxRepository.save(new OutboxEvent(
                 UUID.randomUUID(), "claims", claim.getClaimId().value(), "ClaimSettled",
                 ClaimsEventPayloadBuilder.TOPIC_CLAIM_SETTLED,
-                ClaimsEventPayloadBuilder.buildClaimSettled(claim)));
+                ClaimsEventPayloadBuilder.buildClaimSettled(claim, settlementAmount)));
     }
 
     @Override
