@@ -3,7 +3,7 @@ MODEL (
     kind INCREMENTAL_BY_UNIQUE_KEY (
         unique_key partner_id
     ),
-    cron '@hourly',
+    cron '*/5 * * * *',
     description 'Current state of every partner. Source: PersonState events (ECST). PII fields remain Vault-encrypted (ADR-009).'
 );
 

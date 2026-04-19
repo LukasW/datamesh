@@ -14,7 +14,7 @@ MODEL (
                 target.updated_at = source.updated_at
         )
     ),
-    cron '@hourly',
+    cron '*/5 * * * *',
     description 'Current state of every policy. Derived from PolicyIssued/PolicyCancelled events.'
 );
 
