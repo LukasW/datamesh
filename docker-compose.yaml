@@ -1088,6 +1088,9 @@ services:
             409)     echo "$$name already exists (409, skipping).";;
             *)       echo "$$name registration failed (HTTP $$code):"; cat /tmp/resp; echo;;
           esac
+          # Stagger initial coordinator commits to reduce Nessie `main`
+          # hash-conflict retries when 20+ sinks bootstrap simultaneously.
+          sleep 1
         done
     volumes:
       - ./partner/data-product/debezium/iceberg-sinks:/config/iceberg-sinks/partner:ro

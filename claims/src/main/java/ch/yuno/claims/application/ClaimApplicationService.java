@@ -14,6 +14,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -78,6 +79,8 @@ public class ClaimApplicationService implements ClaimCommandUseCase, ClaimQueryU
     /**
      * Settle a claim under review. Transitions IN_REVIEW → SETTLED.
      * Publishes claims.v1.settled via the outbox (triggers payout in billing).
+     * Settlement amount is derived from the policy's annual premium as a
+     * demo stub; production systems would accept it from an adjuster workflow.
      */
     @RolesAllowed({"CLAIMS_AGENT"})
     public Claim settle(ClaimId claimId) {
@@ -85,7 +88,11 @@ public class ClaimApplicationService implements ClaimCommandUseCase, ClaimQueryU
         claim.settle();
         claimRepository.save(claim);
 
-        claimEventPublisher.claimSettled(claim);
+        BigDecimal settlementAmount = policySnapshotRepository.findByPolicyId(claim.getPolicyId())
+                .map(PolicySnapshot::premium)
+                .orElse(BigDecimal.ZERO);
+
+        claimEventPublisher.claimSettled(claim, settlementAmount);
 
         return claim;
     }

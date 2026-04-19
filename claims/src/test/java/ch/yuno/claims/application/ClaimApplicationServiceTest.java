@@ -20,6 +20,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -79,15 +80,16 @@ class ClaimApplicationServiceTest {
     }
 
     @Test
-    void settleClaimPublishesSettledEvent() {
+    void settleClaimPublishesSettledEventWithPremiumAsAmount() {
         Claim claim = Claim.openNew("policy-1", "Damage", LocalDate.now());
         claim.startReview();
         when(claimRepository.findById(claim.getClaimId())).thenReturn(Optional.of(claim));
         when(claimRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(policySnapshotRepository.findByPolicyId("policy-1")).thenReturn(Optional.of(SNAPSHOT));
 
         service.settle(claim.getClaimId());
 
-        verify(claimEventPublisher).claimSettled(any(Claim.class));
+        verify(claimEventPublisher).claimSettled(any(Claim.class), eq(new BigDecimal("1200.00")));
     }
 
     @Test

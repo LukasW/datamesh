@@ -11,6 +11,7 @@
     "policyId",
     "claimDate",
     "status",
+    "settlementAmount",
     "timestamp"
   ],
   "additionalProperties": false,
@@ -47,6 +48,10 @@
     "status": {
       "type": "string",
       "description": "Current status of the claim."
+    },
+    "settlementAmount": {
+      "type": "number",
+      "description": "Amount paid out for the claim (CHF)."
     },
     "timestamp": {
       "type": "string",

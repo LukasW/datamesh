@@ -57,16 +57,20 @@ fi
 # Each domain has one JSON file per topic under iceberg-sinks/. File basename
 # equals the connector name (e.g. iceberg-sink-partner-person-created.json).
 # hr-employee and hr-orgunit share the hr-system directory, so we distinguish
-# by filename prefix.
-declare -A SINK_GLOB=(
-  [partner]="partner/data-product/debezium/iceberg-sinks/iceberg-sink-partner-*.json"
-  [product]="product/data-product/debezium/iceberg-sinks/iceberg-sink-product-*.json"
-  [policy]="policy/data-product/debezium/iceberg-sinks/iceberg-sink-policy-*.json"
-  [billing]="billing/data-product/debezium/iceberg-sinks/iceberg-sink-billing-*.json"
-  [claims]="claims/data-product/debezium/iceberg-sinks/iceberg-sink-claims-*.json"
-  [hr-employee]="hr-system/data-product/debezium/iceberg-sinks/iceberg-sink-hr-employee-*.json"
-  [hr-orgunit]="hr-system/data-product/debezium/iceberg-sinks/iceberg-sink-hr-orgunit-*.json"
-)
+# by filename prefix. Function form keeps this script compatible with bash 3.2
+# (macOS default) which lacks associative arrays.
+sink_glob() {
+  case "$1" in
+    partner)     echo "partner/data-product/debezium/iceberg-sinks/iceberg-sink-partner-*.json" ;;
+    product)     echo "product/data-product/debezium/iceberg-sinks/iceberg-sink-product-*.json" ;;
+    policy)      echo "policy/data-product/debezium/iceberg-sinks/iceberg-sink-policy-*.json" ;;
+    billing)     echo "billing/data-product/debezium/iceberg-sinks/iceberg-sink-billing-*.json" ;;
+    claims)      echo "claims/data-product/debezium/iceberg-sinks/iceberg-sink-claims-*.json" ;;
+    hr-employee) echo "hr-system/data-product/debezium/iceberg-sinks/iceberg-sink-hr-employee-*.json" ;;
+    hr-orgunit)  echo "hr-system/data-product/debezium/iceberg-sinks/iceberg-sink-hr-orgunit-*.json" ;;
+    *)           return 1 ;;
+  esac
+}
 
 ALL_DOMAINS=(partner product policy billing claims hr-employee hr-orgunit)
 
@@ -76,7 +80,7 @@ if [[ $# -eq 0 ]]; then
 else
   TARGETS=("$@")
   for d in "${TARGETS[@]}"; do
-    if [[ -z "${SINK_GLOB[$d]:-}" ]]; then
+    if ! sink_glob "$d" >/dev/null; then
       echo "ERROR: unknown domain '$d'. Known: ${ALL_DOMAINS[*]}" >&2
       exit 1
     fi
@@ -165,9 +169,11 @@ echo "▶ Resetting Iceberg sinks for domains: ${TARGETS[*]}"
 echo "  Connect: $CONNECT_URL   Kafka: $KAFKA_CONTAINER ($KAFKA_BOOTSTRAP)"
 echo ""
 
-declare -A RESULT
+# Track results as two parallel arrays (bash 3.2 has no associative arrays).
+RESULT_DOMAINS=()
+RESULT_STATUS=()
 for domain in "${TARGETS[@]}"; do
-  glob="${SINK_GLOB[$domain]}"
+  glob="$(sink_glob "$domain")"
   # Expand glob; nullglob prevents literal match when no files found.
   shopt -s nullglob
   configs=($glob)
@@ -177,19 +183,24 @@ for domain in "${TARGETS[@]}"; do
 
   if [[ ${#configs[@]} -eq 0 ]]; then
     echo "    ✗ no sink configs found for glob: $glob" >&2
-    RESULT[$domain]="fail"
+    RESULT_DOMAINS+=("$domain")
+    RESULT_STATUS+=("fail")
     continue
   fi
 
   ok=true
   for config in "${configs[@]}"; do
     reset_one_connector "$config" || ok=false
+    # Small gap between registrations reduces Nessie `main`-branch
+    # commit contention when many sinks bootstrap in parallel.
+    sleep 1
   done
 
+  RESULT_DOMAINS+=("$domain")
   if $ok; then
-    RESULT[$domain]="ok"
+    RESULT_STATUS+=("ok")
   else
-    RESULT[$domain]="fail"
+    RESULT_STATUS+=("fail")
   fi
 done
 
@@ -197,10 +208,10 @@ done
 echo ""
 echo "▶ Summary"
 fail_count=0
-for domain in "${TARGETS[@]}"; do
-  case "${RESULT[$domain]}" in
-    ok)   echo "  ✓ $domain";;
-    fail) echo "  ✗ $domain"; fail_count=$(( fail_count + 1 ));;
+for i in "${!RESULT_DOMAINS[@]}"; do
+  case "${RESULT_STATUS[$i]}" in
+    ok)   echo "  ✓ ${RESULT_DOMAINS[$i]}";;
+    fail) echo "  ✗ ${RESULT_DOMAINS[$i]}"; fail_count=$(( fail_count + 1 ));;
   esac
 done
 

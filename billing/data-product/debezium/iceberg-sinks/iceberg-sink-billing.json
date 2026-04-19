@@ -1,9 +1,9 @@
 {
-  "name": "iceberg-sink-billing-billing-dunning-initiated",
+  "name": "iceberg-sink-billing",
   "config": {
     "connector.class": "org.apache.iceberg.connect.IcebergSinkConnector",
     "tasks.max": "1",
-    "topics": "billing.v1.dunning-initiated",
+    "topics": "billing.v1.invoice-created,billing.v1.payment-received,billing.v1.dunning-initiated,billing.v1.payout-triggered",
     "iceberg.catalog.type": "nessie",
     "iceberg.catalog.uri": "http://nessie:19120/api/v2",
     "iceberg.catalog.ref": "main",
@@ -17,7 +17,7 @@
     "iceberg.tables": "billing_raw.billing_events",
     "iceberg.tables.auto-create-enabled": "true",
     "iceberg.tables.evolve-schema-enabled": "true",
-    "iceberg.control.topic": "control-iceberg-billing-billing-dunning-initiated",
+    "iceberg.control.topic": "control-iceberg-billing",
     "iceberg.control.commit.interval-ms": "10000",
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
