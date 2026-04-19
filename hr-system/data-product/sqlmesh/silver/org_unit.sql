@@ -27,7 +27,7 @@ WITH ranked AS (
     WHERE orgunitid IS NOT NULL
       AND name IS NOT NULL
       AND (eventtype = 'org-unit.updated' OR eventtype IS NULL)
-      AND from_iso8601_timestamp(timestamp) BETWEEN @start_date AND @end_date
+      AND from_iso8601_timestamp(timestamp) BETWEEN CAST(@start_ts AS TIMESTAMP(6) WITH TIME ZONE) AND CAST(@end_ts AS TIMESTAMP(6) WITH TIME ZONE)
 )
 
 SELECT

@@ -68,6 +68,8 @@ Aufbau einer modernen Versicherungsplattform für eine Sachversicherung auf Basi
 > - Policy Management Service → [`policy/specs/business_spec.md`](../policy/specs/business_spec.md)
 > - Billing & Collection Service → [`billing/specs/business_spec.md`](../billing/specs/business_spec.md)
 >
+> **Architekturentscheidungen:** [`adr/README.md`](adr/README.md) – alle ADRs im MADR-Format pro Datei.
+>
 > **Externe Systeme (COTS-Simulation):**
 >
 > - HR-System (Stub) → `hr-system/` *(OData v4 API + CRUD UI, Port 9085)*
@@ -821,14 +823,18 @@ node "Localhost" {
 
   node "Lakehouse (Analytical Storage)" {
     artifact "minio\n(S3-compatible :9000/:9001)" as MINIO
-    artifact "nessie\n(Iceberg Catalog :19120)" as NESSIE
+    artifact "nessie\n(Iceberg Catalog :19120,\nRocksDB persistent ADR-015)" as NESSIE
     artifact "trino\n(Query Engine :8086)" as TRINO
-    artifact "sqlmesh\n(Incremental Models)" as SQLMESH
+    artifact "transform-init\n(Python, DROP+CTAS,\ndeploy-only)" as XFINIT
+    artifact "sqlmesh-init\n(profile tools, bootstrap)" as SQLINIT
+    artifact "sqlmesh-scheduler\n(sqlmesh run, ~60s tick)" as SCHED
     artifact "superset\n(BI :8088)" as SUPERSET
     database "superset-db\n(PostgreSQL)" as SUPERSETDB
     TRINO --> NESSIE
     TRINO --> MINIO
-    SQLMESH --> TRINO
+    XFINIT --> TRINO
+    SQLINIT --> TRINO
+    SCHED --> TRINO
     SUPERSET --> TRINO
     SUPERSET --> SUPERSETDB
   }
@@ -854,8 +860,9 @@ CLAIMS --> DEBEZIUM : outbox table
 BILLING --> DEBEZIUM : outbox table
 HRINT --> KAFKA : hr.v1.* (ECST + Change)
 
-KAFKA --> MINIO : Iceberg Sink\nConnector (Parquet)
-SQLMESH --> TRINO : Transform Models
+KAFKA --> MINIO : Iceberg Sink\n(ein Connector pro Topic,\nADR-014)
+XFINIT --> TRINO : Silver/Gold\nDROP+CTAS (deploy-only)
+SCHED --> TRINO : sqlmesh run\n(near-realtime, ADR-013)
 
 OMD ..> KAFKA : Topic-Metadaten
 OMD ..> TRINO : Tabellen-Metadaten
@@ -1017,6 +1024,16 @@ HR-System (via Camel Integration):
 ├── src/main/resources/
 │   ├── templates/                 ← Qute HTML-Templates (UI-Text auf Deutsch)
 │   └── contracts/                 ← ODC YAML-Dateien
+├── data-product/                  ← Domain-owned Data Product (ADR-012)
+│   ├── sqlmesh/
+│   │   ├── silver/                ← Typisierter Current-State (ADR-011)
+│   │   ├── gold/                  ← Domain-spezifische Marts
+│   │   ├── audits/                ← SQLMesh-Audits
+│   │   └── tests/                 ← SQLMesh-Tests
+│   ├── soda/
+│   │   └── checks.yml             ← SodaCL-Quality-Checks
+│   └── debezium/
+│       └── iceberg-sinks/         ← Ein Sink-Config pro Topic (ADR-014)
 └── src/test/
     ├── domain/                    ← Unit Tests (reine Domäne, kein Framework)
     └── integration/               ← @QuarkusIntegrationTest (Testcontainers)
@@ -1057,7 +1074,13 @@ DB -> DB : mark as published
 
 ### 8.6 Data Mesh Analytics- und Governance-Plattform
 
-Alle Domain-Events werden via **Debezium Iceberg Sink Connector** als Parquet-Dateien in MinIO (S3-kompatibel) geschrieben und durch Apache Iceberg (via Nessie Catalog) versioniert. Trino dient als föderierter Query-Layer; SQLMesh transformiert die Rohdaten in analytische Modelle. Die Plattformschicht greift **nie direkt auf die operativen Domain-Datenbanken zu** (ADR-004).
+Alle Domain-Events werden via **Debezium Iceberg Sink Connector** (ein Connector pro Topic, [ADR-014](adr/adr-014-one-iceberg-sink-per-topic.md)) als Parquet-Dateien in MinIO (S3-kompatibel) geschrieben und durch Apache Iceberg im persistenten Nessie-Katalog ([ADR-015](adr/adr-015-nessie-rocksdb-persistence.md)) versioniert. Trino dient als föderierter Query-Layer; SQLMesh transformiert die Rohdaten in ein **Silver**- und **Gold**-Modell ([ADR-011](adr/adr-011-medallion-silver-gold.md)). Die Plattformschicht greift **nie direkt auf die operativen Domain-Datenbanken zu** ([ADR-004](adr/adr-004-shared-nothing-databases.md)).
+
+**Pipeline-Mechanik:**
+
+* `transform-init` (Python gegen Trino) erstellt Silver-/Gold-Schemas deterministisch via `DROP TABLE IF EXISTS` + `CREATE TABLE AS SELECT` – läuft **nur beim Deploy**.
+* `sqlmesh-scheduler` (langlaufender Container, Default-Intervall 60 s) hält Silver und Gold near-realtime aktuell ([ADR-013](adr/adr-013-sqlmesh-near-realtime-scheduler.md)).
+* `sqlmesh-init` (Compose-Profile `tools`) führt einmalig den SQLMesh-State-Bootstrap aus (danach ist `sqlmesh run` aktiv).
 
 ```plantuml
 @startuml analytics-platform
@@ -1084,12 +1107,18 @@ package "infra/trino" {
   TRINO --> MINIO : Parquet-Dateien lesen
 }
 
-package "infra/sqlmesh" {
-  component "Staging Models\n(stg_*_events)" as STG
-  component "Mart Models\n(dim_*, fact_*, mart_*)" as MART
-  STG --> MART
-  STG --> TRINO
-  MART --> TRINO
+package "SQLMesh (domain-owned + central)" {
+  component "transform-init\n(DROP+CTAS via Trino,\ndeploy-only)" as XFINIT
+  component "sqlmesh-scheduler\n(sqlmesh run, ~60s tick)" as SCHED
+  component "Silver Layer\n(per domain:\n{domain}/data-product/sqlmesh/silver/)" as SILVER
+  component "Gold Layer\n(per domain + central\ninfra/sqlmesh/models/gold/analytics/)" as GOLD
+  XFINIT --> SILVER
+  XFINIT --> GOLD
+  SCHED --> SILVER
+  SCHED --> GOLD
+  SILVER --> GOLD
+  SILVER --> TRINO
+  GOLD --> TRINO
 }
 
 package "infra/superset" {
@@ -1129,31 +1158,23 @@ SODA ..> TRINO : Quality Checks
 @enduml
 ```
 
-**SQLMesh-Modellhierarchie (`infra/sqlmesh/models/`):**
+**Medallion-Modellhierarchie (Silver/Gold, [ADR-011](adr/adr-011-medallion-silver-gold.md)):**
 
-| Layer | Modelle | Quelle | Beschreibung |
-| --- | --- | --- | --- |
-| Staging | `stg_person_events` | Iceberg `person.v1.*` | JSON-Parsing, typisierte Spalten |
-| Staging | `stg_address_events` | Iceberg `person.v1.*` | Adressen separat normalisiert |
-| Staging | `stg_product_events` | Iceberg `product.v1.*` | Produktdefinitionen |
-| Staging | `stg_policy_events` | Iceberg `policy.v1.*` | Policen-Mutationen |
-| Staging | `stg_claims_events` | Iceberg `claims.v1.*` | Schadenfall-Mutationen |
-| Staging | `stg_billing_events` | Iceberg `billing.v1.*` | Rechnungen, Zahlungen |
-| Staging | `stg_employee_events` | Iceberg `hr.v1.*` | Mitarbeiter-State (HR) |
-| Staging | `stg_org_unit_events` | Iceberg `hr.v1.*` | Org-Einheiten-State (HR) |
-| Mart | `dim_partner` | `stg_person_events` | Aktuellster Stand pro Person |
-| Mart | `dim_partner_address` | `stg_address_events` | Aktuelle Adresse pro Partner |
-| Mart | `dim_product` | `stg_product_events` | Aktuellster Stand pro Produkt |
-| Mart | `dim_employee` | `stg_employee_events` | Aktuellster Mitarbeiter-Stand |
-| Mart | `dim_org_unit` | `stg_org_unit_events` | Aktuellste Org-Einheit |
-| Mart | `fact_policies` | `stg_policy_events` | Eine Zeile pro Police |
-| Mart | `fact_claims` | `stg_claims_events` | Eine Zeile pro Schadenfall |
-| Mart | `fact_invoices` | `stg_billing_events` | Eine Zeile pro Rechnung |
-| Mart | `mart_portfolio_summary` | `fact_policies` + `dim_*` | Aktive Policen pro Stadt/Produktlinie |
-| Mart | `mart_financial_summary` | `fact_invoices` + `fact_claims` | Einnahmen- und Schadensübersicht |
-| Mart | `mart_policy_detail` | `fact_policies` + `dim_*` | Police-Detail mit allen Dimensionen |
-| Mart | `mart_management_kpi` | alle Facts + Dims | Management-KPIs |
-| Mart | `mart_org_hierarchy` | `dim_org_unit` + `dim_employee` | Vollständige Org-Hierarchie |
+| Layer | Modell | Ort | Quelle | Beschreibung |
+| --- | --- | --- | --- | --- |
+| Raw | `raw.<topic>` (pro Kafka-Topic) | Iceberg (Debezium Sink) | Kafka | 1:1 Event-Payloads, eine Tabelle pro Topic ([ADR-014](adr/adr-014-one-iceberg-sink-per-topic.md)) |
+| Silver | `silver.partner.partner` | `partner/data-product/sqlmesh/silver/` | `raw.person_v1_state` | Typisierter aktueller Partner-Zustand |
+| Silver | `silver.product.product` | `product/data-product/sqlmesh/silver/` | `raw.product_v1_*` | Aktuelle Produktdefinitionen |
+| Silver | `silver.policy.policy` | `policy/data-product/sqlmesh/silver/` | `raw.policy_v1_*` | Aktueller Police-Zustand |
+| Silver | `silver.policy.coverage` | `policy/data-product/sqlmesh/silver/` | `raw.policy_v1_*` | Aktuelle Coverage-Zeilen pro Police |
+| Silver | `silver.claims.claim` | `claims/data-product/sqlmesh/silver/` | `raw.claims_v1_*` | Aktueller Claim-Zustand inkl. IN_REVIEW/REJECTED |
+| Silver | `silver.billing.invoice` | `billing/data-product/sqlmesh/silver/` | `raw.billing_v1_*` | Aktueller Rechnungszustand |
+| Silver | `silver.hr.employee` | `hr-system/data-product/sqlmesh/silver/` | `raw.hr_v1_employee_state` | Aktueller Mitarbeiterzustand (ECST) |
+| Silver | `silver.hr.org_unit` | `hr-system/data-product/sqlmesh/silver/` | `raw.hr_v1_org_unit_state` | Aktueller Org-Einheiten-Zustand (ECST) |
+| Gold | `gold.<domain>.*` | `{domain}/data-product/sqlmesh/gold/` | Silver-Modelle | Domain-eigene Marts (z. B. `gold.policy.policy_detail`, `gold.policy.portfolio_summary`) |
+| Gold (central) | `gold.analytics.*` | `infra/sqlmesh/models/gold/analytics/` | Cross-Domain Silvers/Golds | Organisations-KPIs, Management-Dashboards, Org-Hierarchie |
+
+Repository-Struktur folgt [ADR-012](adr/adr-012-domain-owned-data-products.md) (domain-owned Data Products).
 
 **Soda-Core-Qualitätsprüfungen (`infra/soda/checks/`):**
 
@@ -1218,6 +1239,28 @@ end note
 ---
 
 ## 9. Architekturentscheidungen (ADRs)
+
+> Jede ADR liegt in [`adr/`](adr/README.md) als eigene MADR-Datei (Status, Kontext, Entscheidung, Konsequenzen). Die folgende Sektion enthält die Kurzfassungen. **Maßgeblich bleibt jeweils die ADR-Datei.**
+>
+> **Übersicht:**
+>
+> | ID | Titel | Status |
+> |----|-------|--------|
+> | [ADR-001](adr/adr-001-async-integration-via-kafka.md) | Asynchrone Integration via Kafka | Accepted |
+> | [ADR-002](adr/adr-002-open-data-contract.md) | Open Data Contract als verbindlicher Vertrag | Accepted |
+> | [ADR-003](adr/adr-003-rest-only-for-iam.md) | REST nur für IAM-Authentifizierung | Updated |
+> | [ADR-004](adr/adr-004-shared-nothing-databases.md) | Shared Nothing – eine PostgreSQL pro Domäne | Accepted |
+> | [ADR-005](adr/adr-005-language-policy.md) | Sprachpolitik – Code Englisch, UI Deutsch | Accepted |
+> | [ADR-006](adr/adr-006-transactional-outbox-debezium.md) | Transactional Outbox via Debezium CDC | Accepted |
+> | [ADR-007](adr/adr-007-ecst-person-state.md) | Event-Carried State Transfer via compacted State Topics | Accepted |
+> | [ADR-008](adr/adr-008-coverage-check-local-snapshot.md) | Deckungsprüfung via lokalem Policy-Snapshot | Accepted |
+> | [ADR-009](adr/adr-009-crypto-shredding-pii.md) | Crypto-Shredding für PII-Felder in Kafka-Events | Proposed |
+> | [ADR-010](adr/adr-010-grpc-for-synchronous-domain-calls.md) | gRPC für synchrone Domänen-Calls in Spezialfällen | Accepted |
+> | [ADR-011](adr/adr-011-medallion-silver-gold.md) | Medallion-Architektur (Silver + Gold, Trino + SQLMesh) | Accepted |
+> | [ADR-012](adr/adr-012-domain-owned-data-products.md) | Domain-owned Data Products im Repository-Layout | Accepted |
+> | [ADR-013](adr/adr-013-sqlmesh-near-realtime-scheduler.md) | Near-Realtime Silver/Gold via SQLMesh-Scheduler | Accepted |
+> | [ADR-014](adr/adr-014-one-iceberg-sink-per-topic.md) | One Iceberg Sink Connector pro Topic | Accepted |
+> | [ADR-015](adr/adr-015-nessie-rocksdb-persistence.md) | Persistenter Nessie-Katalog via RocksDB | Accepted |
 
 ### ADR-001: Asynchrone Integration via Kafka
 
@@ -1406,6 +1449,76 @@ GDPR Erasure Request:
 - Policy-Service hat eine Laufzeit-Abhängigkeit zum Product-Service für Prämienberechnung
 - Bei Product-Service-Ausfall können keine neuen Policen erstellt werden (akzeptabler Tradeoff, Graceful Degradation mit Benutzerhinweis)
 - Proto-Dateien werden in beiden Services gepflegt (kein Shared Module, um SCS-Autonomie zu wahren)
+
+---
+
+### ADR-011: Medallion-Architektur (Silver + Gold, Trino + SQLMesh)
+
+**Status:** Accepted
+
+**Kontext:** Rohe Iceberg-Tabellen (`raw.*`) aus den Debezium-Sinks sind JSON-lastig, nicht dedupliziert und damit für BI und Soda nicht direkt nutzbar.
+
+**Entscheidung:** Klassische Medallion-Struktur: `raw` → `silver` (typisierter Current-State pro Aggregat) → `gold` (Dimensionen, Facts, Marts). Silver und Gold werden von SQLMesh verwaltet; Superset und Soda konsumieren ausschliesslich Silver/Gold.
+
+**Konsequenzen:** Saubere analytische Layer ohne JSON-Parsing in Dashboards; `transform-init` verwirft und re-materialisiert Silver/Gold beim Deploy (deterministisches Schema), SQLMesh-Scheduler hält sie zur Laufzeit frisch (siehe ADR-013).
+
+Details: [`adr/adr-011-medallion-silver-gold.md`](adr/adr-011-medallion-silver-gold.md).
+
+---
+
+### ADR-012: Domain-owned Data Products im Repository-Layout
+
+**Status:** Accepted
+
+**Kontext:** Silver-/Gold-Modelle, SodaCL-Checks und Sink-Configs lebten zentral unter `infra/` – widerspricht Domain Ownership im Data Mesh und schafft ein Plattform-Team-Bottleneck.
+
+**Entscheidung:** Pro Domäne existiert `{domain}/data-product/` mit `sqlmesh/{silver,gold,audits,tests}`, `soda/checks.yml` und `debezium/iceberg-sinks/`. Cross-Domain-Gold verbleibt zentral unter `infra/sqlmesh/models/gold/analytics/`.
+
+**Konsequenzen:** Domain-Teams deployen Code und Data Product als Einheit. Platform-Team pflegt nur Infrastruktur + domänenübergreifende Analytik.
+
+Details: [`adr/adr-012-domain-owned-data-products.md`](adr/adr-012-domain-owned-data-products.md).
+
+---
+
+### ADR-013: Near-Realtime Silver/Gold via SQLMesh-Scheduler
+
+**Status:** Accepted
+
+**Kontext:** Silver/Gold sollen zwischen Deploys aktuell bleiben, ohne Airflow einzuführen. `transform-init` kann nur beim Deploy laufen (DROP+CTAS).
+
+**Entscheidung:** Ein dauerhaft laufender `sqlmesh-scheduler`-Container ruft in Schleife `sqlmesh run` (Default-Intervall 60 s, via `SQLMESH_RUN_INTERVAL_SECONDS` konfigurierbar). Bootstrap via `sqlmesh-init` (Compose-Profil `tools`) einmalig beim Deploy.
+
+**Konsequenzen:** Near-realtime Refresh für alle Silver/Gold-Modelle ohne Orchestrator-Service. Pipeline-State im Named Volume `sqlmesh-state`. Fehlertolerant – jeder Tick retried unabhängig.
+
+Details: [`adr/adr-013-sqlmesh-near-realtime-scheduler.md`](adr/adr-013-sqlmesh-near-realtime-scheduler.md).
+
+---
+
+### ADR-014: One Iceberg Sink Connector pro Topic
+
+**Status:** Accepted
+
+**Kontext:** Ein einzelner Multi-Topic-Sink koppelte Fehlerdomänen; Offset-Resets, Schema-Evolution und Monitoring wurden grobgranular.
+
+**Entscheidung:** Jedes Kafka-Topic erhält einen eigenen Debezium-Iceberg-Sink-Connector (inkl. dediziertem Control-Topic). Configs liegen domain-owned unter `{domain}/data-product/debezium/iceberg-sinks/`.
+
+**Konsequenzen:** Granulares Troubleshooting und Monitoring; höhere Connector-Anzahl (skaliert gut im Debezium-Worker-Pool); neues Topic ⇒ neue Sink-Config als Teil der Data-Product-Checkliste.
+
+Details: [`adr/adr-014-one-iceberg-sink-per-topic.md`](adr/adr-014-one-iceberg-sink-per-topic.md).
+
+---
+
+### ADR-015: Persistenter Nessie-Katalog via RocksDB
+
+**Status:** Accepted
+
+**Kontext:** Nessie mit In-Memory-Backend verlor bei jedem Restart den gesamten Iceberg-Katalog – Dev- und Integrationserfahrung katastrophal, Produktionsrisiko hoch.
+
+**Entscheidung:** Nessie wird mit `NESSIE_VERSION_STORE_TYPE=ROCKSDB` und einem Named Volume (`nessie-rocksdb`) betrieben. Catalog-State überlebt Restarts; Backup kombiniert Volume + MinIO-Bucket atomar.
+
+**Konsequenzen:** Stabiler Lakehouse-Layer. Für Multi-Node-HA in Produktion Migration auf JDBC-basiertes Backend geplant.
+
+Details: [`adr/adr-015-nessie-rocksdb-persistence.md`](adr/adr-015-nessie-rocksdb-persistence.md).
 
 ---
 

@@ -16,4 +16,4 @@ SELECT
 FROM iceberg.policy_raw.policy_events
 WHERE eventtype = 'CoverageAdded'
   AND coverageid IS NOT NULL
-  AND from_iso8601_timestamp(timestamp) BETWEEN @start_date AND @end_date
+  AND from_iso8601_timestamp(timestamp) BETWEEN CAST(@start_ts AS TIMESTAMP(6) WITH TIME ZONE) AND CAST(@end_ts AS TIMESTAMP(6) WITH TIME ZONE)

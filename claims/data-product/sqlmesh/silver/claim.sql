@@ -34,7 +34,7 @@ WITH ranked AS (
     FROM iceberg.claims_raw.claims_events
     WHERE eventtype IN ('ClaimOpened', 'ClaimUnderReview', 'ClaimSettled', 'ClaimRejected')
       AND claimid IS NOT NULL
-      AND from_iso8601_timestamp(timestamp) BETWEEN @start_date AND @end_date
+      AND from_iso8601_timestamp(timestamp) BETWEEN CAST(@start_ts AS TIMESTAMP(6) WITH TIME ZONE) AND CAST(@end_ts AS TIMESTAMP(6) WITH TIME ZONE)
 ),
 
 first_opened AS (

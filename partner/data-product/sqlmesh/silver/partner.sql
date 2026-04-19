@@ -26,7 +26,7 @@ WITH ranked AS (
     FROM iceberg.partner_raw.person_events
     WHERE eventtype = 'PersonState'
       AND personid IS NOT NULL
-      AND from_iso8601_timestamp(timestamp) BETWEEN @start_date AND @end_date
+      AND from_iso8601_timestamp(timestamp) BETWEEN CAST(@start_ts AS TIMESTAMP(6) WITH TIME ZONE) AND CAST(@end_ts AS TIMESTAMP(6) WITH TIME ZONE)
 )
 
 SELECT

@@ -13,6 +13,12 @@ gateways:
 
 default_gateway: trino
 
+# Iceberg Nessie catalogs do not support CREATE VIEW (Trino limitation), which
+# breaks SQLMesh's default virtual layer for the prod environment. `dev_only`
+# bypasses the virtual layer in prod — model tables are written directly to
+# their target schema, while dev environments still use the virtual layer.
+virtual_environment_mode: dev_only
+
 model_defaults:
   dialect: trino
   start: "2024-01-01"

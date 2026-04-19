@@ -1193,7 +1193,7 @@ services:
         INTERVAL="$${SQLMESH_RUN_INTERVAL_SECONDS:-60}"
         echo "▶ SQLMesh scheduler: interval=$${INTERVAL}s"
         while true; do
-          sqlmesh run --no-prompts || echo "  sqlmesh run failed (will retry)"
+          sqlmesh run || echo "  sqlmesh run failed (will retry)"
           sleep "$$INTERVAL"
         done
     volumes:
@@ -1421,19 +1421,28 @@ services:
           memory: 256M
 
   vault-init:
+    # Long-running watchdog: vault uses dev-mode (inmem) and loses ALL state
+    # on every restart. This loop re-enables `transit/` whenever it disappears,
+    # so partner-service encryption keeps working without manual intervention.
     image: hashicorp/vault
     depends_on:
       vault:
         condition: service_healthy
-    restart: "no"
+    restart: unless-stopped
     environment:
       VAULT_ADDR: http://vault:8200
       VAULT_TOKEN: dev-root-token
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        vault secrets enable transit 2>/dev/null || echo 'Transit engine already enabled.'
-        echo 'Vault Transit engine ready for crypto-shredding (ADR-009).'
+        echo 'Vault watchdog started (re-enables transit/ if missing, ADR-009).'
+        while true; do
+          if ! vault secrets list 2>/dev/null | grep -q '^transit/'; then
+            vault secrets enable transit 2>/dev/null && \
+              echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) Re-enabled transit/ after vault restart."
+          fi
+          sleep 15
+        done
     networks:
       - backend
 
