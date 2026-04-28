@@ -155,6 +155,8 @@ public class EmployeeUiController {
         return Response.ok().build();
     }
 
+    public record PageLink(int index, int label, boolean active) {}
+
     private TemplateInstance renderListPage(Template template,
                                              String name, String firstName, String department,
                                              int page, int size) {
@@ -168,12 +170,25 @@ public class EmployeeUiController {
         }
         var employees = searchEmployees(name, firstName, department, safePage, safeSize);
 
+        var pageLinks = new java.util.ArrayList<PageLink>(totalPages);
+        for (int i = 0; i < totalPages; i++) {
+            pageLinks.add(new PageLink(i, i + 1, i == safePage));
+        }
+        int prevPage = Math.max(0, safePage - 1);
+        int nextPage = totalPages == 0 ? 0 : Math.min(totalPages - 1, safePage + 1);
+
         return template.instance()
                 .data("mitarbeiter", employees)
                 .data("currentPage", safePage)
+                .data("currentPageLabel", safePage + 1)
                 .data("totalPages", totalPages)
                 .data("totalElements", total)
                 .data("pageSize", safeSize)
+                .data("pageLinks", pageLinks)
+                .data("prevPage", prevPage)
+                .data("nextPage", nextPage)
+                .data("isFirstPage", safePage == 0)
+                .data("isLastPage", totalPages == 0 || safePage >= totalPages - 1)
                 .data("searchName", name != null ? name : "")
                 .data("searchFirstName", firstName != null ? firstName : "")
                 .data("searchDepartment", department != null ? department : "");

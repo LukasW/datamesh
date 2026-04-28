@@ -133,6 +133,8 @@ public class OrgUnitUiController {
         return Response.ok().build();
     }
 
+    public record PageLink(int index, int label, boolean active) {}
+
     private TemplateInstance renderListPage(Template template, String name, int page, int size) {
         int safePage = Math.max(0, page);
         int safeSize = size > 0 ? size : DEFAULT_PAGE_SIZE;
@@ -144,12 +146,25 @@ public class OrgUnitUiController {
         }
         var orgUnits = searchOrgUnits(name, safePage, safeSize);
 
+        var pageLinks = new java.util.ArrayList<PageLink>(totalPages);
+        for (int i = 0; i < totalPages; i++) {
+            pageLinks.add(new PageLink(i, i + 1, i == safePage));
+        }
+        int prevPage = Math.max(0, safePage - 1);
+        int nextPage = totalPages == 0 ? 0 : Math.min(totalPages - 1, safePage + 1);
+
         return template.instance()
                 .data("orgUnits", orgUnits)
                 .data("currentPage", safePage)
+                .data("currentPageLabel", safePage + 1)
                 .data("totalPages", totalPages)
                 .data("totalElements", total)
                 .data("pageSize", safeSize)
+                .data("pageLinks", pageLinks)
+                .data("prevPage", prevPage)
+                .data("nextPage", nextPage)
+                .data("isFirstPage", safePage == 0)
+                .data("isLastPage", totalPages == 0 || safePage >= totalPages - 1)
                 .data("searchName", name != null ? name : "");
     }
 

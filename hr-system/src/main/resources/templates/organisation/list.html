@@ -85,25 +85,25 @@
           <div class="d-flex justify-content-between align-items-center">
             <small class="text-muted">{totalElements} Ergebnisse</small>
             <ul class="pagination pagination-sm mb-0">
-              <li class="page-item {#if currentPage == 0}disabled{/if}">
+              <li class="page-item {#if isFirstPage}disabled{/if}">
                 <a class="page-link" href="#"
-                   hx-get="/organisation/fragments/list?name={searchName}&page={currentPage - 1}&size={pageSize}"
+                   hx-get="/organisation/fragments/list?name={searchName}&page={prevPage}&size={pageSize}"
                    hx-target="#org-tabelle" hx-swap="innerHTML">Zurück</a>
               </li>
-              {#for i in totalPages}
-              <li class="page-item {#if i - 1 == currentPage}active{/if}">
+              {#for link in pageLinks}
+              <li class="page-item {#if link.active}active{/if}">
                 <a class="page-link" href="#"
-                   hx-get="/organisation/fragments/list?name={searchName}&page={i - 1}&size={pageSize}"
-                   hx-target="#org-tabelle" hx-swap="innerHTML">{i}</a>
+                   hx-get="/organisation/fragments/list?name={searchName}&page={link.index}&size={pageSize}"
+                   hx-target="#org-tabelle" hx-swap="innerHTML">{link.label}</a>
               </li>
               {/for}
-              <li class="page-item {#if currentPage >= totalPages - 1}disabled{/if}">
+              <li class="page-item {#if isLastPage}disabled{/if}">
                 <a class="page-link" href="#"
-                   hx-get="/organisation/fragments/list?name={searchName}&page={currentPage + 1}&size={pageSize}"
+                   hx-get="/organisation/fragments/list?name={searchName}&page={nextPage}&size={pageSize}"
                    hx-target="#org-tabelle" hx-swap="innerHTML">Weiter</a>
               </li>
             </ul>
-            <small class="text-muted">Seite {currentPage + 1} von {totalPages}</small>
+            <small class="text-muted">Seite {currentPageLabel} von {totalPages}</small>
           </div>
         </nav>
       </td>
