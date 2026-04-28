@@ -19,6 +19,8 @@ import java.util.UUID;
 @Produces(MediaType.TEXT_HTML)
 public class OrgUnitUiController {
 
+    private static final int DEFAULT_PAGE_SIZE = 20;
+
     @Inject
     EntityManager em;
 
@@ -28,9 +30,6 @@ public class OrgUnitUiController {
     @Location("organisation/edit")
     Template editTemplate;
 
-    @Location("organisation/fragments/org-rows")
-    Template rowsTemplate;
-
     @Location("organisation/fragments/org-form-modal")
     Template formModalTemplate;
 
@@ -38,16 +37,20 @@ public class OrgUnitUiController {
     Template editFormTemplate;
 
     @GET
-    public TemplateInstance list() {
-        var orgUnits = allOrgUnits();
-        return listTemplate.data("orgUnits", orgUnits);
+    public TemplateInstance list(
+            @QueryParam("name") String name,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
+        return renderListPage(listTemplate, name, page, size);
     }
 
     @GET
     @Path("/fragments/list")
-    public TemplateInstance listFragment(@QueryParam("name") String name) {
-        var orgUnits = searchOrgUnits(name);
-        return rowsTemplate.data("orgUnits", orgUnits);
+    public TemplateInstance listFragment(
+            @QueryParam("name") String name,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
+        return renderListPage(listTemplate.getFragment("tabelle"), name, page, size);
     }
 
     @GET
@@ -77,7 +80,7 @@ public class OrgUnitUiController {
         ou.setLastModified(LocalDateTime.now());
         em.persist(ou);
 
-        return rowsTemplate.data("orgUnits", allOrgUnits());
+        return renderListPage(listTemplate.getFragment("tabelle"), null, 0, DEFAULT_PAGE_SIZE);
     }
 
     @GET
@@ -130,15 +133,52 @@ public class OrgUnitUiController {
         return Response.ok().build();
     }
 
-    private List<OrganizationUnit> searchOrgUnits(String name) {
-        if (name != null && !name.isBlank()) {
-            return em.createQuery(
-                    "SELECT o FROM OrganizationUnit o WHERE LOWER(o.name) LIKE LOWER(:name) ORDER BY o.level, o.name",
-                    OrganizationUnit.class)
-                    .setParameter("name", "%" + name + "%")
-                    .getResultList();
+    private TemplateInstance renderListPage(Template template, String name, int page, int size) {
+        int safePage = Math.max(0, page);
+        int safeSize = size > 0 ? size : DEFAULT_PAGE_SIZE;
+
+        long total = countOrgUnits(name);
+        int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / safeSize);
+        if (totalPages > 0 && safePage >= totalPages) {
+            safePage = totalPages - 1;
         }
-        return allOrgUnits();
+        var orgUnits = searchOrgUnits(name, safePage, safeSize);
+
+        return template.instance()
+                .data("orgUnits", orgUnits)
+                .data("currentPage", safePage)
+                .data("totalPages", totalPages)
+                .data("totalElements", total)
+                .data("pageSize", safeSize)
+                .data("searchName", name != null ? name : "");
+    }
+
+    private List<OrganizationUnit> searchOrgUnits(String name, int page, int size) {
+        var jpql = new StringBuilder("SELECT o FROM OrganizationUnit o WHERE 1=1");
+        if (name != null && !name.isBlank()) {
+            jpql.append(" AND LOWER(o.name) LIKE LOWER(:name)");
+        }
+        jpql.append(" ORDER BY o.level, o.name");
+
+        var q = em.createQuery(jpql.toString(), OrganizationUnit.class);
+        if (name != null && !name.isBlank()) {
+            q.setParameter("name", "%" + name + "%");
+        }
+        q.setFirstResult(page * size);
+        q.setMaxResults(size);
+        return q.getResultList();
+    }
+
+    private long countOrgUnits(String name) {
+        var jpql = new StringBuilder("SELECT COUNT(o) FROM OrganizationUnit o WHERE 1=1");
+        if (name != null && !name.isBlank()) {
+            jpql.append(" AND LOWER(o.name) LIKE LOWER(:name)");
+        }
+        var q = em.createQuery(jpql.toString(), Long.class);
+        if (name != null && !name.isBlank()) {
+            q.setParameter("name", "%" + name + "%");
+        }
+        return q.getSingleResult();
     }
 
     private List<OrganizationUnit> allOrgUnits() {

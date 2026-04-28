@@ -11,7 +11,6 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,6 +20,8 @@ import java.util.UUID;
 @Produces(MediaType.TEXT_HTML)
 public class EmployeeUiController {
 
+    private static final int DEFAULT_PAGE_SIZE = 20;
+
     @Inject
     EntityManager em;
 
@@ -29,9 +30,6 @@ public class EmployeeUiController {
 
     @Location("mitarbeiter/edit")
     Template editTemplate;
-
-    @Location("mitarbeiter/fragments/mitarbeiter-rows")
-    Template rowsTemplate;
 
     @Location("mitarbeiter/fragments/mitarbeiter-form-modal")
     Template formModalTemplate;
@@ -43,10 +41,13 @@ public class EmployeeUiController {
     Template zuordnungTemplate;
 
     @GET
-    public TemplateInstance list() {
-        var mitarbeiter = em.createQuery("SELECT e FROM Employee e ORDER BY e.lastName", Employee.class)
-                .getResultList();
-        return listTemplate.data("mitarbeiter", mitarbeiter);
+    public TemplateInstance list(
+            @QueryParam("name") String name,
+            @QueryParam("firstName") String firstName,
+            @QueryParam("department") String department,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
+        return renderListPage(listTemplate, name, firstName, department, page, size);
     }
 
     @GET
@@ -54,9 +55,10 @@ public class EmployeeUiController {
     public TemplateInstance listFragment(
             @QueryParam("name") String name,
             @QueryParam("firstName") String firstName,
-            @QueryParam("department") String department) {
-        var mitarbeiter = searchEmployees(name, firstName, department);
-        return rowsTemplate.data("mitarbeiter", mitarbeiter);
+            @QueryParam("department") String department,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("size") @DefaultValue("20") int size) {
+        return renderListPage(listTemplate.getFragment("tabelle"), name, firstName, department, page, size);
     }
 
     @GET
@@ -84,9 +86,7 @@ public class EmployeeUiController {
                 LocalDate.parse(entryDate));
         em.persist(emp);
 
-        var mitarbeiter = em.createQuery("SELECT e FROM Employee e ORDER BY e.lastName", Employee.class)
-                .getResultList();
-        return rowsTemplate.data("mitarbeiter", mitarbeiter);
+        return renderListPage(listTemplate.getFragment("tabelle"), null, null, null, 0, DEFAULT_PAGE_SIZE);
     }
 
     @GET
@@ -155,24 +155,69 @@ public class EmployeeUiController {
         return Response.ok().build();
     }
 
-    private List<Employee> searchEmployees(String name, String firstName, String department) {
-        var query = new StringBuilder("SELECT e FROM Employee e WHERE 1=1");
+    private TemplateInstance renderListPage(Template template,
+                                             String name, String firstName, String department,
+                                             int page, int size) {
+        int safePage = Math.max(0, page);
+        int safeSize = size > 0 ? size : DEFAULT_PAGE_SIZE;
+
+        long total = countEmployees(name, firstName, department);
+        int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / safeSize);
+        if (totalPages > 0 && safePage >= totalPages) {
+            safePage = totalPages - 1;
+        }
+        var employees = searchEmployees(name, firstName, department, safePage, safeSize);
+
+        return template.instance()
+                .data("mitarbeiter", employees)
+                .data("currentPage", safePage)
+                .data("totalPages", totalPages)
+                .data("totalElements", total)
+                .data("pageSize", safeSize)
+                .data("searchName", name != null ? name : "")
+                .data("searchFirstName", firstName != null ? firstName : "")
+                .data("searchDepartment", department != null ? department : "");
+    }
+
+    private List<Employee> searchEmployees(String name, String firstName, String department,
+                                           int page, int size) {
+        var jpql = new StringBuilder("SELECT e FROM Employee e WHERE 1=1");
+        appendFilters(jpql, name, firstName, department);
+        jpql.append(" ORDER BY e.lastName");
+
+        var q = em.createQuery(jpql.toString(), Employee.class);
+        applyFilters(q, name, firstName, department);
+        q.setFirstResult(page * size);
+        q.setMaxResults(size);
+        return q.getResultList();
+    }
+
+    private long countEmployees(String name, String firstName, String department) {
+        var jpql = new StringBuilder("SELECT COUNT(e) FROM Employee e WHERE 1=1");
+        appendFilters(jpql, name, firstName, department);
+
+        var q = em.createQuery(jpql.toString(), Long.class);
+        applyFilters(q, name, firstName, department);
+        return q.getSingleResult();
+    }
+
+    private static void appendFilters(StringBuilder jpql, String name, String firstName, String department) {
         if (name != null && !name.isBlank()) {
-            query.append(" AND LOWER(e.lastName) LIKE LOWER(:name)");
+            jpql.append(" AND LOWER(e.lastName) LIKE LOWER(:name)");
         }
         if (firstName != null && !firstName.isBlank()) {
-            query.append(" AND LOWER(e.firstName) LIKE LOWER(:firstName)");
+            jpql.append(" AND LOWER(e.firstName) LIKE LOWER(:firstName)");
         }
         if (department != null && !department.isBlank()) {
-            query.append(" AND LOWER(e.department) LIKE LOWER(:dept)");
+            jpql.append(" AND LOWER(e.department) LIKE LOWER(:dept)");
         }
-        query.append(" ORDER BY e.lastName");
+    }
 
-        var q = em.createQuery(query.toString(), Employee.class);
+    private static void applyFilters(jakarta.persistence.Query q,
+                                     String name, String firstName, String department) {
         if (name != null && !name.isBlank()) q.setParameter("name", "%" + name + "%");
         if (firstName != null && !firstName.isBlank()) q.setParameter("firstName", "%" + firstName + "%");
         if (department != null && !department.isBlank()) q.setParameter("dept", "%" + department + "%");
-        return q.getResultList();
     }
 
     private List<OrganizationUnit> allOrgUnits() {
