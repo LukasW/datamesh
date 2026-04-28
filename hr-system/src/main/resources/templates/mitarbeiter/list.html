@@ -16,6 +16,7 @@
     <div class="row g-2">
       <div class="col-md-3">
         <input type="text" id="s-name" name="name" class="form-control" placeholder="Nachname"
+               value="{searchName}"
                hx-get="/mitarbeiter/fragments/list"
                hx-include="#s-name,#s-vorname,#s-abteilung"
                hx-target="#mitarbeiter-tabelle" hx-swap="innerHTML"
@@ -23,6 +24,7 @@
       </div>
       <div class="col-md-3">
         <input type="text" id="s-vorname" name="firstName" class="form-control" placeholder="Vorname"
+               value="{searchFirstName}"
                hx-get="/mitarbeiter/fragments/list"
                hx-include="#s-name,#s-vorname,#s-abteilung"
                hx-target="#mitarbeiter-tabelle" hx-swap="innerHTML"
@@ -30,6 +32,7 @@
       </div>
       <div class="col-md-3">
         <input type="text" id="s-abteilung" name="department" class="form-control" placeholder="Abteilung"
+               value="{searchDepartment}"
                hx-get="/mitarbeiter/fragments/list"
                hx-include="#s-name,#s-vorname,#s-abteilung"
                hx-target="#mitarbeiter-tabelle" hx-swap="innerHTML"
@@ -61,7 +64,70 @@
     </tr>
   </thead>
   <tbody id="mitarbeiter-tabelle">
-    {#include mitarbeiter/fragments/mitarbeiter-rows.html /}
+    {#fragment id="tabelle"}
+    {#if mitarbeiter && !mitarbeiter.isEmpty()}
+      {#for emp in mitarbeiter}
+      <tr id="emp-{emp.employeeId}">
+        <td>{emp.lastName}</td>
+        <td>{emp.firstName}</td>
+        <td>{#if emp.email}{emp.email}{#else}<span class="text-muted">–</span>{/if}</td>
+        <td>{#if emp.jobTitle}{emp.jobTitle}{#else}<span class="text-muted">–</span>{/if}</td>
+        <td>{#if emp.department}{emp.department}{#else}<span class="text-muted">–</span>{/if}</td>
+        <td>{#if emp.orgUnitId}<span class="badge bg-secondary">{emp.orgUnitId}</span>{#else}<span class="text-muted">–</span>{/if}</td>
+        <td>
+          {#if emp.active}
+            <span class="badge bg-success">Aktiv</span>
+          {#else}
+            <span class="badge bg-danger">Inaktiv</span>
+          {/if}
+        </td>
+        <td>
+          <a href="/mitarbeiter/{emp.employeeId}/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+          <button class="btn btn-sm btn-outline-danger"
+                  hx-delete="/mitarbeiter/{emp.employeeId}"
+                  hx-confirm="Mitarbeiter '{emp.firstName} {emp.lastName}' wirklich löschen?"
+                  hx-target="#emp-{emp.employeeId}"
+                  hx-swap="outerHTML swap:0.3s">
+            Löschen
+          </button>
+        </td>
+      </tr>
+      {/for}
+    {#else}
+      <tr><td colspan="8" class="text-muted text-center">Keine Mitarbeiter gefunden</td></tr>
+    {/if}
+    {#if totalPages?? && totalPages > 1}
+    <tr>
+      <td colspan="8">
+        <nav aria-label="Seitennavigation" class="mt-2">
+          <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">{totalElements} Ergebnisse</small>
+            <ul class="pagination pagination-sm mb-0">
+              <li class="page-item {#if isFirstPage}disabled{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/mitarbeiter/fragments/list?name={searchName}&firstName={searchFirstName}&department={searchDepartment}&page={prevPage}&size={pageSize}"
+                   hx-target="#mitarbeiter-tabelle" hx-swap="innerHTML">Zurück</a>
+              </li>
+              {#for link in pageLinks}
+              <li class="page-item {#if link.active}active{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/mitarbeiter/fragments/list?name={searchName}&firstName={searchFirstName}&department={searchDepartment}&page={link.index}&size={pageSize}"
+                   hx-target="#mitarbeiter-tabelle" hx-swap="innerHTML">{link.label}</a>
+              </li>
+              {/for}
+              <li class="page-item {#if isLastPage}disabled{/if}">
+                <a class="page-link" href="#"
+                   hx-get="/mitarbeiter/fragments/list?name={searchName}&firstName={searchFirstName}&department={searchDepartment}&page={nextPage}&size={pageSize}"
+                   hx-target="#mitarbeiter-tabelle" hx-swap="innerHTML">Weiter</a>
+              </li>
+            </ul>
+            <small class="text-muted">Seite {currentPageLabel} von {totalPages}</small>
+          </div>
+        </nav>
+      </td>
+    </tr>
+    {/if}
+    {/fragment}
   </tbody>
 </table>
 
